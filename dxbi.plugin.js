@@ -3,7 +3,7 @@
  * @description The dx.bi experience: cinematic billboard, Netflix-style carousels, hover previews with trailers, ratings on posters, critic reviews, skip intro and up next, anime filler guide, new episode badges, watch stats and viewers, stream sorting & filters, a Netflix-style player with black-bar removal, night mode and subtitle sync, watch parties with friends, a cinematic intro and interface sounds. Use with the dx.bi theme.
  * @version 2.21.0
  * @author dx.bi
- * @updateUrl https://raw.githubusercontent.com/notdxbi/dxbi-stremio/main/dxbi.plugin.js
+ * @updateUrl https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/dxbi.plugin.js
  */
 // dx.bi — Copyright (C) 2026 dx.bi. Free software under the GNU General Public License, version 3
 // or later (see LICENSE and NOTICE.md at github.com/notdxbi/dxbi-stremio). Versions up to 2.15.9: MIT.
@@ -9254,9 +9254,11 @@
   // and addon links can carry keys), e-mail addresses removed, and keys only say whether they're set.
   // ---------------------------------------------------------------------------
 
-  // Reports go to dx.bi's relay (tools/report-relay, a Cloudflare Worker), which checks them and posts
-  // them to a private Discord channel. The channel's webhook is the relay's secret, not in this code.
-  const REPORT_ENDPOINT = "https://dxbi-reports.dxbialt.workers.dev/report";
+  // Reports go to a relay (tools/report-relay, a Cloudflare Worker), which checks them and posts them
+  // to a private Discord channel. The channel's webhook is the relay's secret, not in this code.
+  // Empty in this fork: the original dx.bi's relay would send its reports to the original developer.
+  // Deploy tools/report-relay and put its /report address here to bring "Report a problem" back.
+  const REPORT_ENDPOINT = "";
 
   function redact(text) {
     return String(text == null ? "" : text)
@@ -9270,6 +9272,8 @@
 
   const report = {
     sentAt: 0,
+    // "Report a problem" only shows where there's somewhere to send it (dx.bi TV checks this too)
+    enabled: !!REPORT_ENDPOINT,
 
     where() {
       if (IN_TV) return "dx.bi TV";
@@ -9732,7 +9736,7 @@
       const items = [];
       if (settings.watchStats) items.push(make("Your stats", ICONS.chart, () => statsPanel.open()));
       if (settings.whoIsWatching) items.push(make("Who's watching?", ICONS.people, () => whoIsWatching.open()));
-      items.push(make("Report a problem", ICONS.bug, () => report.open()));
+      if (report.enabled) items.push(make("Report a problem", ICONS.bug, () => report.open()));
       template.before(...items);
     },
   };

@@ -374,21 +374,27 @@
       shortcuts.after(side);
     }
     const content = document.querySelector('[class*="settings-content"] [class*="sections-container"]');
-    if (!content || content.querySelector(".dxtv-settings-entry")) return;
+    if (!content) return;
     ensureStyle();
-    const entry = document.createElement("button");
-    entry.className = "dxtv-row dxtv-settings-entry";
-    entry.innerHTML = `<span>dx.bi settings<small>Look, Home rows, previews, trailers, reviews, sounds and more</small></span><b>Open</b>`;
-    entry.addEventListener("click", settingsSheet);
+    if (!content.querySelector(".dxtv-settings-entry")) {
+      const entry = document.createElement("button");
+      entry.className = "dxtv-row dxtv-settings-entry";
+      entry.innerHTML = `<span>dx.bi settings<small>Look, Home rows, previews, trailers, reviews, sounds and more</small></span><b>Open</b>`;
+      entry.addEventListener("click", settingsSheet);
+      const server = document.createElement("button");
+      server.className = "dxtv-row dxtv-settings-entry dxtv-server-entry";
+      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through dx.bi or Stremio running on a computer on your network, or on this TV if you switch on Play torrents on this TV (dx.bi settings). Debrid streams don't need either</small></span><b>Find</b>`;
+      server.addEventListener("click", findServer);
+      content.prepend(entry, server);
+    }
+    // Report a problem: only when the plugin has somewhere to send reports (its REPORT_ENDPOINT)
+    const dx = window.__dxbi;
+    if (!(dx && dx.report && dx.report.enabled === true) || content.querySelector(".dxtv-report-entry")) return;
     const problem = document.createElement("button");
-    problem.className = "dxtv-row dxtv-settings-entry";
+    problem.className = "dxtv-row dxtv-settings-entry dxtv-report-entry";
     problem.innerHTML = `<span>Report a problem<small>Sends dx.bi's developer the details that help fix it (no passwords, keys or stream links)</small></span><b>Report</b>`;
     problem.addEventListener("click", reportProblem);
-    const server = document.createElement("button");
-    server.className = "dxtv-row dxtv-settings-entry";
-    server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through dx.bi or Stremio running on a computer on your network, or on this TV if you switch on Play torrents on this TV (dx.bi settings). Debrid streams don't need either</small></span><b>Find</b>`;
-    server.addEventListener("click", findServer);
-    content.prepend(entry, server, problem);
+    content.querySelector(".dxtv-server-entry").after(problem);
   }
 
   // ---------------------------------------------------------------------------

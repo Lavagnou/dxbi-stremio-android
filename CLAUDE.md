@@ -177,13 +177,15 @@ Côté CI :
 
 ## Points d'attention propres au fork
 
-Le code pointe encore vers l'amont `notdxbi/dxbi-stremio`. Avant de distribuer un build du fork, décider quoi faire de chacun de ces points :
+Le dépôt du fork est `lavagnou/dxbi-stremio-android`. Réglé dans T-001 (voir `PLAN.md`) :
 
-- **Mise à jour du plugin** : `tv/.../Updates.kt` (`PLUGIN_URL`) télécharge le plugin de la dernière release **amont**. Ce plugin remplace celui du fork dès que sa version est plus haute.
-- **Mise à jour de l'APK** : `Updates.kt` (`RELEASES_URL`) propose les APK amont. Elles sont signées avec une autre clé, donc Android refusera de les installer par-dessus un build du fork.
-- **Plugin** : `@updateUrl` et les liens vers l'amont.
-- **App desktop** : `build.publish` dans `app/package.json` (cible de l'auto-update) et `app/src/constants/index.ts`.
+- **Mises à jour de l'app TV** : `Updates.kt` (`REPO`) prend le plugin et l'APK dans les releases **du fork**. Pour que ça marche, chaque release du fork doit contenir `dxbi.plugin.js` et un `dxbi-tv.apk` signé avec la clé du fork. Tant que le fork n'a pas de release, il n'y a simplement aucune mise à jour.
+- **Mises à jour du plugin sur desktop** : `@updateUrl` pointe vers la branche `main` du fork.
+- **Rapports de problème** : `REPORT_ENDPOINT` est vide, donc « Report a problem » est masqué. C'est `report.enabled` qui le décide, et `dxbi-tv.js` le vérifie aussi. Pour le réactiver, déployer `tools/report-relay` (un Worker Cloudflare avec un webhook Discord) et mettre son adresse `/report` dans `REPORT_ENDPOINT`.
+
+Encore à décider : ces points pointent toujours vers l'amont ou gardent son identité.
+
+- **App desktop** : `build.publish` dans `app/package.json` (cible de l'auto-update electron-updater), `URLS.RELEASES_API`, `RELEASES_PAGE` et `PRESENCE_IMAGES` dans `app/src/constants/index.ts`, le lien de `update-modal.html`.
 - **Installeurs** : `install.sh` et `install.ps1` téléchargent depuis l'amont.
-- **Rapports de problème** : `REPORT_ENDPOINT` dans le plugin envoie les rapports au Worker du développeur amont.
-- **Nom et logo** : `NOTICE.md` demande que les forks distribués prennent un autre nom et un autre logo. `applicationId` vaut `com.notdxbi.dxbi.tv`.
+- **Nom et logo** : `NOTICE.md` demande que les forks distribués prennent un autre nom et un autre logo. `applicationId` vaut toujours `com.notdxbi.dxbi.tv` : une TV qui a le dx.bi d'origine doit le désinstaller avant d'installer l'APK du fork, car les signatures diffèrent.
 - **Signature** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `DXBI_TV_KEYSTORE_B64` et `DXBI_TV_KEYSTORE_PASSWORD`. Sans clé, `tv.yml` ne construit rien.

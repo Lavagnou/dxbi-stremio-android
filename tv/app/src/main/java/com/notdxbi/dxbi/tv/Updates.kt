@@ -22,9 +22,12 @@ import kotlin.concurrent.thread
  *  - a new dx.bi TV release is offered once, and downloaded and installed when wanted
  */
 object Updates {
+    // This fork's own releases, never the original dx.bi's: its plugin would replace this one as soon
+    // as its version is higher, and its APK is signed with another key (Android won't install it here)
+    private const val REPO = "lavagnou/dxbi-stremio-android"
     // The plugin from the latest release, not the main branch: unreleased work never reaches TVs
-    private const val PLUGIN_URL = "https://github.com/notdxbi/dxbi-stremio/releases/latest/download/dxbi.plugin.js"
-    private const val RELEASES_URL = "https://api.github.com/repos/notdxbi/dxbi-stremio/releases/latest"
+    private const val PLUGIN_URL = "https://github.com/$REPO/releases/latest/download/dxbi.plugin.js"
+    private const val RELEASES_URL = "https://api.github.com/repos/$REPO/releases/latest"
     private const val APK_ASSET = "dxbi-tv.apk"
     private const val UPDATED_PLUGIN = "dxbi.plugin.js"
 
@@ -136,7 +139,7 @@ object Updates {
                     if (activity.isFinishing) return@runOnUiThread
                     AlertDialog.Builder(activity)
                         .setTitle("The update didn't download")
-                        .setMessage("${e.message}\n\nTry again later, or install it with the Downloader app from:\ngithub.com/notdxbi/dxbi-stremio/releases/latest/download/dxbi-tv.apk")
+                        .setMessage("${e.message}\n\nTry again later, or install it with the Downloader app from:\ngithub.com/$REPO/releases/latest/download/dxbi-tv.apk")
                         .setPositiveButton("OK", null)
                         .show()
                 }

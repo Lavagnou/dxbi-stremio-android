@@ -58,13 +58,86 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 
 | ID | Titre | Statut | Priorité | Cible | Dépend de | Mis à jour |
 |---|---|---|---|---|---|---|
-| — | *Aucune tâche pour le moment* | | | | | |
+| T-001 | Couper les liens du fork avec les serveurs d'origine (mises à jour TV, rapports) | À valider | P1 | tv, plugin | — | 2026-10-28 |
 
 ---
 
 ## Tâches
 
-*Aucune tâche pour le moment. Les fiches s'ajoutent ici, la plus récente en bas, à partir du modèle ci-dessous.*
+Les fiches s'ajoutent ici, la plus récente en bas, à partir du modèle en commentaire ci-dessous.
+
+### T-001 — Couper les liens du fork avec les serveurs d'origine (mises à jour TV, rapports)
+
+- **Statut :** À valider
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-28
+- **Mise à jour :** 2026-10-28
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Règle ces points :
+> * Mise à jour du plugin : l'app TV de votre fork téléchargerait le plugin d'origine, qui remplacerait le vôtre dès qu'il a un numéro de version plus élevé.
+> * Mise à jour de l'app : elle proposerait l'APK d'origine. Celle-ci est signée avec une autre clé, donc Android refuserait de l'installer par-dessus la vôtre.
+> * « Report a problem » : les rapports partent vers le serveur du développeur d'origine.
+
+**Besoin**
+Un build du fork ne doit plus rien récupérer du dépôt d'origine `notdxbi/dxbi-stremio`, ni lui envoyer quoi que ce soit.
+
+**Critères d'acceptation**
+- [x] L'app TV prend le plugin et l'APK uniquement dans les releases de `lavagnou/dxbi-stremio-android`
+- [x] La mise à jour du plugin sur desktop / Stremio Enhanced (`@updateUrl`) pointe vers le fork
+- [x] Aucun rapport n'est envoyé au relais d'origine, et « Report a problem » n'est plus proposé tant que le fork n'a pas son propre relais (menu profil sur desktop, Settings sur TV)
+- [ ] Testé sur une TV ou un téléphone avec un build du fork (par l'utilisateur)
+
+**Plan technique**
+- `tv/app/src/main/java/com/notdxbi/dxbi/tv/Updates.kt` : nouvelle constante `REPO = "lavagnou/dxbi-stremio-android"`. `PLUGIN_URL`, `RELEASES_URL` et le message d'échec de téléchargement l'utilisent.
+- `dxbi.plugin.js` :
+  - `@updateUrl` vaut `https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/dxbi.plugin.js` ;
+  - `REPORT_ENDPOINT = ""` ;
+  - nouveau champ `report.enabled = !!REPORT_ENDPOINT` ;
+  - le menu profil n'ajoute « Report a problem » que si `report.enabled`.
+- `tv/app/src/main/assets/dxbi-tv.js` (`ensureSettingsEntry`) : l'entrée « Report a problem » est ajoutée à part, seulement si `window.__dxbi.report.enabled === true`, juste après l'entrée du serveur de streaming (classes `dxtv-server-entry` et `dxtv-report-entry`).
+
+**Étapes**
+- [x] URLs de mise à jour TV vers le fork
+- [x] `@updateUrl` vers le fork
+- [x] Rapports désactivés et entrées masquées (desktop et TV)
+- [x] `CLAUDE.md` mis à jour (section fork)
+- [ ] Validation sur appareil
+
+**Notes techniques**
+- **Pas de release, pas de mise à jour.** Tant que le fork n'a pas de release, l'API GitHub `releases/latest` répond 404. `Updates.get()` renvoie alors `null` et aucune mise à jour n'est faite, sans message. Pour que les mises à jour marchent, chaque release du fork doit contenir :
+  - `dxbi.plugin.js`, avec un `@version` plus haut que celui installé ;
+  - `dxbi-tv.apk`, signé avec la clé du fork (secrets de `tv.yml`).
+- **Comparaison de version de l'APK.** `Updates.checkApp` compare le `tag_name` de la release, sans le `v`, à `versionName`. Les tags du fork doivent donc suivre la forme `vX.Y.Z`.
+- **Desktop et Stremio Enhanced.** `@updateUrl` suit la branche `main` du fork, comme l'amont suivait la sienne. Tout ce qui est fusionné sur `main` avec un `@version` plus haut est donc proposé aux utilisateurs desktop.
+- **Signature de l'APK.** `applicationId` reste `com.notdxbi.dxbi.tv`. Une TV qui a l'APK d'origine doit la désinstaller avant d'installer celle du fork (signatures différentes).
+- **Réactiver les rapports :**
+  1. déployer `tools/report-relay` (`npx wrangler deploy`, puis `npx wrangler secret put DISCORD_WEBHOOK`) ;
+  2. mettre l'adresse `https://<worker>/report` dans `REPORT_ENDPOINT`.
+
+  `report.enabled` réaffiche alors l'entrée partout. Le Worker accepte l'origine `https://web.stremio.com`, ce qui couvre la TV et l'app desktop.
+- **Bridge inchangé** : `dxbi-tv.js` et le plugin sont livrés ensemble dans l'APK.
+- **Hors périmètre, reste à décider :** auto-update de l'app desktop (`app/package.json` `build.publish`, `app/src/constants/index.ts`), installeurs `install.sh` / `install.ps1`, nom et `applicationId`. Voir la section fork de `CLAUDE.md`.
+
+**Vérification**
+- `node --check dxbi.plugin.js` et `node --check tv/app/src/main/assets/dxbi-tv.js` : OK.
+- Test Playwright de `ensureSettingsEntry` : `dxbi-tv.js` chargé dans une fausse page Settings de Stremio, avec un faux bridge.
+  - Avant le changement : « Report a problem » apparaît dans tous les cas.
+  - Après le changement : il est absent avec `report.enabled` à `false` ou non défini, et présent (même ordre qu'avant) avec `true`.
+- **Non vérifié :**
+  - la compilation Kotlin, car l'Android SDK n'est pas disponible dans l'environnement cloud (`./gradlew assembleDebug` à lancer en local ou en CI) ;
+  - le comportement sur un vrai appareil.
+
+**Livraison**
+- Commits : voir le commit « Point the fork's updates at its own releases, turn off problem reports » sur `claude/quirky-cannon-g7e9oy`
+- PR : —
+- Version / CHANGELOG : non. La numérotation des versions du fork n'est pas encore décidée (voir Questions ouvertes).
+
+**Questions ouvertes**
+- Faut-il aussi faire pointer l'auto-update de l'app desktop vers le fork ?
 
 <!--
 ### T-000 — Titre court
@@ -117,7 +190,7 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 | Date | Décision | Raison | Tâche |
 |---|---|---|---|
-| — | | | |
+| 2026-10-28 | Le fork ne récupère ni n'envoie rien au dépôt d'origine. Mises à jour depuis les releases de `lavagnou/dxbi-stremio-android` ; rapports de problème coupés tant que le fork n'a pas son propre relais. | Le plugin d'origine écraserait celui du fork, son APK ne s'installe pas (autre clé), et les rapports iraient au développeur d'origine | T-001 |
 
 ---
 
@@ -125,7 +198,8 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 Questions pour l'utilisateur qui ne concernent pas une seule tâche.
 
-- —
+- Quelle numérotation pour les versions du fork ? Faut-il continuer après 2.21.0, ou utiliser un schéma propre ? Cela détermine ce qu'on met dans `@version`, dans les tags de release (`vX.Y.Z`) et dans `CHANGELOG.md`.
+- Faut-il renommer l'app et changer `applicationId` (demandé par `NOTICE.md` pour un fork distribué) ?
 
 ---
 
@@ -135,4 +209,5 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-28 | T-001 | Créée et implémentée : mises à jour TV et `@updateUrl` vers le fork, rapports de problème coupés. À valider sur appareil |
 | 2026-10-28 | — | Création de PLAN.md (aucune tâche pour le moment) |
