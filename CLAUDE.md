@@ -2,6 +2,8 @@
 
 Fork de [notdxbi/dxbi-stremio](https://github.com/notdxbi/dxbi-stremio) (dx.bi : interface « à la Netflix » pour Stremio). Ce fork se concentre sur l'app Android (`tv/`), mais le dépôt contient tout le projet.
 
+**Plan et suivi des tâches : [`PLAN.md`](PLAN.md).** Le lire avant tout travail. Le tenir à jour selon ses règles (statut, notes techniques, vérification, journal), dans le même commit que le code.
+
 ## Vue d'ensemble
 
 Un seul plugin JavaScript, `dxbi.plugin.js`, alimente trois cibles :
