@@ -1,7 +1,7 @@
 import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../constants';
 
-// dx.bi's picture-in-picture window (core/MiniPlayer.ts), for the plugin
+// Nathflix's picture-in-picture window (core/MiniPlayer.ts), for the plugin
 
 /** This page is the mini player: from which second it starts. null in the main window. */
 export const miniPlayerInfo: { at: number } | null = (() => {

@@ -1,6 +1,6 @@
 name: Cross-platform test
 
-# Installs dx.bi with the real installers, launches Stremio Enhanced 1.2.0 on Windows, macOS and
+# Installs Nathflix with the real installers, launches Stremio Enhanced 1.2.0 on Windows, macOS and
 # Linux, and checks the plugin boots and renders the main screens (tools/smoke-test.mjs).
 # Screenshots from every OS are attached to the run.
 
@@ -42,14 +42,27 @@ jobs:
         with:
           node-version: 22
 
-      # The one-liners from the README, exactly as users run them (downloads the latest release)
+      # The one-liners from the README, exactly as users run them (downloads the latest release).
+      # Skipped until the repository has a release with the installers attached
+      - name: Published release
+        id: published
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null | grep -qx install.sh; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No published release with the installers yet: the published installer steps are skipped."
+          fi
       - name: Published installer (Windows PowerShell 5.1)
-        if: runner.os == 'Windows'
+        if: runner.os == 'Windows' && steps.published.outputs.exists == 'true'
         shell: powershell
-        run: irm https://github.com/notdxbi/dxbi-stremio/releases/latest/download/install.ps1 | iex
+        run: irm https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.ps1 | iex
       - name: Published installer (bash)
-        if: runner.os != 'Windows'
-        run: curl -fsSL https://github.com/notdxbi/dxbi-stremio/releases/latest/download/install.sh | bash
+        if: runner.os != 'Windows' && steps.published.outputs.exists == 'true'
+        run: curl -fsSL https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.sh | bash
 
       # Then this commit's installers and plugin, served locally
       - name: Serve this commit
@@ -61,18 +74,18 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          DXBI_BASE_URL: http://127.0.0.1:8765
+          NATHFLIX_BASE_URL: http://127.0.0.1:8765
         run: ./install.ps1
       - name: This commit's installer (Windows PowerShell 5.1)
         if: runner.os == 'Windows'
         shell: powershell
         env:
-          DXBI_BASE_URL: http://127.0.0.1:8765
+          NATHFLIX_BASE_URL: http://127.0.0.1:8765
         run: ./install.ps1
       - name: This commit's installer (bash)
         if: runner.os != 'Windows'
         env:
-          DXBI_BASE_URL: http://127.0.0.1:8765
+          NATHFLIX_BASE_URL: http://127.0.0.1:8765
         run: bash install.sh
 
       - name: Check the plugin landed where Stremio Enhanced looks
@@ -83,7 +96,7 @@ jobs:
             macOS)   dir="$HOME/Library/Application Support/stremio-enhanced/plugins" ;;
             *)       dir="$HOME/.config/stremio-enhanced/plugins" ;;
           esac
-          cmp dxbi.plugin.js "$dir/dxbi.plugin.js"
+          cmp nathflix.plugin.js "$dir/nathflix.plugin.js"
           echo "installed at $dir"
 
       - name: Cache Stremio Enhanced
@@ -111,7 +124,7 @@ jobs:
           sudo apt-get install -y -qq xvfb libgtk-3-0t64 libnss3 libgbm1 libasound2t64 libxss1 >/dev/null
 
       # The streaming server Stremio Enhanced runs on a Mac, with the same ffmpeg build, so the
-      # smoke test can check dx.bi turns on hardware conversion (VideoToolbox works on Apple silicon runners)
+      # smoke test can check Nathflix turns on hardware conversion (VideoToolbox works on Apple silicon runners)
       - name: Streaming server (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -121,7 +134,7 @@ jobs:
           HOME=$PWD/home APP_PATH=$PWD/home FFMPEG_BIN=$PWD/ffmpeg FFPROBE_BIN=$PWD/ffprobe nohup node server.js > server.log 2>&1 &
           for i in $(seq 1 60); do grep -q "Tests for hardware accelerated transcoding finished" server.log && break; sleep 2; done
           grep "hls-converter - Tests for hardware" server.log
-          echo "DXBI_EXPECT_HW_PROFILE=videotoolbox" >> "$GITHUB_ENV"
+          echo "NATHFLIX_EXPECT_HW_PROFILE=videotoolbox" >> "$GITHUB_ENV"
 
       - name: Smoke test
         shell: bash

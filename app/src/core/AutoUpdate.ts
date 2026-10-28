@@ -3,7 +3,7 @@ import { autoUpdater } from "electron-updater";
 import { IPC_CHANNELS } from "../constants";
 import { getLogger } from "../utils/logger";
 
-// The whole app updates itself: a new release downloads in the background and installs when dx.bi
+// The whole app updates itself: a new release downloads in the background and installs when Nathflix
 // restarts. Works for the Windows installer and the Linux AppImage. macOS (apps must be signed by
 // Apple's developer programme to replace themselves) and the Windows portable .exe keep the
 // "Update available → Download" popup (core/Updater.ts).
@@ -30,7 +30,7 @@ export function setupAutoUpdate(window: () => BrowserWindow | null): void {
 
     autoUpdater.on("update-available", (info) => {
         if (askedByViewer) {
-            dialog.showMessageBox({ type: "info", title: "Update found", message: `Downloading dx.bi ${info.version} in the background. It'll ask to restart when it's ready.`, buttons: ["OK"] });
+            dialog.showMessageBox({ type: "info", title: "Update found", message: `Downloading Nathflix ${info.version} in the background. It'll ask to restart when it's ready.`, buttons: ["OK"] });
         }
     });
     autoUpdater.on("update-not-available", () => {
@@ -50,8 +50,8 @@ export function setupAutoUpdate(window: () => BrowserWindow | null): void {
         const options = {
             type: "info" as const,
             title: "Update ready",
-            message: `dx.bi ${info.version} is ready to install.`,
-            detail: "Restart now to update, or it'll install the next time you close dx.bi.",
+            message: `Nathflix ${info.version} is ready to install.`,
+            detail: "Restart now to update, or it'll install the next time you close Nathflix.",
             buttons: ["Restart now", "Later"],
             defaultId: 0,
             cancelId: 1,

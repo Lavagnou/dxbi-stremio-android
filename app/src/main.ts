@@ -28,7 +28,7 @@ import { restoreWindowState } from "./core/WindowState";
 import { isFullScreen, maximize, setFullScreen, useManualMaximize } from "./core/Maximize";
 import { setupAutoUpdate } from "./core/AutoUpdate";
 
-app.setName("dxbi");
+app.setName("nathflix");
 const userDataPath = app.getPath('userData');
 
 export let mainWindow: BrowserWindow | null;
@@ -105,7 +105,7 @@ async function createWindow() {
     MiniPlayer.attach(mainWindow);
     useManualMaximize(mainWindow, transparencyEnabled);
     const openMaximized = restoreWindowState(mainWindow);
-    // Shown once dx.bi has dressed the page: plugins load when the page has fully loaded, and until
+    // Shown once Nathflix has dressed the page: plugins load when the page has fully loaded, and until
     // then plain Stremio was on screen for a moment. Never kept hidden for long if that's slow.
     const win = mainWindow;
     const reveal = () => {
@@ -166,7 +166,7 @@ async function useStremioService() {
 }
 
 app.on("ready", async () => {
-    logger.info("dx.bi version: v" + Updater.getCurrentVersion());
+    logger.info("Nathflix version: v" + Updater.getCurrentVersion());
     logger.info("Running on NodeJS version: " + process.version);
     logger.info("Running on Electron version: v" + process.versions.electron);
     logger.info("Running on Chromium version: v" + process.versions.chrome);
@@ -191,7 +191,7 @@ app.on("ready", async () => {
         logger.error("Failed to create necessary directories: " + err);
     }
 
-    // First launch: bring Stremio Enhanced's setup over if wanted, then put the built-in dx.bi in place
+    // First launch: bring Stremio Enhanced's setup over if wanted, then put the built-in Nathflix in place
     await offerEnhancedImport();
     seedBuiltInPlugin();
     
@@ -201,7 +201,7 @@ app.on("ready", async () => {
             
             // Windows used to ask "Stremio Service or server.js?" on first launch, and the
             // recommended answer left people with "Streaming server is not available" when the
-            // Service installed somewhere dx.bi didn't look. Now every system runs server.js by
+            // Service installed somewhere Nathflix didn't look. Now every system runs server.js by
             // itself; someone who chose the Service before keeps it while it's installed.
             if(platform === "win32" && existsSync(useStremioServiceFlagPath) && await StremioService.isServiceInstalled()) {
                 await useStremioService();

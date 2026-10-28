@@ -3,7 +3,7 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- Installing dx.bi TV updates the app downloads (Android asks first) -->
+    <!-- Installing Nathflix TV updates the app downloads (Android asks first) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- A TV app first, but it installs on any Android device -->
@@ -17,7 +17,7 @@
         android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Dxbi">
+        android:theme="@style/Theme.Nathflix">
 
         <activity
             android:name=".MainActivity"
@@ -44,7 +44,7 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
-            android:theme="@style/Theme.Dxbi.Player" />
+            android:theme="@style/Theme.Nathflix.Player" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -1,14 +1,14 @@
 name: mpv player (Windows)
 
 # Builds the Windows app with mpv and plays a 10-bit HEVC + AC3 MKV through it (tools/mpv-test.mjs),
-# checking on real screenshots of the desktop that the picture shows behind the dx.bi page.
+# checking on real screenshots of the desktop that the picture shows behind the Nathflix page.
 
 on:
   push:
     paths:
       - "app/**"
       - "tools/mpv-test.mjs"
-      - "dxbi.plugin.js"
+      - "nathflix.plugin.js"
       - ".github/workflows/mpv-windows.yml"
   workflow_dispatch:
 
@@ -39,7 +39,7 @@ jobs:
 
       - name: Play through mpv
         shell: bash
-        run: node tools/mpv-test.mjs "app/release-builds/win-unpacked/dx.bi.exe" mpv-shots
+        run: node tools/mpv-test.mjs "app/release-builds/win-unpacked/Nathflix.exe" mpv-shots
 
       - name: Upload screenshots
         if: always()

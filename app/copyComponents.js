@@ -1,11 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-// The built-in dx.bi plugin is the one at the repository root
-const pluginSrc = path.join(__dirname, '..', 'dxbi.plugin.js');
+// The built-in Nathflix plugin is the one at the repository root
+const pluginSrc = path.join(__dirname, '..', 'nathflix.plugin.js');
 fs.mkdirSync(path.join(__dirname, 'static'), { recursive: true });
-fs.copyFileSync(pluginSrc, path.join(__dirname, 'static', 'dxbi.plugin.js'));
-console.log(`Copied: ${pluginSrc} to static/dxbi.plugin.js`);
+fs.copyFileSync(pluginSrc, path.join(__dirname, 'static', 'nathflix.plugin.js'));
+console.log(`Copied: ${pluginSrc} to static/nathflix.plugin.js`);
 if (process.argv.includes('--plugin-only')) process.exit(0);
 
 // Copy .html and .js files from src/components/** to dist/components/**

@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.content.Context
 import android.util.Log
@@ -27,7 +27,7 @@ import java.util.concurrent.Executors
  * case the app was closed mid-way).
  */
 object TorrentEngine {
-    private const val TAG = "dxbi-torrent"
+    private const val TAG = "nathflix-torrent"
     private const val METADATA_TIMEOUT_S = 60
     private const val READ_AHEAD_PIECES = 12
     private const val PIECE_WAIT_MS = 90_000L

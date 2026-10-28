@@ -1,14 +1,14 @@
-// dx.bi TV — Copyright (C) 2026 dx.bi. GNU General Public License, version 3 or later (see LICENSE).
-// dx.bi TV: runs in web.stremio.com before the page's own scripts. It stands in for Stremio Enhanced
-// (the plugin API dx.bi expects), loads the built-in dx.bi plugin, fits the page to a TV, and hands
+// Nathflix TV — Copyright (C) 2026 lavagnou. Based on dx.bi, Copyright (C) 2026 dx.bi. GNU General Public License, version 3 or later (see LICENSE).
+// Nathflix TV: runs in web.stremio.com before the page's own scripts. It stands in for Stremio Enhanced
+// (the plugin API Nathflix expects), loads the built-in Nathflix plugin, fits the page to a TV, and hands
 // every stream to the app's native player, keeping Stremio's watch progress in step.
 (function () {
   "use strict";
-  if (window.__dxbiTv) return;
+  if (window.__nathflixTv) return;
   // Every call to the app carries this launch's token (the app writes it in here): the app's
   // bridge is visible to every frame, embedded trailers included, but only this page knows it
-  const TOKEN = "__DXBI_TV_TOKEN__";
-  const bridge = window.DxbiTV;
+  const TOKEN = "__NATHFLIX_TV_TOKEN__";
+  const bridge = window.NathflixTV;
   if (!bridge) return;
   const native = {
     pluginSource: () => bridge.pluginSource(TOKEN),
@@ -23,8 +23,8 @@
     deviceInfo: () => { try { return JSON.parse(bridge.deviceInfo ? bridge.deviceInfo(TOKEN) : "{}"); } catch (_) { return {}; } },
   };
 
-  const PLUGIN = "dxbi.plugin.js";
-  const tv = (window.__dxbiTv = {});
+  const PLUGIN = "nathflix.plugin.js";
+  const tv = (window.__nathflixTv = {});
   // problem reports (the plugin's `report`) add these
   tv.deviceInfo = () => native.deviceInfo();
   // the app plays the intro film itself (Intro.kt): the plugin's splash stays out of the way
@@ -32,7 +32,7 @@
 
   // ---------------------------------------------------------------------------
   // Fit the page to the TV: lay it out 1280 CSS pixels wide (a 10-foot size on any screen). A phone
-  // held upright gets a 600-pixel-wide page instead, which Stremio and dx.bi lay out as a column.
+  // held upright gets a 600-pixel-wide page instead, which Stremio and Nathflix lay out as a column.
   // ---------------------------------------------------------------------------
   const PHONE = (() => { try { return !!bridge.isPhone(); } catch (_) { return false; } })();
   const upright = () => PHONE && window.screen && screen.height > screen.width;
@@ -63,10 +63,10 @@
   if (PHONE) window.addEventListener("resize", () => fitViewport());
 
   // ---------------------------------------------------------------------------
-  // What Stremio Enhanced provides and dx.bi relies on
+  // What Stremio Enhanced provides and Nathflix relies on
   // ---------------------------------------------------------------------------
 
-  // Stremio's router changes the address with pushState, which fires no event: dx.bi listens for hashchange
+  // Stremio's router changes the address with pushState, which fires no event: Nathflix listens for hashchange
   for (const method of ["pushState", "replaceState"]) {
     const original = history[method];
     history[method] = function (...args) {
@@ -121,16 +121,16 @@
       }
       return true;
     },
-    // a promise, like Stremio Enhanced's (dx.bi chains on it: without one it stopped before loading
-    // the TV's saved settings, so changes in dx.bi settings never took effect)
+    // a promise, like Stremio Enhanced's (Nathflix chains on it: without one it stopped before loading
+    // the TV's saved settings, so changes in Nathflix settings never took effect)
     registerSettings: async (plugin, schema) => { schemas[plugin] = schema; },
     onSettingsSaved: (plugin, callback) => { (savedListeners[plugin] = savedListeners[plugin] || []).push(callback); },
     showAlert: (type, title, message, buttons) => dialog({ title, message, buttons: buttons && buttons.length ? buttons : ["OK"] }),
     showPrompt: (plugin, title, message, defaultValue) => dialog({ title, message, buttons: ["OK", "Cancel"], input: defaultValue == null ? "" : String(defaultValue) })
       .then((r) => (r && r.button === 0 ? r.value : null)),
-    // dx.bi's "Open in mpv / VLC" goes to the app's own player here
+    // Nathflix's "Open in mpv / VLC" goes to the app's own player here
     launchExternalPlayer: async (player, url) => {
-      native.play(JSON.stringify({ url, title: document.title || "dx.bi", hash: location.hash }));
+      native.play(JSON.stringify({ url, title: document.title || "Nathflix", hash: location.hash }));
       return { success: true };
     },
     getExternalPlayerPaths: async () => ({ vlc: null, mpv: null }),
@@ -224,7 +224,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Streaming server: a TV has none of its own, and torrents need one. dx.bi or Stremio running on
+  // Streaming server: a TV has none of its own, and torrents need one. Nathflix or Stremio running on
   // a computer on the same network has one (it listens on the network), so the app looks for it.
   // ---------------------------------------------------------------------------
   let serversWaiting = null;
@@ -253,13 +253,13 @@
   // Resolves true once a server has been picked
   async function findServer() {
     for (;;) {
-      toast("Looking for dx.bi or Stremio on your network…", 6000);
+      toast("Looking for Nathflix or Stremio on your network…", 6000);
       const urls = await scanForServers();
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
       if (!urls.length) {
         const again = await dialog({
           title: "No streaming server found",
-          message: "Open dx.bi or Stremio on a computer connected to the same network as this TV, leave it running, then try again.\n\nDebrid streams play without a streaming server.",
+          message: "Open Nathflix or Stremio on a computer connected to the same network as this TV, leave it running, then try again.\n\nDebrid streams play without a streaming server.",
           buttons: ["Try again", "Close"],
         });
         if (again === 0) continue;
@@ -279,11 +279,11 @@
 
   // Report a problem: a description typed with the remote, then the plugin's report goes to the developer
   async function reportProblem() {
-    const dx = window.__dxbi;
-    if (!dx || !dx.report) { toast("dx.bi hasn't finished loading yet. Try again in a moment."); return; }
+    const dx = window.__nathflix;
+    if (!dx || !dx.report) { toast("Nathflix hasn't finished loading yet. Try again in a moment."); return; }
     const r = await dialog({
       title: "Report a problem",
-      message: "What went wrong, and what were you doing? dx.bi adds its version, this TV's model, your settings, addon names and recent errors. No passwords, keys or stream links are sent.",
+      message: "What went wrong, and what were you doing? Nathflix adds its version, this TV's model, your settings, addon names and recent errors. No passwords, keys or stream links are sent.",
       buttons: ["Send report", "Cancel"],
       input: "",
     });
@@ -292,15 +292,15 @@
     try {
       const code = await dx.report.send(r.value || "");
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
-      await dialog({ title: "Report sent", message: `Thanks! Your report code is ${code}.\nMention it in dx.bi's Discord (#help) so it can be matched to you.`, buttons: ["OK"] });
+      await dialog({ title: "Report sent", message: `Thanks! Your report code is ${code}.\nMention it when you ask for help so it can be matched to you.`, buttons: ["OK"] });
     } catch (err) {
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
       await dialog({ title: "Couldn't send the report", message: (err && err.message) || "Try again in a moment.", buttons: ["OK"] });
     }
   }
 
-  // dx.bi's settings: an entry at the top of Stremio's Settings, opening a list made for the remote
-  // Options for dx.bi's in-page player, which the TV doesn't use (it has its own player)
+  // Nathflix's settings: an entry at the top of Stremio's Settings, opening a list made for the remote
+  // Options for Nathflix's in-page player, which the TV doesn't use (it has its own player)
   const DESKTOP_ONLY = new Set(["playerExtras", "enhance", "seekPreviews", "subtitleStyle", "subtitleFont",
     "convertVideo", "subtitlesStart", "hdrSubtitles", "pictureSound", "streamStats", "preloadNext", "upNext", "skipFiller",
     "rememberPlayback", "playerKeys", "pip", "externalPlayer", "remainingTime", "watchParty", "partyFollow", "partyActivity", "partySounds"]);
@@ -320,7 +320,7 @@
     };
     const render = (focusKey) => {
       const current = values();
-      el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>dx.bi settings</h2>
+      el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>Nathflix settings</h2>
         ${schema.map((o, i) => {
           const v = current[o.key] === undefined ? o.defaultValue : current[o.key];
           // a heading wherever a new group of settings starts
@@ -367,8 +367,8 @@
       const side = document.createElement("div");
       side.className = `${shortcuts.className} dxtv-side`;
       side.tabIndex = 0;
-      side.title = "dx.bi";
-      side.textContent = "dx.bi";
+      side.title = "Nathflix";
+      side.textContent = "Nathflix";
       side.addEventListener("click", settingsSheet);
       side.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); settingsSheet(); } });
       shortcuts.after(side);
@@ -379,20 +379,20 @@
     if (!content.querySelector(".dxtv-settings-entry")) {
       const entry = document.createElement("button");
       entry.className = "dxtv-row dxtv-settings-entry";
-      entry.innerHTML = `<span>dx.bi settings<small>Look, Home rows, previews, trailers, reviews, sounds and more</small></span><b>Open</b>`;
+      entry.innerHTML = `<span>Nathflix settings<small>Look, Home rows, previews, trailers, reviews, sounds and more</small></span><b>Open</b>`;
       entry.addEventListener("click", settingsSheet);
       const server = document.createElement("button");
       server.className = "dxtv-row dxtv-settings-entry dxtv-server-entry";
-      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through dx.bi or Stremio running on a computer on your network, or on this TV if you switch on Play torrents on this TV (dx.bi settings). Debrid streams don't need either</small></span><b>Find</b>`;
+      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through Nathflix or Stremio running on a computer on your network, or on this TV if you switch on Play torrents on this TV (Nathflix settings). Debrid streams don't need either</small></span><b>Find</b>`;
       server.addEventListener("click", findServer);
       content.prepend(entry, server);
     }
     // Report a problem: only when the plugin has somewhere to send reports (its REPORT_ENDPOINT)
-    const dx = window.__dxbi;
+    const dx = window.__nathflix;
     if (!(dx && dx.report && dx.report.enabled === true) || content.querySelector(".dxtv-report-entry")) return;
     const problem = document.createElement("button");
     problem.className = "dxtv-row dxtv-settings-entry dxtv-report-entry";
-    problem.innerHTML = `<span>Report a problem<small>Sends dx.bi's developer the details that help fix it (no passwords, keys or stream links)</small></span><b>Report</b>`;
+    problem.innerHTML = `<span>Report a problem<small>Sends Nathflix's developer the details that help fix it (no passwords, keys or stream links)</small></span><b>Report</b>`;
     problem.addEventListener("click", reportProblem);
     content.querySelector(".dxtv-server-entry").after(problem);
   }
@@ -424,7 +424,7 @@
   function dispatch(action) {
     const d = core().dispatch;
     if (!d) return;
-    try { d(action, "player"); } catch (err) { console.warn("[dx.bi TV] dispatch failed", err); }
+    try { d(action, "player"); } catch (err) { console.warn("[Nathflix TV] dispatch failed", err); }
   }
 
   async function playerState() {
@@ -514,8 +514,8 @@
     const ready = state.stream && state.stream.type === "Ready" && state.stream.content;
     // (for a torrent, Stremio gives a streaming server address even when none is running)
     let url = (ready && ready.url && (serverUp || !stream.infoHash) ? ready.url : null) || stream.url || null;
-    // A torrent and no streaming server. dx.bi TV can download it itself, but only when that's switched
-    // on in dx.bi settings (off by default: debrid, or a computer's streaming server, is the usual way);
+    // A torrent and no streaming server. Nathflix TV can download it itself, but only when that's switched
+    // on in Nathflix settings (off by default: debrid, or a computer's streaming server, is the usual way);
     // otherwise the choice is offered for this stream
     let torrent = false;
     if (!url && stream.infoHash) {
@@ -523,7 +523,7 @@
       if (!onTv) {
         const choice = await dialog({
           title: "This stream needs a streaming server",
-          message: "It's a torrent, and this TV has no streaming server. Use the one in dx.bi or Stremio on a computer on your network, or let this TV download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on this TV: dx.bi settings → Play torrents on this TV.",
+          message: "It's a torrent, and this TV has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let this TV download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on this TV: Nathflix settings → Play torrents on this TV.",
           buttons: ["Find one on my network", "Play it on this TV", "Cancel"],
         });
         if (choice === 1 && location.hash === hash) onTv = true;
@@ -565,10 +565,10 @@
     const episode = video && video.season != null ? `S${video.season} E${video.episode}${video.title || video.name ? ` · ${video.title || video.name}` : ""}` : "";
 
     const profile = await profileSettings();
-    // Skip intro / recap / credits: the times dx.bi has for this episode (looked up while the player
+    // Skip intro / recap / credits: the times Nathflix has for this episode (looked up while the player
     // gets ready, never holding it up for long)
     const metaPath = state.selected.metaRequest && state.selected.metaRequest.path;
-    const dx = window.__dxbi;
+    const dx = window.__nathflix;
     const skips = dx && dx.skipSegments && videoId
       ? await Promise.race([dx.skipSegments(meta.type || (metaPath && metaPath.type), meta.id || (metaPath && metaPath.id), videoId).catch(() => []), new Promise((r) => setTimeout(() => r([]), 4000))])
       : [];
@@ -592,7 +592,7 @@
         opacity: profile.subtitlesOpacity,
       },
       url,
-      title: meta.name || state.title || stream.title || "dx.bi",
+      title: meta.name || state.title || stream.title || "Nathflix",
       subtitle: episode,
       startMs: resumeMs,
       headers,
@@ -605,7 +605,7 @@
   tv.onProgress = (timeMs, durationMs, paused) => {
     if (!handoff || !/^#\/player\//.test(location.hash)) return;
     silenceWebPlayer();
-    dispatch({ action: "Player", args: { action: "TimeChanged", args: { time: Math.max(0, Math.round(timeMs)), duration: Math.max(0, Math.round(durationMs)), device: "dxbi-tv" } } });
+    dispatch({ action: "Player", args: { action: "TimeChanged", args: { time: Math.max(0, Math.round(timeMs)), duration: Math.max(0, Math.round(durationMs)), device: "nathflix-tv" } } });
     dispatch({ action: "Player", args: { action: "PausedChanged", args: { paused: !!paused } } });
   };
 
@@ -631,7 +631,7 @@
       const c = JSON.parse(raw);
       closeHandoff(c.timeMs, c.durationMs, c.ended, c.error);
     } catch (err) {
-      console.warn("[dx.bi TV] couldn't read how the player closed", err);
+      console.warn("[Nathflix TV] couldn't read how the player closed", err);
     }
   };
 
@@ -677,7 +677,7 @@
       if (close) close.click(); else sheet.remove();
       return true;
     }
-    if (window.__dxbi && typeof window.__dxbi.closePreview === "function" && window.__dxbi.closePreview()) return true;
+    if (window.__nathflix && typeof window.__nathflix.closePreview === "function" && window.__nathflix.closePreview()) return true;
     // Stremio's own dialogs (addon install, promotions…) close with their × button
     const stremioModal = document.querySelector('[class*="modal-container"]');
     if (stremioModal) {
@@ -696,7 +696,7 @@
   };
 
   // ---------------------------------------------------------------------------
-  // Load the built-in dx.bi plugin once the page is up, the way Stremio Enhanced does
+  // Load the built-in Nathflix plugin once the page is up, the way Stremio Enhanced does
   // ---------------------------------------------------------------------------
   function loadPlugin() {
     if (document.getElementById(PLUGIN)) return;
@@ -722,7 +722,7 @@
       try {
         ${source}
       } catch (err) {
-        console.error("[dx.bi TV] plugin crashed", err);
+        console.error("[Nathflix TV] plugin crashed", err);
       }
     })();`;
     document.body.append(script);

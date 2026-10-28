@@ -1,6 +1,7 @@
 import TemplateCache from '../../utils/templateCache';
 import { VALID_RENDERERS } from '../../interfaces/RendererTypes';
 import { VALID_EXTERNAL_PLAYERS, type ExternalPlayer } from '../../interfaces/ExternalPlayerTypes';
+import { DISCORD } from '../../constants';
 
 export function getAboutCategoryTemplate(
     version: string,
@@ -18,6 +19,9 @@ export function getAboutCategoryTemplate(
         .replace("{{ version }}", version)
         .replace("{{ checkForUpdatesOnStartup }}", checkForUpdatesOnStartup ? "checked" : "")
         .replace("{{ discordrichpresence }}", discordRichPresence ? "checked" : "")
+        // Discord's switch only where there's a Discord application to show the status with
+        .replace("{{ discord_display }}", DISCORD.CLIENT_ID ? "" : "none")
+        .replace("{{ updates_heading }}", DISCORD.CLIENT_ID ? "Updates &amp; Discord" : "Updates")
         .replace("{{ enableTransparentThemes }}", enableTransparentThemes ? "checked" : "")
         .replace("{{ disabled }}", process.platform == "darwin" ? "disabled" : "")
         .replace("{{ disabled_d3d11 }}", process.platform != "win32" ? "disabled" : "")

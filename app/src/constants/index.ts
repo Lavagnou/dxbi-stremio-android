@@ -1,5 +1,5 @@
 /**
- * Centralized constants for dx.bi (based on Stremio Enhanced)
+ * Centralized constants for Nathflix (based on Stremio Enhanced)
  * Using constants instead of magic strings improves maintainability
  */
 
@@ -95,21 +95,21 @@ export const IPC_CHANNELS = {
     SHOW_ALERT: 'show-alert',
     LAUNCH_EXTERNAL_PLAYER: 'launch-external-player',
     GET_EXTERNAL_PLAYER_PATHS: 'get-external-player-paths',
-    MPV_ENABLED: 'dxbi-mpv-enabled',
-    MPV_SHELL_SEND: 'dxbi-mpv-shell-send',
-    MPV_SHELL_EVENT: 'dxbi-mpv-shell-event',
-    MPV_STATUS: 'dxbi-mpv-status',
-    AUTO_UPDATE_AVAILABLE: 'dxbi-auto-update-available',
-    AUTO_UPDATE_CHECK: 'dxbi-auto-update-check',
-    MPV_SET_ENABLED: 'dxbi-mpv-set-enabled',
-    MINI_OPEN: 'dxbi-mini-open',
-    MINI_EXPAND: 'dxbi-mini-expand',
-    MINI_CLOSE: 'dxbi-mini-close',
-    MINI_INFO: 'dxbi-mini-info',
-    MINI_STATE: 'dxbi-mini-state',
-    MINI_RESUME: 'dxbi-mini-resume',
-    MINI_MOVE: 'dxbi-mini-move',
-    MINI_SIZE: 'dxbi-mini-size',
+    MPV_ENABLED: 'nathflix-mpv-enabled',
+    MPV_SHELL_SEND: 'nathflix-mpv-shell-send',
+    MPV_SHELL_EVENT: 'nathflix-mpv-shell-event',
+    MPV_STATUS: 'nathflix-mpv-status',
+    AUTO_UPDATE_AVAILABLE: 'nathflix-auto-update-available',
+    AUTO_UPDATE_CHECK: 'nathflix-auto-update-check',
+    MPV_SET_ENABLED: 'nathflix-mpv-set-enabled',
+    MINI_OPEN: 'nathflix-mini-open',
+    MINI_EXPAND: 'nathflix-mini-expand',
+    MINI_CLOSE: 'nathflix-mini-close',
+    MINI_INFO: 'nathflix-mini-info',
+    MINI_STATE: 'nathflix-mini-state',
+    MINI_RESUME: 'nathflix-mini-resume',
+    MINI_MOVE: 'nathflix-mini-move',
+    MINI_SIZE: 'nathflix-mini-size',
 } as const;
 
 // File extensions for mods
@@ -124,9 +124,9 @@ export const URLS = {
     STREMIO_WEB: 'https://web.stremio.com/',
     STREMIO_WEB_ADD_ADDON: 'https://web.stremio.com/#/addons?addon=',
     REGISTRY: 'https://raw.githubusercontent.com/REVENGE977/stremio-enhanced-registry/refs/heads/main/registry.json',
-    VERSION_CHECK: 'https://github.com/notdxbi/dxbi-stremio/raw/main/app/version',
-    RELEASES_API: 'https://api.github.com/repos/notdxbi/dxbi-stremio/releases/latest',
-    RELEASES_PAGE: 'https://github.com/notdxbi/dxbi-stremio/releases/latest',
+    VERSION_CHECK: 'https://github.com/lavagnou/dxbi-stremio-android/raw/main/app/version',
+    RELEASES_API: 'https://api.github.com/repos/lavagnou/dxbi-stremio-android/releases/latest',
+    RELEASES_PAGE: 'https://github.com/lavagnou/dxbi-stremio-android/releases/latest',
     STREMIO_SERVICE_GITHUB_API: "https://api.github.com/repos/Stremio/stremio-service/releases/latest",
     STREMIO_SERVICE_DOWNLOAD_PAGE: "https://www.stremio.com/download-service"
 } as const;
@@ -156,17 +156,19 @@ export const MACOS_FFPROBE_URLS = {
     arm64: "https://ffmpeg.martin-riedl.de/download/macos/arm64/1766430132_8.0.1/ffprobe.zip",
 } as const;
 
-// Discord Rich Presence: dx.bi's own Discord application, so it reads "Watching dx.bi". Images are
+// Discord Rich Presence: Nathflix's own Discord application, so it reads "Watching Nathflix". Images are
 // web addresses (Discord fetches them), so nothing has to be uploaded to the Discord app.
-const PRESENCE_IMAGES = 'https://raw.githubusercontent.com/notdxbi/dxbi-stremio/main/app/images/presence';
+// No application yet: CLIENT_ID is empty, so the status never starts and its switch is hidden. Create
+// one at discord.com/developers/applications (named Nathflix) and put its Application ID here.
+const PRESENCE_IMAGES = 'https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/app/images/presence';
 export const DISCORD = {
-    CLIENT_ID: '1563995396290777188',
+    CLIENT_ID: '',
     RECONNECT_INTERVAL: 10000,
     DEFAULT_IMAGE: `${PRESENCE_IMAGES}/logo.png`,
     PLAY_IMAGE: `${PRESENCE_IMAGES}/play.png`,
     PAUSE_IMAGE: `${PRESENCE_IMAGES}/pause.png`,
     BROWSE_IMAGE: `${PRESENCE_IMAGES}/browse.png`,
-    BUTTONS: [{ label: 'Get dx.bi', url: 'https://github.com/notdxbi/dxbi-stremio' }],
+    BUTTONS: [{ label: 'Get Nathflix', url: 'https://github.com/lavagnou/dxbi-stremio-android' }],
 } as const;
 
 // Timeouts

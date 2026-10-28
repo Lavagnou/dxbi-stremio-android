@@ -1,6 +1,6 @@
 name: Desktop app
 
-# Publishing a release builds the dx.bi desktop app for every platform and attaches the files to
+# Publishing a release builds the Nathflix desktop app for every platform and attaches the files to
 # that release, next to the plugin. Running it by hand just builds (files kept as artifacts).
 on:
   release:
@@ -53,7 +53,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dxbi-app-${{ matrix.target }}-${{ matrix.arch }}
+          name: nathflix-app-${{ matrix.target }}-${{ matrix.arch }}
           path: |
             app/release-builds/*.exe
             app/release-builds/*.dmg

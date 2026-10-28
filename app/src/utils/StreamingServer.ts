@@ -122,7 +122,7 @@ class StreamingServer {
             const file = createWriteStream(dest);
 
             const request = (downloadUrl: string) => {
-                https.get(downloadUrl, { headers: { "User-Agent": "dxbi" } }, (res) => {
+                https.get(downloadUrl, { headers: { "User-Agent": "nathflix" } }, (res) => {
                     // Handle redirects (GitHub releases use redirects)
                     if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         const redirectUrl = new URL(res.headers.location, downloadUrl).toString();
@@ -155,7 +155,7 @@ class StreamingServer {
         });
     }
 
-    // Downloads ffmpeg and ffprobe into targetDir (dx.bi's own streaming server folder by default)
+    // Downloads ffmpeg and ffprobe into targetDir (Nathflix's own streaming server folder by default)
     public static async downloadAndExtractFFmpeg(targetDir: string = this.streamingServerDir): Promise<boolean> {
         const archiveUrl = this.getFFmpegUrl();
         const archivePath = join(targetDir, (process.platform == "win32" || process.platform == "darwin") ? "ffmpeg-release.zip" : "ffmpeg-release.tar.xz");
@@ -323,7 +323,7 @@ class StreamingServer {
     private static async fetchText(url: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const request = (fetchUrl: string) => {
-                https.get(fetchUrl, { headers: { "User-Agent": "dxbi" } }, (res) => {
+                https.get(fetchUrl, { headers: { "User-Agent": "nathflix" } }, (res) => {
                     if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         request(new URL(res.headers.location, fetchUrl).toString());
                         return;

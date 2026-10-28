@@ -7,7 +7,7 @@ import { getUpdateModalTemplate } from "../components/update-modal/updateModal";
 import { URLS, IPC_CHANNELS } from "../constants";
 import Helpers from "../utils/Helpers";
 
-const SKIPPED_VERSION_KEY = "dxbi.skippedUpdate";
+const SKIPPED_VERSION_KEY = "nathflix.skippedUpdate";
 
 class Updater {
     private static logger = getLogger("Updater");

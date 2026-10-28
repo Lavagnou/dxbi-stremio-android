@@ -1,11 +1,11 @@
 name: TV app
 
-# Publishing a release builds dx.bi TV (Android TV) and attaches dxbi-tv.apk to that release.
+# Publishing a release builds Nathflix TV (Android TV) and attaches nathflix-tv.apk to that release.
 # Running it by hand just builds it (kept as a workflow artifact).
 #
-# Release builds are signed with dx.bi TV's key, kept in the repository's secrets:
-#   DXBI_TV_KEYSTORE_B64       the keystore, base64-encoded
-#   DXBI_TV_KEYSTORE_PASSWORD  its password (the key uses the same one; alias dxbi-tv)
+# Release builds are signed with Nathflix TV's key, kept in the repository's secrets:
+#   NATHFLIX_TV_KEYSTORE_B64       the keystore, base64-encoded
+#   NATHFLIX_TV_KEYSTORE_PASSWORD  its password (the key uses the same one; alias nathflix-tv)
 # Without them the job stops before building, so a release never gets a differently signed APK
 # (Android would refuse to install it over the real one).
 on:
@@ -23,13 +23,13 @@ jobs:
       run:
         working-directory: tv
     env:
-      HAS_KEY: ${{ secrets.DXBI_TV_KEYSTORE_B64 != '' }}
+      HAS_KEY: ${{ secrets.NATHFLIX_TV_KEYSTORE_B64 != '' }}
     steps:
       - name: Signing key needed
         if: env.HAS_KEY != 'true'
         working-directory: .
         run: |
-          echo "::warning::DXBI_TV_KEYSTORE_B64 isn't set: dx.bi TV wasn't built. Attach a locally built, signed dxbi-tv.apk instead."
+          echo "::warning::NATHFLIX_TV_KEYSTORE_B64 isn't set: Nathflix TV wasn't built. Attach a locally built, signed nathflix-tv.apk instead."
           exit 0
 
       - uses: actions/checkout@v4
@@ -44,27 +44,27 @@ jobs:
 
       - name: Signing key
         if: env.HAS_KEY == 'true'
-        run: echo "${{ secrets.DXBI_TV_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/dxbi-tv.jks"
+        run: echo "${{ secrets.NATHFLIX_TV_KEYSTORE_B64 }}" | base64 -d > "$RUNNER_TEMP/nathflix-tv.jks"
 
       # GitHub's Ubuntu runners come with the Android SDK (ANDROID_HOME); Gradle fetches what's missing
       - name: Build
         if: env.HAS_KEY == 'true'
-        run: ./gradlew assembleRelease --no-daemon && cp app/build/outputs/apk/release/app-release.apk dxbi-tv.apk
+        run: ./gradlew assembleRelease --no-daemon && cp app/build/outputs/apk/release/app-release.apk nathflix-tv.apk
         env:
-          DXBI_TV_KEYSTORE: ${{ runner.temp }}/dxbi-tv.jks
-          DXBI_TV_KEYSTORE_PASSWORD: ${{ secrets.DXBI_TV_KEYSTORE_PASSWORD }}
-          DXBI_TV_KEY_ALIAS: dxbi-tv
-          DXBI_TV_KEY_PASSWORD: ${{ secrets.DXBI_TV_KEYSTORE_PASSWORD }}
+          NATHFLIX_TV_KEYSTORE: ${{ runner.temp }}/nathflix-tv.jks
+          NATHFLIX_TV_KEYSTORE_PASSWORD: ${{ secrets.NATHFLIX_TV_KEYSTORE_PASSWORD }}
+          NATHFLIX_TV_KEY_ALIAS: nathflix-tv
+          NATHFLIX_TV_KEY_PASSWORD: ${{ secrets.NATHFLIX_TV_KEYSTORE_PASSWORD }}
 
       - uses: actions/upload-artifact@v4
         if: env.HAS_KEY == 'true'
         with:
-          name: dxbi-tv
-          path: tv/dxbi-tv.apk
+          name: nathflix-tv
+          path: tv/nathflix-tv.apk
           if-no-files-found: error
 
       - name: Attach to the release
         if: env.HAS_KEY == 'true' && github.event_name == 'release'
-        run: gh release upload "${{ github.event.release.tag_name }}" dxbi-tv.apk --clobber
+        run: gh release upload "${{ github.event.release.tag_name }}" nathflix-tv.apk --clobber
         env:
           GH_TOKEN: ${{ github.token }}

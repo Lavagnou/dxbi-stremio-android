@@ -46,7 +46,7 @@
             android:textSize="17sp" />
     </LinearLayout>
 
-    <!-- Skip intro / recap / credits, while one is playing (times from dx.bi) -->
+    <!-- Skip intro / recap / credits, while one is playing (times from Nathflix) -->
     <TextView
         android:id="@+id/skip_button"
         android:layout_width="wrap_content"

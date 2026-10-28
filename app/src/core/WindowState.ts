@@ -4,7 +4,7 @@ import { join } from "path";
 import { getLogger } from "../utils/logger";
 import { isFullScreen, isMaximized, normalBounds } from "./Maximize";
 
-// The window opens the way it was left (main.ts shows it once dx.bi is up): maximized, or at its last size and place. The first time
+// The window opens the way it was left (main.ts shows it once Nathflix is up): maximized, or at its last size and place. The first time
 // it opens maximized.
 
 const logger = getLogger("WindowState");

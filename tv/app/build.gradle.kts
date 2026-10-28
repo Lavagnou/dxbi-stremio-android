@@ -5,12 +5,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// The TV app shares dx.bi's version number: it's read from the plugin at the repository root
-val pluginFile = rootProject.file("../dxbi.plugin.js")
-val dxbiVersion = Regex("""@version\s+([\d.]+)""").find(pluginFile.readText())!!.groupValues[1]
-val versionParts = dxbiVersion.split(".").map { it.toInt() }
+// The TV app shares Nathflix's version number: it's read from the plugin at the repository root
+val pluginFile = rootProject.file("../nathflix.plugin.js")
+val nathflixVersion = Regex("""@version\s+([\d.]+)""").find(pluginFile.readText())!!.groupValues[1]
+val versionParts = nathflixVersion.split(".").map { it.toInt() }
 
-// Release signing: tv/keystore.properties (not in git) or the DXBI_TV_KEYSTORE* environment variables in CI
+// Release signing: tv/keystore.properties (not in git) or the NATHFLIX_TV_KEYSTORE* environment variables in CI
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -18,25 +18,25 @@ val keystoreProps = Properties().apply {
 fun signingValue(key: String, env: String): String? = keystoreProps.getProperty(key) ?: System.getenv(env)
 
 android {
-    namespace = "com.notdxbi.dxbi.tv"
+    namespace = "com.lavagnou.nathflix"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.notdxbi.dxbi.tv"
+        applicationId = "com.lavagnou.nathflix"
         minSdk = 24
         targetSdk = 35
-        versionName = dxbiVersion
+        versionName = nathflixVersion
         versionCode = versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]
     }
 
     signingConfigs {
         create("release") {
-            val store = signingValue("storeFile", "DXBI_TV_KEYSTORE")
+            val store = signingValue("storeFile", "NATHFLIX_TV_KEYSTORE")
             if (store != null) {
                 storeFile = rootProject.file(store)
-                storePassword = signingValue("storePassword", "DXBI_TV_KEYSTORE_PASSWORD")
-                keyAlias = signingValue("keyAlias", "DXBI_TV_KEY_ALIAS")
-                keyPassword = signingValue("keyPassword", "DXBI_TV_KEY_PASSWORD")
+                storePassword = signingValue("storePassword", "NATHFLIX_TV_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "NATHFLIX_TV_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "NATHFLIX_TV_KEY_PASSWORD")
             }
         }
     }
@@ -52,7 +52,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (signingValue("storeFile", "DXBI_TV_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
+            if (signingValue("storeFile", "NATHFLIX_TV_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -69,13 +69,13 @@ android {
         jniLibs { useLegacyPackaging = true }
     }
 
-    // The built-in dx.bi plugin is the one at the repository root, copied in at build time
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/dxbiAssets"))
+    // The built-in Nathflix plugin is the one at the repository root, copied in at build time
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/nathflixAssets"))
 }
 
 val copyPlugin by tasks.registering(Copy::class) {
     from(pluginFile)
-    into(layout.buildDirectory.dir("generated/dxbiAssets"))
+    into(layout.buildDirectory.dir("generated/nathflixAssets"))
 }
 tasks.named("preBuild") { dependsOn(copyPlugin) }
 

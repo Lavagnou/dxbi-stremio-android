@@ -10,7 +10,7 @@ gh release download "$TAG" -R shinchiro/mpv-winbuild-cmake -p "$ASSET" -O mpv.7z
 7z x -ompv mpv.7z > /dev/null
 rm mpv.7z
 cat > mpv/ABOUT-MPV.txt <<NOTE
-dx.bi plays videos with mpv (https://mpv.io), included here unchanged.
+Nathflix plays videos with mpv (https://mpv.io), included here unchanged.
 mpv is free software under the GNU General Public License v2 or later (see the licence files here).
 Source code: https://github.com/mpv-player/mpv
 This build: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/$TAG ($ASSET)

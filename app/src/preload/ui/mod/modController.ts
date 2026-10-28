@@ -199,9 +199,9 @@ export const modController = {
     },
         
     scrollListener: (): void => {
-        helpers.waitForElm('div > div[title="dx.bi"]').then(() => {
+        helpers.waitForElm('div > div[title="Nathflix"]').then(() => {
             const enhanced = document.getElementById('enhanced');
-            const enhancedNav = document.querySelector('div > div[title="dx.bi"]');
+            const enhancedNav = document.querySelector('div > div[title="Nathflix"]');
             if (!enhanced || !enhancedNav) return;
 
             enhancedNav.addEventListener("click", () => {

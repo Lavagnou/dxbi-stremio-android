@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.graphics.Color
 import android.graphics.Typeface
@@ -60,7 +60,7 @@ class PlayerActivity : AppCompatActivity() {
     }
     private val hideFlash = Runnable { seekFlash.visibility = View.GONE }
 
-    // Skip intro / recap / credits: the episode's times (seconds; end -1 = to the end), whether dx.bi
+    // Skip intro / recap / credits: the episode's times (seconds; end -1 = to the end), whether Nathflix
     // skips by itself ("intro": intros and recaps, "all": credits too), and which were skipped already
     private class Segment(val type: String, val start: Double, val end: Double)
     private var segments: List<Segment> = emptyList()
@@ -143,7 +143,7 @@ class PlayerActivity : AppCompatActivity() {
         // (an addon's own User-Agent replaces ours: Media3 would send both)
         val ownAgent = headers.keys.any { it.equals("User-Agent", ignoreCase = true) }
         val dataSource = OkHttpDataSource.Factory(http)
-            .setUserAgent(if (ownAgent) null else "dxbi-tv/${BuildConfigVersion.name(this)}")
+            .setUserAgent(if (ownAgent) null else "nathflix-tv/${BuildConfigVersion.name(this)}")
             .setDefaultRequestProperties(headers)
 
         // The TV's own decoders first, falling back to software ones when a format isn't supported
@@ -169,7 +169,7 @@ class PlayerActivity : AppCompatActivity() {
             if (visibility == View.VISIBLE) playerView.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.requestFocus()
         })
 
-        // Subtitles start off, like Netflix (and dx.bi's default): pick one from the subtitles button.
+        // Subtitles start off, like Netflix (and Nathflix's default): pick one from the subtitles button.
         // Files with several audio tracks (dual-audio releases) start in Stremio's audio language
         // (Settings → Player), when they have it
         val audioLanguage = stream.optString("audioLanguage").ifEmpty { null }

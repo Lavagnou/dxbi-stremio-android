@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.content.Context
 import android.webkit.JavascriptInterface
@@ -8,10 +8,10 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 
 /**
- * What the page (dxbi-tv.js) can ask the app for: the plugin, its settings, and playback.
+ * What the page (nathflix-tv.js) can ask the app for: the plugin, its settings, and playback.
  *
  * Android hands this object to every frame in the page, embedded YouTube trailers included, so
- * each call carries [TOKEN]: it's written into dxbi-tv.js, which only runs on Stremio's own page.
+ * each call carries [TOKEN]: it's written into nathflix-tv.js, which only runs on Stremio's own page.
  */
 class Bridge(private val activity: MainActivity) {
 
@@ -20,7 +20,7 @@ class Bridge(private val activity: MainActivity) {
     private fun allowed(token: String): Boolean =
         MessageDigest.isEqual(token.toByteArray(), TOKEN.toByteArray())
 
-    /** The dx.bi plugin: the one built in, or a newer one it has updated itself to */
+    /** The Nathflix plugin: the one built in, or a newer one it has updated itself to */
     @JavascriptInterface
     fun pluginSource(token: String): String = if (!allowed(token)) "" else try {
         Updates.forTv(Updates.pluginSource(activity))
@@ -73,12 +73,12 @@ class Bridge(private val activity: MainActivity) {
         activity.runOnUiThread { Toast.makeText(activity, text, Toast.LENGTH_LONG).show() }
     }
 
-    /** Looks for streaming servers on the network; the page hears back through __dxbiTv.serversFound */
+    /** Looks for streaming servers on the network; the page hears back through __nathflixTv.serversFound */
     @JavascriptInterface
     fun findServers(token: String) {
         if (!allowed(token)) return
         ServerFinder.find { urls ->
-            activity.js("window.__dxbiTv && window.__dxbiTv.serversFound && window.__dxbiTv.serversFound(${org.json.JSONArray(urls)})")
+            activity.js("window.__nathflixTv && window.__nathflixTv.serversFound && window.__nathflixTv.serversFound(${org.json.JSONArray(urls)})")
         }
     }
 
@@ -133,8 +133,8 @@ class Bridge(private val activity: MainActivity) {
     fun version(): String = BuildConfigVersion.name(activity)
 
     companion object {
-        /** Fresh for every launch; replaces [PLACEHOLDER] in dxbi-tv.js */
+        /** Fresh for every launch; replaces [PLACEHOLDER] in nathflix-tv.js */
         val TOKEN: String = ByteArray(24).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
-        const val PLACEHOLDER = "__DXBI_TV_TOKEN__"
+        const val PLACEHOLDER = "__NATHFLIX_TV_TOKEN__"
     }
 }

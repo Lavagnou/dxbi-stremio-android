@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.content.Context
 import android.content.pm.PackageManager

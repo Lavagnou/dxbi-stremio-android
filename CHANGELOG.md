@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.0
+- **Nathflix's first version.** Nathflix is based on dx.bi 2.21.0: everything dx.bi does is here, under the name Nathflix (app, TV app, plugin, installers, files and folders). Its data lives in its own folders, so it starts fresh next to dx.bi rather than replacing it.
+- **Updates come from Nathflix's own releases.** The TV app, the desktop app and the plugin only ever update to a Nathflix release.
+- **Report a problem and the Discord status are off for now.** They used dx.bi's own services; they come back once Nathflix has its own.
+
+Everything below is dx.bi's history, up to 2.21.0, which Nathflix 0.1.0 is based on.
+
 ## 2.21.0
 - **Every viewer has their own library.** A new viewer in *Who's watching?* now starts with an empty Library and Continue Watching instead of seeing everyone else's. What a viewer adds or plays goes in their library only; everything that was already in your account stays with the first viewer. Removing a title (or dismissing it from Continue Watching) that someone else also has only takes it out of yours, and removing a viewer clears the titles only they had. Calendar, new episode badges, Airing this week and stats follow the viewer too. Addons stay shared. Two viewers watching the same title still share its progress: that's kept by the Stremio account.
 - **dx.bi TV on phones and tablets: the keyboard opens again.** Tapping the email or password box on the login screen (or Search) did nothing on phones like the Galaxy S25: text boxes waited for the remote's OK button. A tap now types straight away; the remote works as before.

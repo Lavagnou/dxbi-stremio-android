@@ -1,13 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 import { IPC_CHANNELS } from "../constants";
 
-// The page's half of dx.bi's mpv player (see core/MpvShell.ts).
+// The page's half of Nathflix's mpv player (see core/MpvShell.ts).
 //
 // 1. A WebView2-style `chrome.webview` transport, so Stremio's web app uses its desktop-shell player
 //    (mpv) instead of the browser's <video>. It must exist before Stremio's scripts run.
 // 2. A stand-in <video> in the player screen that mirrors mpv (time, pause, volume, speed, size) and
 //    forwards play / pause / seek / volume to it, so plugins written for the browser player
-//    (dx.bi's skip intro, up next, watch party, remembered volume…) keep working unchanged.
+//    (Nathflix's skip intro, up next, watch party, remembered volume…) keep working unchanged.
 
 export function mpvShellEnabled(): boolean {
     try { return ipcRenderer.sendSync(IPC_CHANNELS.MPV_ENABLED) === true; } catch { return false; }
@@ -15,7 +15,7 @@ export function mpvShellEnabled(): boolean {
 
 /**
  * mpv's playback as this script's own world sees it (the stand-in <video> only works in the page's
- * world): for dx.bi's Discord status, which runs here. Same shape as a <video> for what it reads.
+ * world): for Nathflix's Discord status, which runs here. Same shape as a <video> for what it reads.
  */
 class NativePlayback extends EventTarget {
     currentTime = 0;
@@ -69,7 +69,7 @@ export let nativePlayerActive = false;
 export function installMpvShell(): void {
     nativePlayerActive = true;
     ipcRenderer.on(IPC_CHANNELS.MPV_SHELL_EVENT, (_, message: string) => followPlayback(message));
-    contextBridge.exposeInMainWorld("__dxbiShellBridge", {
+    contextBridge.exposeInMainWorld("__nathflixShellBridge", {
         post: (message: string) => ipcRenderer.send(IPC_CHANNELS.MPV_SHELL_SEND, message),
         listen: (callback: (message: string) => void) => {
             ipcRenderer.on(IPC_CHANNELS.MPV_SHELL_EVENT, (_, message: string) => callback(message));
@@ -80,7 +80,7 @@ export function installMpvShell(): void {
 
 // Runs in the page itself (serialized: it can't use anything from this file)
 function mainWorld(): void {
-    const bridge = (window as any).__dxbiShellBridge;
+    const bridge = (window as any).__nathflixShellBridge;
     const listeners = new Set<(e: { data: string }) => void>();
     const send = (method: string, data: unknown) => bridge.post(JSON.stringify({ id: 0, type: 6, args: [method, data] }));
 
@@ -92,7 +92,7 @@ function mainWorld(): void {
     const w = window as any;
     if (!w.chrome) w.chrome = {};
     Object.defineProperty(w.chrome, "webview", { value: webview, configurable: true });
-    w.__dxbiNativePlayer = "mpv";
+    w.__nathflixNativePlayer = "mpv";
     // Stremio skips its "can the browser play this?" check (which sends anything else through the
     // streaming server's converter) when it runs in its Qt desktop app, which also plays with mpv.
     // mpv plays every format, audio layout and embedded subtitle as it is, so skip it here too.
@@ -102,21 +102,21 @@ function mainWorld(): void {
     // ---- mpv's state, as Stremio's player hears it ----
     const mpv: Record<string, any> = { pause: true, volume: 100, mute: false, speed: 1, "time-pos": 0, duration: NaN };
     const barsWaiting: ((bars: unknown) => void)[] = [];
-    w.__dxbiMpvState = mpv; // for problem reports
-    // For dx.bi's picture and sound features, which use mpv's own filters and shaders here
-    w.__dxbiMpv = Object.freeze({
+    w.__nathflixMpvState = mpv; // for problem reports
+    // For Nathflix's picture and sound features, which use mpv's own filters and shaders here
+    w.__nathflixMpv = Object.freeze({
         get: (name: string) => mpv[name],
         set: (name: string, value: unknown) => send("mpv-set-prop", [name, value]),
         command: (...args: unknown[]) => send("mpv-command", args),
         observe: (name: string) => send("mpv-observe-prop", name),
         // [{ name, source }] of mpv GLSL user shaders; [] removes them
-        shaders: (list: { name: string; source: string }[]) => send("dxbi-shaders", list),
-        // Picture-in-picture on / off (the video in a small window on top while dx.bi minimizes)
-        pip: () => send("dxbi-pip", null),
+        shaders: (list: { name: string; source: string }[]) => send("nathflix-shaders", list),
+        // Picture-in-picture on / off (the video in a small window on top while Nathflix minimizes)
+        pip: () => send("nathflix-pip", null),
         // Black bars in the current frame: { t, b, l, r } as fractions, or null
         measureBars: () => new Promise((resolve) => {
             barsWaiting.push(resolve);
-            if (barsWaiting.length === 1) send("dxbi-measure-bars", null);
+            if (barsWaiting.length === 1) send("nathflix-measure-bars", null);
         }),
     });
     let proxy: HTMLVideoElement | null = null;
@@ -146,7 +146,7 @@ function mainWorld(): void {
     };
 
     const debug = { received: 0, props: 0, errors: [] as string[], last: "" };
-    w.__dxbiMpvDebug = debug; // for problem reports
+    w.__nathflixMpvDebug = debug; // for problem reports
     bridge.listen((message: string) => {
         debug.received++;
         debug.last = message.slice(0, 120);
@@ -156,11 +156,11 @@ function mainWorld(): void {
                 const [name, data] = msg.args;
                 if (name === "mpv-prop-change" && data) { debug.props++; onProp(data.name, data.data); }
                 else if (name === "mpv-event-ended" && data && data.reason === "eof") fire("ended");
-                else if (name === "dxbi-bars") for (const resolve of barsWaiting.splice(0)) resolve(data);
+                else if (name === "nathflix-bars") for (const resolve of barsWaiting.splice(0)) resolve(data);
             }
         } catch (err) { if (debug.errors.length < 5) debug.errors.push(String(err)); }
         for (const fn of listeners) {
-            try { fn({ data: message }); } catch (err) { console.error("[dx.bi] shell listener", err); }
+            try { fn({ data: message }); } catch (err) { console.error("[Nathflix] shell listener", err); }
         }
     });
 
@@ -219,7 +219,7 @@ function mainWorld(): void {
         if (container.querySelector("video:not(.dx-mpv-video)")) return; // a trailer in the browser player
         if (!proxy) {
             proxy = makeProxy();
-            // For dx.bi's stream stats (Stremio's player doesn't watch these)
+            // For Nathflix's stream stats (Stremio's player doesn't watch these)
             send("mpv-observe-prop", "hwdec-current");
             send("mpv-observe-prop", "frame-drop-count");
         }
@@ -241,7 +241,7 @@ function mainWorld(): void {
             "html[data-dx-native-player] [class*=\"player-container\"] canvas.dx-enhance { display: none !important; }",
             // Stremio clears the page background once mpv shows a picture; themes paint html/body too
             "html[data-dx-mpv-showing], html[data-dx-mpv-showing] body { background: transparent !important; }",
-            // Stremio's own Discord switch appears for its desktop app; dx.bi has its own status
+            // Stremio's own Discord switch appears for its desktop app; Nathflix has its own status
             "html[data-dx-native-player] [class*=\"discord-container\"] { display: none !important; }",
         ].join("\n");
         document.head.appendChild(style);

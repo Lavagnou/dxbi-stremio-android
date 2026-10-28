@@ -1,12 +1,12 @@
 # Problem-report relay
 
-dx.bi's *Report a problem* sends reports here (a Cloudflare Worker), and the Worker posts them to a
-private Discord channel. The channel's webhook is a secret of the Worker, so it isn't in dx.bi's
+Nathflix's *Report a problem* sends reports here (a Cloudflare Worker), and the Worker posts them to a
+private Discord channel. The channel's webhook is a secret of the Worker, so it isn't in Nathflix's
 code and can be replaced without updating the apps.
 
 What the Worker lets through:
 
-- Only well-formed dx.bi reports (report code, version, where it came from, route, errors list), up
+- Only well-formed Nathflix reports (report code, version, where it came from, route, errors list), up
   to 256 KB, from any address at most 3 times a minute.
 - The Discord message is written by the Worker from those checked fields. Nothing in it can ping
   anyone, links don't preview, and the full report is attached as a JSON file.
@@ -20,11 +20,11 @@ npx wrangler login
 npx wrangler deploy
 ```
 
-Then add the Discord webhook as a secret: Cloudflare dashboard → *Workers & Pages* → *dxbi-reports*
+Then add the Discord webhook as a secret: Cloudflare dashboard → *Workers & Pages* → *nathflix-reports*
 → *Settings* → *Variables and Secrets* → *Add* → type *Secret*, name `DISCORD_WEBHOOK`, value = the
 webhook URL (Discord: channel → *Edit Channel* → *Integrations* → *Webhooks*).
 
-The apps use `REPORT_ENDPOINT` in `dxbi.plugin.js`: the Worker's address followed by `/report`.
+The apps use `REPORT_ENDPOINT` in `nathflix.plugin.js`: the Worker's address followed by `/report`.
 
 ## If reports get abused
 

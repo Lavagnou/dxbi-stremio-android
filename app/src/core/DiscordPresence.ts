@@ -13,12 +13,13 @@ class DiscordPresence {
 
     // Only ever one connection to Discord and one pending retry: each live connection shows as its
     // own activity, so a stale one (left by a retry, or by switching off and on quickly) appeared as
-    // a second, identical dx.bi in Discord
+    // a second, identical Nathflix in Discord
     private static retryTimer: ReturnType<typeof setTimeout> | null = null;
     private static generation = 0;
 
     public static start(): void {
-        if (this.enabled) return;
+        // no Discord application set up (constants: DISCORD.CLIENT_ID)
+        if (this.enabled || !DISCORD.CLIENT_ID) return;
         this.enabled = true;
         this.ready = false;
         this.connect();
@@ -42,7 +43,7 @@ class DiscordPresence {
 
                 // show what's on screen now (not a fake hashchange: that also re-ran the page's
                 // own navigation handlers)
-                window.dispatchEvent(new Event('dxbi-discord-ready'));
+                window.dispatchEvent(new Event('nathflix-discord-ready'));
             });
 
             rpc.on('disconnected', () => {
@@ -107,7 +108,7 @@ class DiscordPresence {
             startTimestamp,
             endTimestamp,
             largeImageKey: imageKey || DISCORD.DEFAULT_IMAGE,
-            largeImageText: "dx.bi",
+            largeImageText: "Nathflix",
             smallImageKey: DISCORD.PLAY_IMAGE,
             smallImageText: "Playing",
             instance: false,
@@ -120,7 +121,7 @@ class DiscordPresence {
             details,
             state,
             largeImageKey: imageKey || DISCORD.DEFAULT_IMAGE,
-            largeImageText: "dx.bi",
+            largeImageText: "Nathflix",
             smallImageKey: DISCORD.PAUSE_IMAGE,
             smallImageText: "Paused",
             instance: false,
@@ -133,7 +134,7 @@ class DiscordPresence {
             details,
             state: 'Exploring',
             largeImageKey: imageKey || DISCORD.DEFAULT_IMAGE,
-            largeImageText: "dx.bi",
+            largeImageText: "Nathflix",
             smallImageKey: DISCORD.BROWSE_IMAGE,
             smallImageText: "Browsing",
             instance: false,
@@ -145,7 +146,7 @@ class DiscordPresence {
         this._updateActivity({
             details: menuName,
             largeImageKey: DISCORD.DEFAULT_IMAGE,
-            largeImageText: "dx.bi",
+            largeImageText: "Nathflix",
             smallImageKey: DISCORD.BROWSE_IMAGE,
             smallImageText: "Browsing",
             instance: false,
@@ -157,7 +158,7 @@ class DiscordPresence {
         if (!this.rpc || !this.enabled) return;
         if (!this.ready) return;
 
-        // every status carries a link to dx.bi for whoever sees it
+        // every status carries a link to Nathflix for whoever sees it
         this.rpc.user?.setActivity({ ...newActivity, buttons: DISCORD.BUTTONS.map((b) => ({ ...b })) }).catch((error) => {
             this.logger.error(`Failed to set Discord activity: ${(error as Error).message}`);
         });

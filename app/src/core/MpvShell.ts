@@ -7,7 +7,7 @@ import { IPC_CHANNELS } from "../constants";
 import { getLogger } from "../utils/logger";
 import { isFullScreen, setFullScreen } from "./Maximize";
 
-// dx.bi plays video the way the official Stremio desktop app does: in mpv, behind the page.
+// Nathflix plays video the way the official Stremio desktop app does: in mpv, behind the page.
 //
 // Stremio's web app has a player for its own desktop shell (ShellVideo). When it finds a WebView2-style
 // `chrome.webview` transport it sends that shell mpv commands ("mpv-command", "mpv-set-prop",
@@ -15,7 +15,7 @@ import { isFullScreen, setFullScreen } from "./Maximize";
 // screen, menus and addon subtitles on top. The preload provides that transport (preload/mpvShell.ts);
 // this side runs mpv and answers it.
 //
-// mpv draws into a borderless video window kept exactly behind the dx.bi window. The dx.bi window is
+// mpv draws into a borderless video window kept exactly behind the Nathflix window. The Nathflix window is
 // transparent and owned by the video window (an owned window always stays above its owner), and
 // while a video plays Stremio makes the page background transparent, so the picture shows through.
 
@@ -38,14 +38,14 @@ function keepInSwitcher(win: BrowserWindow): void {
         const style = BigInt(getLong(hwnd, GWL_EXSTYLE));
         setLong(hwnd, GWL_EXSTYLE, style | BigInt(WS_EX_APPWINDOW));
     } catch (err) {
-        logger.warn(`Couldn't keep dx.bi in the taskbar and Alt+Tab: ${err}`);
+        logger.warn(`Couldn't keep Nathflix in the taskbar and Alt+Tab: ${err}`);
     }
 }
-const DEBUG = process.env.DXBI_MPV_DEBUG === "1";
+const DEBUG = process.env.NATHFLIX_MPV_DEBUG === "1";
 
 // Picture-in-picture's handle: a see-through window over the little video (mpv's picture takes the
 // mouse otherwise). Drag it anywhere to move the video; double-click it, or its button, to go back
-// to dx.bi. It tells the app what happened through its page title ("drag-3", "back-4"…), so it needs
+// to Nathflix. It tells the app what happened through its page title ("drag-3", "back-4"…), so it needs
 // no preload. The 1% black is what makes Windows hand it the mouse: fully clear pixels let
 // clicks through to whatever is under them.
 const PIP_HANDLE = `<!doctype html><meta charset="utf-8"><style>
@@ -55,7 +55,7 @@ body.drag { cursor: grabbing; }
 body:hover .bar { opacity: 1; }
 button { border: 0; border-radius: 6px; padding: 6px 10px; background: rgba(20,20,20,.85); color: #fff; font: inherit; cursor: pointer; }
 button:hover { background: #fff; color: #000; }
-</style><div class="bar"><button data-say="pause" title="Play / pause">⏯</button><button data-say="back" title="Back to dx.bi">⤢ Back to dx.bi</button></div>
+</style><div class="bar"><button data-say="pause" title="Play / pause">⏯</button><button data-say="back" title="Back to Nathflix">⤢ Back to Nathflix</button></div>
 <script>
 let n = 0;
 const say = (what) => { document.title = what + "-" + (++n); };
@@ -78,7 +78,7 @@ const SIGNAL = 1;
 const INIT = 3;
 const INVOKE_METHOD = 6;
 
-// Properties Stremio sets that dx.bi decides itself
+// Properties Stremio sets that Nathflix decides itself
 const IGNORED_PROPS = new Set(["vo", "osc", "input-default-bindings", "input-vo-keyboard"]);
 
 export default class MpvShell {
@@ -93,19 +93,19 @@ export default class MpvShell {
     private static queue: string[] = [];
     private static playing = false;
 
-    // Settings → dx.bi → "Play videos with mpv" switched off: the browser player instead
+    // Settings → Nathflix → "Play videos with mpv" switched off: the browser player instead
     private static offFlag = () => join(app.getPath("userData"), "use_browser_player");
 
-    /** mpv to use, if dx.bi should play through mpv on this computer */
+    /** mpv to use, if Nathflix should play through mpv on this computer */
     public static mpvPath(): string | null {
         if (existsSync(this.offFlag())) return null;
         return this.bundledPath();
     }
 
-    /** mpv dx.bi could play with here, whether or not it's switched on */
+    /** mpv Nathflix could play with here, whether or not it's switched on */
     public static bundledPath(): string | null {
-        if (process.env.DXBI_MPV === "0") return null;
-        const custom = process.env.DXBI_MPV_PATH;
+        if (process.env.NATHFLIX_MPV === "0") return null;
+        const custom = process.env.NATHFLIX_MPV_PATH;
         if (custom) return existsSync(custom) ? custom : null;
         if (process.platform === "win32") {
             const bundled = app.isPackaged
@@ -114,7 +114,7 @@ export default class MpvShell {
             return existsSync(bundled) ? bundled : null;
         }
         // Elsewhere only when asked for (development): Linux and macOS keep the built-in player for now
-        if (process.env.DXBI_MPV === "1") {
+        if (process.env.NATHFLIX_MPV === "1") {
             try { return execSync("command -v mpv", { encoding: "utf8" }).trim() || null; } catch { return null; }
         }
         return null;
@@ -175,7 +175,7 @@ export default class MpvShell {
         this.videoWindow.loadURL("about:blank");
         this.videoWindow.setIgnoreMouseEvents(true);
 
-        // The dx.bi window always stays above the video window, and still gets its own taskbar button
+        // The Nathflix window always stays above the video window, and still gets its own taskbar button
         mainWindow.setParentWindow(this.videoWindow);
         keepInSwitcher(mainWindow);
         mainWindow.setSkipTaskbar(false);
@@ -201,10 +201,10 @@ export default class MpvShell {
         this.startMpv();
     }
 
-    // Back from full screen, the picture went missing on some PCs: the dx.bi window showed the desktop
+    // Back from full screen, the picture went missing on some PCs: the Nathflix window showed the desktop
     // through where the video should be (a blue wallpaper). Windows treats a window that covers the
     // whole screen specially, and the video window didn't come back from that. It's put back behind
-    // dx.bi and shown afresh.
+    // Nathflix and shown afresh.
     private static reseat(): void {
         setTimeout(() => {
             const main = this.mainWindow, video = this.videoWindow;
@@ -227,7 +227,7 @@ export default class MpvShell {
         if (!path || !this.videoWindow) return;
         const handle = this.videoWindow.getNativeWindowHandle();
         const wid = process.platform === "win32" && handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : handle.readUInt32LE(0).toString();
-        const pipe = process.platform === "win32" ? `\\\\.\\pipe\\dxbi-mpv-${process.pid}` : join(app.getPath("temp"), `dxbi-mpv-${process.pid}.sock`);
+        const pipe = process.platform === "win32" ? `\\\\.\\pipe\\nathflix-mpv-${process.pid}` : join(app.getPath("temp"), `nathflix-mpv-${process.pid}.sock`);
 
         const args = [
             `--wid=${wid}`,
@@ -252,12 +252,12 @@ export default class MpvShell {
             "--config=no",
             "--demuxer-max-bytes=300MiB",
             "--demuxer-readahead-secs=60",
-            `--user-agent=dx.bi/${app.getVersion()}`,
+            `--user-agent=Nathflix/${app.getVersion()}`,
             // Kept for problem reports (replaced on every start)
             `--log-file=${join(app.getPath("userData"), "mpv.log")}`,
         ];
         // Development: no window at all (tests on a machine without a display to embed in)
-        if (process.env.DXBI_MPV_HEADLESS === "1") args.splice(0, args.length, ...args.filter((a) => !/^--(wid|force-window|vo)=/.test(a)), "--vo=null", "--force-window=no");
+        if (process.env.NATHFLIX_MPV_HEADLESS === "1") args.splice(0, args.length, ...args.filter((a) => !/^--(wid|force-window|vo)=/.test(a)), "--vo=null", "--force-window=no");
         logger.info(`Starting mpv: ${path}`);
         this.mpv = spawn(path, args, { stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
         this.mpv.stdout?.on("data", (d) => logger.info(`mpv: ${String(d).trim()}`));
@@ -355,7 +355,7 @@ export default class MpvShell {
     private static onPageMessage(msg: { type: number; args?: unknown[] }): void {
         if (msg.type === INIT) {
             const properties = [
-                [0, "shellVersion", 0, `${this.appVersion()} (dx.bi)`],
+                [0, "shellVersion", 0, `${this.appVersion()} (Nathflix)`],
                 [0, "gpuVideoProcessing", 0, "false"],
                 [0, "nativeAssSubtitles", 0, "false"],
                 [0, "cacheDirectoryPicker", 0, "false"],
@@ -393,8 +393,8 @@ export default class MpvShell {
                 if (this.socket) this.socket.write(JSON.stringify({ command: ["observe_property", id, name] }) + "\n");
                 break;
             }
-            case "dxbi-shaders": {
-                // dx.bi's picture enhancement: mpv user shaders (GLSL hooks) sent as text, loaded from files
+            case "nathflix-shaders": {
+                // Nathflix's picture enhancement: mpv user shaders (GLSL hooks) sent as text, loaded from files
                 const shaders = Array.isArray(data) ? data as { name: string; source: string }[] : [];
                 const dir = join(app.getPath("userData"), "shaders");
                 mkdirSync(dir, { recursive: true });
@@ -406,11 +406,11 @@ export default class MpvShell {
                 this.command(["set_property", "glsl-shaders", paths]);
                 break;
             }
-            case "dxbi-pip":
+            case "nathflix-pip":
                 this.setPip(!this.pip);
                 break;
-            case "dxbi-measure-bars":
-                this.measureBars().then((bars) => this.signal("dxbi-bars", bars)).catch(() => this.signal("dxbi-bars", null));
+            case "nathflix-measure-bars":
+                this.measureBars().then((bars) => this.signal("nathflix-bars", bars)).catch(() => this.signal("nathflix-bars", null));
                 break;
             case "win-set-visibility":
                 if (data && typeof data.fullscreen === "boolean" && this.mainWindow) setFullScreen(this.mainWindow, data.fullscreen);
@@ -419,13 +419,13 @@ export default class MpvShell {
                 app.quit();
                 break;
             default:
-                // Discord, cache folder, interface scale and update notices are handled by dx.bi itself
+                // Discord, cache folder, interface scale and update notices are handled by Nathflix itself
                 break;
         }
     }
 
-    // Picture-in-picture: the video window shrinks into a corner, on top of everything, while dx.bi
-    // minimizes. Bringing dx.bi back (taskbar, Alt+Tab) puts the video back behind it.
+    // Picture-in-picture: the video window shrinks into a corner, on top of everything, while Nathflix
+    // minimizes. Bringing Nathflix back (taskbar, Alt+Tab) puts the video back behind it.
     private static pip = false;
     private static setPip(on: boolean): void {
         const main = this.mainWindow, video = this.videoWindow;
@@ -435,7 +435,7 @@ export default class MpvShell {
             const area = screen.getDisplayMatching(main.getBounds()).workArea;
             const width = Math.round(area.width * 0.28);
             const height = Math.round(width * 9 / 16);
-            main.setParentWindow(null); // the video window no longer drags dx.bi along
+            main.setParentWindow(null); // the video window no longer drags Nathflix along
             video.setAlwaysOnTop(true, "floating");
             video.setBounds({ x: area.x + area.width - width - 24, y: area.y + area.height - height - 24, width, height });
             video.showInactive();
@@ -449,7 +449,7 @@ export default class MpvShell {
             this.followMainWindow();
             if (this.playing) video.showInactive();
         }
-        this.signal("dxbi-pip", { active: on });
+        this.signal("nathflix-pip", { active: on });
     }
 
     // The handle over the little video (see PIP_HANDLE), made the first time it's needed
@@ -521,7 +521,7 @@ export default class MpvShell {
     // Black bars baked into the picture, as fractions of each side: from a small snapshot of the
     // frame mpv is showing (works with hardware decoding, unlike pixel reads in the page)
     private static async measureBars(): Promise<{ t: number; b: number; l: number; r: number } | null> {
-        const file = join(app.getPath("temp"), `dxbi-frame-${process.pid}.jpg`);
+        const file = join(app.getPath("temp"), `nathflix-frame-${process.pid}.jpg`);
         const done = await this.request(["screenshot-to-file", file, "video"]);
         if (!done) return null;
         const image = nativeImage.createFromPath(file);

@@ -24,7 +24,7 @@ const seconds = (t: unknown) => (typeof t === "number" && isFinite(t) && t > 0 ?
 function open(main: BrowserWindow, hash: string, at: number) {
     close();
     startAt = at;
-    // the corner of the screen dx.bi is on
+    // the corner of the screen Nathflix is on
     const area = screen.getDisplayMatching(main.getBounds()).workArea;
     mini = new BrowserWindow({
         x: area.x + area.width - WIDTH - MARGIN,
@@ -41,10 +41,10 @@ function open(main: BrowserWindow, hash: string, at: number) {
         minimizable: false,
         hasShadow: true,
         backgroundColor: "#000000",
-        title: "dx.bi",
+        title: "Nathflix",
         icon: join(__dirname, "..", "..", "images", process.platform === "win32" ? "icon.ico" : "icon.png"),
         webPreferences: {
-            // the same page setup as the main window (main.ts), so dx.bi runs in it too
+            // the same page setup as the main window (main.ts), so Nathflix runs in it too
             preload: join(__dirname, "..", "preload", "index.js"),
             webSecurity: false,
             nodeIntegration: true,
