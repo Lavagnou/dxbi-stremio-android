@@ -11248,7 +11248,7 @@
 
   // Profile sync (tools/profile-sync, a Cloudflare Worker with a D1 database): its /sync address.
   // Empty: profiles stay on each device, as before
-  const SYNC_ENDPOINT = "";
+  const SYNC_ENDPOINT = "https://nathflix-profiles.profile-sync.workers.dev/sync";
 
   function redact(text) {
     return String(text == null ? "" : text)

@@ -9,7 +9,7 @@ workers_dev = true
 [[d1_databases]]
 binding = "DB"
 database_name = "nathflix-profiles"
-database_id = "REPLACE-WITH-YOUR-DATABASE-ID"
+database_id = "8d87533b-0512-4d08-9687-97e8b6207bfd"
 
 # Each address can sync 60 times a minute, each account 30 times (a device syncs once a minute at most,
 # and a few times in a row at most when a lot changes)

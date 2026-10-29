@@ -65,6 +65,11 @@ Il faut un ordinateur (Windows, Mac ou Linux).
    ```
 
    Il affiche son adresse, par exemple `https://nathflix-profiles.ton-nom.workers.dev`.
+
+   Pièges rencontrés au premier déploiement :
+   - **Sous-domaine** : si le compte n'a pas encore de sous-domaine `workers.dev`, wrangler en prend un tout seul, d'après le nom du dossier (`profile-sync`). Ensuite, l'API refuse de le changer : seul le tableau de bord le peut, et le changement vaut pour tous les Workers du compte. Le choisir dans le tableau de bord avant le premier `deploy` si le nom compte.
+   - **Page 403 « Default-Deny policy »** sur toutes les requêtes : Cloudflare Access protège l'adresse `workers.dev`. Ouvrir l'accès au Worker dans le tableau de bord (Workers & Pages → `nathflix-profiles` → Settings → Domains & Routes). Le Worker vérifie déjà lui-même chaque requête.
+   - Vérifier ensuite : un `OPTIONS` sur `/sync` avec `Origin: https://web.stremio.com` renvoie 204, et un `POST` sans `Authorization` renvoie 401.
 8. **Brancher Nathflix dessus** : mettre cette adresse suivie de `/sync` dans `SYNC_ENDPOINT`, en haut de la partie « Report a problem » de `nathflix.plugin.js` :
 
    ```js

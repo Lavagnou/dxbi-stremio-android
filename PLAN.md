@@ -1336,7 +1336,7 @@ Choix de l'utilisateur :
   - hors ligne : tout continue en local, puis l'envoi suit.
 - [x] Indicateur dans Réglages, sous Profils.
 - [x] Guide Cloudflare (`tools/profile-sync/README.md`).
-- [ ] Worker déployé et `SYNC_ENDPOINT` rempli (l'utilisateur)
+- [x] Worker déployé et `SYNC_ENDPOINT` rempli : `https://nathflix-profiles.profile-sync.workers.dev/sync`
 - [ ] Vérifié sur les appareils
 
 **Notes techniques**
@@ -1364,6 +1364,11 @@ Choix de l'utilisateur :
 
     Ce qui n'a pas pu partir reste à envoyer. À la mise en arrière-plan, l'envoi part avec `keepalive`.
   - Réglage `profileSync` : n'apparaît que si `SYNC_ENDPOINT` est rempli (filtre de `registerSchema`).
+- **Déploiement** (compte Cloudflare de l'utilisateur) :
+  - Worker `nathflix-profiles`, base D1 `nathflix-profiles` (`database_id` dans `wrangler.toml`), schéma appliqué avec `--remote` ;
+  - sous-domaine `workers.dev` du compte : `profile-sync`, pris tout seul par wrangler au premier `deploy`. L'API refuse de le changer ensuite ; l'utilisateur l'a gardé ;
+  - Cloudflare Access bloquait d'abord tout (page 403 « Default-Deny policy », même sur `OPTIONS`). L'utilisateur a ouvert l'accès au Worker dans le tableau de bord ;
+  - les deux pièges sont notés dans `tools/profile-sync/README.md`.
 
 **Vérification**
 - `node tools/profile-sync/test.mjs` (vrai `worker.js`, `node:sqlite` à la place de D1, Stremio simulé) : 16 vérifications passées.
@@ -1381,6 +1386,11 @@ Choix de l'utilisateur :
   - **Interrupteur coupé** : 0 requête.
   - **Changement de compte** : profils par défaut, et les 4 lignes de `u1` intactes.
 - Tests précédents rejoués : profils, rangées, revue, Reprendre, billboard. Dictionnaire FR : 0 clé manquante.
+- **Worker en ligne** (2026-10-29) :
+  - `OPTIONS /sync` avec `Origin: https://web.stremio.com` → 204, `Access-Control-Allow-Origin: https://web.stremio.com` ;
+  - `POST` sans `Authorization` → 401 ; avec une fausse clé → 401 (Stremio interrogé) ;
+  - `node tools/profile-sync/test.mjs` repassé, `node --check` du plugin.
+- Pas vérifié : un `POST` avec une vraie clé (la commande `!` ne permet pas de la saisir sans l'écrire quelque part), ni l'indicateur des Réglages dans un navigateur (Playwright pas installé, et il faudrait un compte connecté). Les deux se vérifient sur les appareils.
 
 <!--
 ### T-000 — Titre court
@@ -1461,6 +1471,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-027 | Worker déployé (`nathflix-profiles.profile-sync.workers.dev`), `SYNC_ENDPOINT` rempli ; CORS et 401 vérifiés en ligne. À valider sur deux appareils |
+| 2026-10-29 | T-007 | Clé de signature Android de release créée (alias `nathflix-tv`, RSA 4096, PKCS12), gardée par l'utilisateur hors du dépôt (sauvegarde à faire de son côté). Secrets GitHub `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` ajoutés : `tv.yml` peut construire l'APK signée |
 | 2026-10-29 | T-027 | Créée et implémentée : Worker `tools/profile-sync` (D1), `cloudSync` dans le plugin, guide Cloudflare ; testée (Worker seul, deux appareils Playwright). En attente du déploiement |
 | 2026-10-29 | T-026 | Fait : PR #2 fusionnée, release v0.3.0 publiée (apps desktop, `latest*.yml`, `.blockmap` ; sans APK faute de clé) |
 | 2026-10-29 | T-026 | Créée : release 0.3.0, releases réduites aux apps ; en cours (PR vers main, puis release) |

@@ -324,7 +324,12 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
   - `@updateUrl` du plugin et du thème (branche `main`) ;
   - les installeurs `install.sh` / `install.ps1`.
 - **Renommer le dépôt plus tard** : remplacer `lavagnou/dxbi-stremio-android` partout (`git grep -l "lavagnou/dxbi-stremio-android"`), ainsi que `"repo": "dxbi-stremio-android"` dans `app/package.json`. Garder les liens vers `notdxbi/dxbi-stremio` : ce sont des attributions à dx.bi.
-- **Synchronisation des profils** : `SYNC_ENDPOINT` est vide tant que l'utilisateur n'a pas déployé `tools/profile-sync` (guide dans son README). Vide, rien n'est synchronisé et le réglage `profileSync` n'apparaît pas.
+- **Synchronisation des profils** : le Worker `tools/profile-sync` est déployé sur le compte Cloudflare de l'utilisateur. `SYNC_ENDPOINT` = `https://nathflix-profiles.profile-sync.workers.dev/sync`.
+  - Worker `nathflix-profiles`, base D1 `nathflix-profiles` (son `database_id` est dans `wrangler.toml`, il n'est pas secret).
+  - `profile-sync` est le sous-domaine `workers.dev` de tout le compte : wrangler l'a pris au premier déploiement, et l'utilisateur l'a gardé.
+  - **Ne pas changer cette adresse** : les plugins déjà installés l'appellent. Un nouveau Worker irait à côté, avec une base vide.
+  - Redéployer après une modification de `worker.js` : `cd tools/profile-sync && npx wrangler deploy` (compte de l'utilisateur, `npx wrangler login`).
+  - Vide, rien n'est synchronisé et le réglage `profileSync` n'apparaît pas.
 - **Rapports de problème** : `REPORT_ENDPOINT` est vide, donc « Report a problem » est masqué (`report.enabled`, vérifié aussi par `nathflix-tv.js`). Pour le réactiver, déployer `tools/report-relay` (Worker Cloudflare et webhook Discord) et mettre son adresse `/report` dans `REPORT_ENDPOINT`.
 - **Statut Discord (desktop)** : `DISCORD.CLIENT_ID` est vide dans `app/src/constants/index.ts`, donc le statut ne démarre pas et son interrupteur est masqué. Pour l'activer, y mettre l'Application ID d'une application Discord « Nathflix ».
 - **Pas encore renommés (images)** : l'intro (`res/raw/intro.mp4`, `introVideoData()` du plugin), les icônes (`app/images/`, `tv/app/src/main/res/mipmap-*`, `drawable/banner.png`) et les captures d'écran montrent encore le logo DX.BI. À refaire avec le nouveau logo ; `tools/render_intro.py` a déjà `TEXT = "NATHFLIX"`.

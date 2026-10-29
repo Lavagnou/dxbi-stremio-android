@@ -1,7 +1,7 @@
 # Changelog
 
 ## Unreleased
-- **Profiles on every device.** Your Nathflix profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account: no other account to make. Changes go a few seconds after you make them; what other devices changed arrives when Nathflix starts or comes back to the front; offline, everything carries on and is sent later. Each device keeps its own profile picked, and stats from two devices are merged without losing time watched. It can be switched off in Nathflix settings → Home, and only works once Nathflix's sync server is set up (`tools/profile-sync`).
+- **Profiles on every device.** Your Nathflix profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account: no other account to make. Changes go a few seconds after you make them; what other devices changed arrives when Nathflix starts or comes back to the front; offline, everything carries on and is sent later. Each device keeps its own profile picked, and stats from two devices are merged without losing time watched. It can be switched off in Nathflix settings → Home. Settings show whether the profiles are synced, and when they last were.
 
 ## 0.3.0
 - **Lighter release pages.** A release now only carries the apps: Windows (installer and portable), Mac, Linux and Android, plus the small files the desktop app's automatic updates read. The Stremio Enhanced plugin and its install commands come straight from this repository (see the README), and the Android app reads its plugin updates from there too.
