@@ -33,7 +33,7 @@ Le reste du dépôt :
   2. ajouter une entrée en haut de `CHANGELOG.md` ;
   3. lancer `node tools/bundle-theme.mjs` ;
   4. commiter ;
-  5. pousser le tag : `git tag vX.Y.Z && git push origin vX.Y.Z`. Le workflow `release.yml` fait le reste :
+  5. lancer `release.yml` : soit pousser le tag (`git tag vX.Y.Z && git push origin vX.Y.Z`), soit le lancer à la main avec la version (Actions → Release → Run workflow, ou l'API `run_workflow` avec `inputs.version`). Lancé à la main, il pose lui-même le tag sur le commit où il tourne. En session cloud, pousser un tag est refusé (403) : passer par le lancement manuel (outil GitHub `actions_run_trigger`). Le workflow fait le reste :
      - il vérifie que le tag correspond à `@version` et à une section `## X.Y.Z` du CHANGELOG ;
      - il publie la release avec ces notes et une liste de téléchargements ;
      - il y joint `nathflix.plugin.js`, `install.sh` et `install.ps1` ;
