@@ -41,3 +41,9 @@ ffmpeg -i intro.webm -vf format=yuv420p -c:v libx264 -profile:v high -level 4.2 
 
 Change `TEXT` and `ACCENT` at the top of `render_intro.py` to use your own wordmark and colour.
 Preview a few frames quickly with `--w 960 --h 540 --frames 60,120,180`.
+
+## Profile sync
+
+`profile-sync/` is the Cloudflare Worker (with a D1 database) that keeps each person's Nathflix profiles
+in step across their devices, filed under their Stremio account. Its README has the set-up steps;
+`node tools/profile-sync/test.mjs` checks it without Cloudflare.

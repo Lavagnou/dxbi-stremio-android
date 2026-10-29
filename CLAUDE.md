@@ -15,7 +15,7 @@ Un seul plugin JavaScript, `nathflix.plugin.js`, alimente trois cibles :
 | **App desktop** | `app/` | Electron + TypeScript. C'est Stremio Enhanced 1.2.0 renommé, avec le plugin intégré et mpv sur Windows. |
 
 Le reste du dépôt :
-- `tools/` : `bundle-theme.mjs` (étape de release obligatoire), tests de fumée (`smoke-test.mjs`, `mpv-test.mjs`), rendu de l'intro (`render_intro.py`, `intro_audio.py`), `report-relay/` (Cloudflare Worker de « Report a problem »).
+- `tools/` : `bundle-theme.mjs` (étape de release obligatoire), tests de fumée (`smoke-test.mjs`, `mpv-test.mjs`), rendu de l'intro (`render_intro.py`, `intro_audio.py`), `report-relay/` (Cloudflare Worker de « Report a problem »), `profile-sync/` (Cloudflare Worker + D1 de la synchronisation des profils, avec `test.mjs` qui le fait tourner sur `node:sqlite`).
 - `install.sh` / `install.ps1` : installeurs du plugin pour Stremio Enhanced.
 - `.github/workflows/` : builds de release (`app.yml`, `tv.yml`), tests (`cross-platform.yml`, `mpv-windows.yml`), annonce Discord.
 
@@ -250,6 +250,12 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
     - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
     - Back de la couche TV : `closePreview` ferme le clavier, recule dans « Qui regarde ? », et ne ferme jamais l'écran verrouillé.
     - Les codes sont une barrière familiale, pas une sécurité (tout est dans le stockage de l'appareil).
+  - **Synchronisation des profils** (`cloudSync`, juste après `store` ; Worker `tools/profile-sync`, adresse `SYNC_ENDPOINT`) :
+    - clés `SYNCED` : `viewers`, `libraryOwners`, `kidsAllow`, `parentPin`, `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`. Jamais les caches ni les réglages de l'appareil ;
+    - `store.set` → `cloudSync.changed()` ; `store.put()` écrit une entrée reçue sans la renvoyer ;
+    - fusion : la plus récente gagne. Pour `viewers`, le profil courant reste celui de l'appareil. Pour `stats:*`, le maximum de chaque compteur ;
+    - identité : `profile.auth.key` envoyée au Worker (`Authorization: Stremio <clé>`). Le Worker la vérifie avec `getUser` de l'API Stremio et ne la garde jamais ;
+    - un autre compte sur l'appareil : ses profils remplacent ceux du précédent (`nathflix.syncAccount`).
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
@@ -318,6 +324,7 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
   - `@updateUrl` du plugin et du thème (branche `main`) ;
   - les installeurs `install.sh` / `install.ps1`.
 - **Renommer le dépôt plus tard** : remplacer `lavagnou/dxbi-stremio-android` partout (`git grep -l "lavagnou/dxbi-stremio-android"`), ainsi que `"repo": "dxbi-stremio-android"` dans `app/package.json`. Garder les liens vers `notdxbi/dxbi-stremio` : ce sont des attributions à dx.bi.
+- **Synchronisation des profils** : `SYNC_ENDPOINT` est vide tant que l'utilisateur n'a pas déployé `tools/profile-sync` (guide dans son README). Vide, rien n'est synchronisé et le réglage `profileSync` n'apparaît pas.
 - **Rapports de problème** : `REPORT_ENDPOINT` est vide, donc « Report a problem » est masqué (`report.enabled`, vérifié aussi par `nathflix-tv.js`). Pour le réactiver, déployer `tools/report-relay` (Worker Cloudflare et webhook Discord) et mettre son adresse `/report` dans `REPORT_ENDPOINT`.
 - **Statut Discord (desktop)** : `DISCORD.CLIENT_ID` est vide dans `app/src/constants/index.ts`, donc le statut ne démarre pas et son interrupteur est masqué. Pour l'activer, y mettre l'Application ID d'une application Discord « Nathflix ».
 - **Pas encore renommés (images)** : l'intro (`res/raw/intro.mp4`, `introVideoData()` du plugin), les icônes (`app/images/`, `tv/app/src/main/res/mipmap-*`, `drawable/banner.png`) et les captures d'écran montrent encore le logo DX.BI. À refaire avec le nouveau logo ; `tools/render_intro.py` a déjà `TEXT = "NATHFLIX"`.
