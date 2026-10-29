@@ -591,7 +591,7 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 **Notes de release (session cloud)**
 - **Pousser un tag est refusé** (403 du proxy git : seule la branche de travail est autorisée). `release.yml` peut donc aussi être lancé à la main avec `version`, et pose alors lui-même le tag.
 - **Enregistrement du workflow.** GitHub ne permet de lancer un workflow à la main que s'il a déjà tourné une fois ou s'il est sur la branche par défaut. `release.yml` tourne donc aussi, sans rien faire, quand on le modifie sur une branche.
-- **Incident avec le `dev`.** Un `android-dev.yml` lancé à la main via l'API a échoué à recréer la pré-release `dev` (« Resource not accessible by integration ») après l'avoir supprimée. Elle a été restaurée en relançant le dernier run déclenché par un push. Pour le `dev`, ne relancer que des runs de push.
+- **Incident avec le `dev`.** Sur le commit 0.2.0 (`5c8325e`), `android-dev.yml` a supprimé la pré-release `dev`, puis n'a pas pu la recréer (« HTTP 403: Resource not accessible by integration »). C'est arrivé deux fois : lancé à la main, puis en relançant le run de push. Cause non élucidée. Un nouveau lancement à la main sur `00920e6` l'a recréée (run 40803834195). Si le problème revient, relancer le workflow sur le dernier commit de la branche.
 
 **Livraison**
 - Commits : « Android: sound for Dolby, DTS and TrueHD tracks… », « 0.2.0… »
