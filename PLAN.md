@@ -64,7 +64,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
-| T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | Bloqué | P0 | tv, ci | T-006 | 2026-10-29 |
+| T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | À valider | P0 | tv, ci | T-006 | 2026-10-29 |
 | T-008 | Réglages par défaut (UI et audio en français, sans sous-titres, épisodes floutés) ; plus de fenêtre d'addons au démarrage | À valider | P1 | plugin | — | 2026-10-29 |
 | T-009 | Tout en français (et en anglais), selon la langue de l'interface | À valider | P1 | plugin, tv | — | 2026-10-29 |
 | T-010 | Accueil : Continuer de regarder avant Airing, puces, 3 points et appui long sur les cartes | À valider | P1 | plugin | — | 2026-10-29 |
@@ -85,7 +85,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
 | T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | Fait | P1 | release | — | 2026-10-29 |
 | T-027 | Profils synchronisés entre appareils via le compte Stremio (Worker + D1) | À valider | P1 | plugin, tools | T-022 | 2026-10-29 |
-| T-028 | Release 0.4.0 (synchro des profils, première APK signée) | En cours | P1 | release, tv, plugin | T-027 | 2026-10-29 |
+| T-028 | Release 0.4.0 (synchro des profils, première APK signée) | Terminé | P1 | release, tv, plugin | T-027 | 2026-10-29 |
 
 ---
 
@@ -570,7 +570,7 @@ Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app An
 
 ### T-007 — Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0
 
-- **Statut :** Bloqué (l'APK de la release attend la clé de signature de l'utilisateur)
+- **Statut :** À valider (le son sur l'appareil ; l'APK signée existe depuis la release 0.4.0, T-028)
 - **Priorité :** P0
 - **Cible :** tv, ci
 - **Dépend de :** T-006
@@ -589,7 +589,7 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - [x] Le panneau Audio et sous-titres montre aussi les pistes non lisibles (grisées, avec la raison) et le format de chaque piste
 - [x] Workflow de release (`release.yml`) : tag → release avec notes du CHANGELOG, plugin, installeurs, APK et apps desktop
 - [x] Release 0.2.0 publiée : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.2.0 (plugin, installeurs, apps Windows, Mac et Linux)
-- [ ] `nathflix-tv.apk` dans la release : il faut les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD`, puis relancer « TV app » avec `tag = v0.2.0`
+- [x] `nathflix-tv.apk` signée : secrets ajoutés le 2026-10-29, première APK dans la release v0.4.0 (T-028). L'utilisateur n'a pas voulu en joindre aux releases précédentes.
 - [ ] Son vérifié sur l'épisode de l'utilisateur (APK de test `nathflix-dev.apk`, qui contient le correctif, en attendant)
 
 **Notes techniques**
@@ -1338,7 +1338,10 @@ Choix de l'utilisateur :
 - [x] Indicateur dans Réglages, sous Profils.
 - [x] Guide Cloudflare (`tools/profile-sync/README.md`).
 - [x] Worker déployé et `SYNC_ENDPOINT` rempli : `https://nathflix-profiles.profile-sync.workers.dev/sync`
-- [ ] Vérifié sur les appareils
+- [ ] Vérifié sur les appareils (APK de la release 0.4.0) :
+  - deux appareils connectés au même compte Stremio ;
+  - un profil modifié sur l'un apparaît sur l'autre après retour au premier plan ;
+  - Réglages → Profils : « Profils synchronisés avec votre compte Stremio ».
 
 **Notes techniques**
 - **Worker** :
@@ -1395,7 +1398,7 @@ Choix de l'utilisateur :
 
 ### T-028 — Release 0.4.0 (synchro des profils, première APK signée)
 
-- **Statut :** En cours (2026-10-29, `main`)
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-027
@@ -1412,14 +1415,25 @@ Réponses ensuite :
 
 **Critères d'acceptation**
 - [x] `@version 0.4.0`, section `## 0.4.0` du CHANGELOG, `node tools/bundle-theme.mjs` (PLUGIN_VERSION, `app/version`, `app/package.json`)
-- [ ] Release v0.4.0 publiée : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
-- [ ] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`), pas par `nathflix-dev`
+- [x] Release v0.4.0 publiée : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [x] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`), pas par `nathflix-dev`
 
 **Notes techniques**
 - Première release avec les secrets de signature : `tv.yml` construit enfin `nathflix-tv.apk`.
+- L'APK n'a pas de signature v1 (minSdk 24 : v2 seulement). `keytool -printcert -jarfile` répond donc « Not a signed jar file » : vérifier avec `apksigner verify --print-certs`.
+- Empreinte SHA-256 du certificat de release : `22:AD:17:73:69:FE:F8:DC:9A:50:ED:01:C1:9C:3C:F1:71:4C:79:BC:6A:88:B3:C7:2E:D8:A4:60:77:FE:96:2B`. Toute APK de release doit avoir celle-ci, sinon Android refuse la mise à jour.
 
 **Vérification**
-- À remplir après la release.
+- CI de `f681811` (SYNC_ENDPOINT) verte avant la release : Cross-platform, mpv Windows, Android.
+- Tag `v0.4.0` poussé sur `b52b264` ; run « Release » 40967283302 vert : publish, android / apk, desktop ×5.
+- `gh release view v0.4.0` : 11 fichiers, exactement ceux attendus, sans plugin ni installeurs.
+- `apksigner verify -v --print-certs nathflix-tv.apk` : « Verifies », v2, `CN=Nathflix, O=lavagnou`, RSA 4096, SHA-256 identique à la clé.
+- `aapt2 dump badging` : `com.lavagnou.nathflix`, versionCode 400, versionName 0.4.0, ABI arm64-v8a et armeabi-v7a. Le plugin embarqué est en 0.4.0, avec l'adresse du Worker.
+
+**Livraison**
+- Commits : `f681811` (Worker branché), `b52b264` (0.4.0)
+- Version / CHANGELOG : 0.4.0
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.4.0
 
 <!--
 ### T-000 — Titre court
@@ -1500,6 +1514,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-028 | Fait : release v0.4.0 publiée avec la première APK signée (certificat vérifié) ; T-007 débloquée (reste le son à vérifier sur l'appareil) |
 | 2026-10-29 | T-028 | Créée : release 0.4.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-29 | T-027 | Worker déployé (`nathflix-profiles.profile-sync.workers.dev`), `SYNC_ENDPOINT` rempli ; CORS et 401 vérifiés en ligne. À valider sur deux appareils |
 | 2026-10-29 | T-007 | Clé de signature Android de release créée (alias `nathflix-tv`, RSA 4096, PKCS12), gardée par l'utilisateur hors du dépôt (sauvegarde à faire de son côté). Secrets GitHub `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` ajoutés : `tv.yml` peut construire l'APK signée |
