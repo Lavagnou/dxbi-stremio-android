@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 - **Profiles on every device.** Your Nathflix profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account: no other account to make. Changes go a few seconds after you make them; what other devices changed arrives when Nathflix starts or comes back to the front; offline, everything carries on and is sent later. Each device keeps its own profile picked, and stats from two devices are merged without losing time watched. It can be switched off in Nathflix settings → Home. Settings show whether the profiles are synced, and when they last were.
 
 ## 0.3.0

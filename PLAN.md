@@ -85,6 +85,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
 | T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | Fait | P1 | release | — | 2026-10-29 |
 | T-027 | Profils synchronisés entre appareils via le compte Stremio (Worker + D1) | À valider | P1 | plugin, tools | T-022 | 2026-10-29 |
+| T-028 | Release 0.4.0 (synchro des profils, première APK signée) | En cours | P1 | release, tv, plugin | T-027 | 2026-10-29 |
 
 ---
 
@@ -1367,7 +1368,7 @@ Choix de l'utilisateur :
 - **Déploiement** (compte Cloudflare de l'utilisateur) :
   - Worker `nathflix-profiles`, base D1 `nathflix-profiles` (`database_id` dans `wrangler.toml`), schéma appliqué avec `--remote` ;
   - sous-domaine `workers.dev` du compte : `profile-sync`, pris tout seul par wrangler au premier `deploy`. L'API refuse de le changer ensuite ; l'utilisateur l'a gardé ;
-  - Cloudflare Access bloquait d'abord tout (page 403 « Default-Deny policy », même sur `OPTIONS`). L'utilisateur a ouvert l'accès au Worker dans le tableau de bord ;
+  - Cloudflare Access bloquait d'abord tout (page 403 « Default-Deny policy », même sur `OPTIONS`). L'utilisateur a ajouté une règle Bypass pour tout le monde, sur l'adresse du Worker seulement ;
   - les deux pièges sont notés dans `tools/profile-sync/README.md`.
 
 **Vérification**
@@ -1391,6 +1392,34 @@ Choix de l'utilisateur :
   - `POST` sans `Authorization` → 401 ; avec une fausse clé → 401 (Stremio interrogé) ;
   - `node tools/profile-sync/test.mjs` repassé, `node --check` du plugin.
 - Pas vérifié : un `POST` avec une vraie clé (la commande `!` ne permet pas de la saisir sans l'écrire quelque part), ni l'indicateur des Réglages dans un navigateur (Playwright pas installé, et il faudrait un compte connecté). Les deux se vérifient sur les appareils.
+
+### T-028 — Release 0.4.0 (synchro des profils, première APK signée)
+
+- **Statut :** En cours (2026-10-29, `main`)
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-027
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `main`
+
+**Demande**
+> Release : demande-moi le numéro. Je propose 0.4.0 (nouvelle fonction : la synchro des profils). […] android, qui doit maintenant construire nathflix-tv.apk.
+
+Réponses ensuite :
+- version 0.4.0 ;
+- pas d'APK ajoutée après coup à v0.3.0.
+
+**Critères d'acceptation**
+- [x] `@version 0.4.0`, section `## 0.4.0` du CHANGELOG, `node tools/bundle-theme.mjs` (PLUGIN_VERSION, `app/version`, `app/package.json`)
+- [ ] Release v0.4.0 publiée : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [ ] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`), pas par `nathflix-dev`
+
+**Notes techniques**
+- Première release avec les secrets de signature : `tv.yml` construit enfin `nathflix-tv.apk`.
+
+**Vérification**
+- À remplir après la release.
 
 <!--
 ### T-000 — Titre court
@@ -1471,6 +1500,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-028 | Créée : release 0.4.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-29 | T-027 | Worker déployé (`nathflix-profiles.profile-sync.workers.dev`), `SYNC_ENDPOINT` rempli ; CORS et 401 vérifiés en ligne. À valider sur deux appareils |
 | 2026-10-29 | T-007 | Clé de signature Android de release créée (alias `nathflix-tv`, RSA 4096, PKCS12), gardée par l'utilisateur hors du dépôt (sauvegarde à faire de son côté). Secrets GitHub `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` ajoutés : `tv.yml` peut construire l'APK signée |
 | 2026-10-29 | T-027 | Créée et implémentée : Worker `tools/profile-sync` (D1), `cloudSync` dans le plugin, guide Cloudflare ; testée (Worker seul, deux appareils Playwright). En attente du déploiement |
