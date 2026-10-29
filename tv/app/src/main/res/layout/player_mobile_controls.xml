@@ -1,0 +1,304 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The player's controls on a phone or tablet, laid out like Netflix's app: back and title at the
+     top, -10 s / play / +10 s in the middle, the seek bar and a row of buttons at the bottom. Built
+     in MobilePlayerControls; a TV keeps Media3's own controls. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Taps, double taps and slides land here (whatever the controls don't take) -->
+    <View
+        android:id="@+id/mc_gestures"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <FrameLayout
+        android:id="@+id/mc_controls"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:layout_gravity="top"
+            android:background="@drawable/mc_scrim_top" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="170dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/mc_scrim_bottom" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="top"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingTop="8dp"
+            android:paddingEnd="16dp">
+
+            <ImageButton
+                android:id="@+id/mc_back"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:src="@drawable/ic_arrow_back" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/mc_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/mc_subtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <ImageButton
+                android:id="@+id/mc_pip"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Picture in picture"
+                android:src="@drawable/ic_pip" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <FrameLayout
+                android:id="@+id/mc_rewind"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back 10 seconds">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_replay" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="3dp"
+                    android:text="10"
+                    android:textColor="@android:color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+
+            <ImageButton
+                android:id="@+id/mc_play"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginStart="56dp"
+                android:layout_marginEnd="56dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Play or pause"
+                android:scaleType="fitCenter"
+                android:padding="8dp"
+                android:src="@drawable/ic_pause" />
+
+            <FrameLayout
+                android:id="@+id/mc_forward"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Forward 10 seconds">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_forward" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_marginTop="3dp"
+                    android:text="10"
+                    android:textColor="@android:color/white"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:orientation="vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <androidx.media3.ui.DefaultTimeBar
+                    android:id="@+id/mc_timebar"
+                    android:layout_width="0dp"
+                    android:layout_height="32dp"
+                    android:layout_weight="1"
+                    app:bar_height="3dp"
+                    app:buffered_color="#66FFFFFF"
+                    app:played_color="@color/accent"
+                    app:scrubber_color="@color/accent"
+                    app:scrubber_dragged_size="20dp"
+                    app:scrubber_enabled_size="14dp"
+                    app:unplayed_color="#33FFFFFF" />
+
+                <TextView
+                    android:id="@+id/mc_remaining"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:fontFeatureSettings="tnum"
+                    android:textColor="@android:color/white"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/mc_buttons"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:orientation="horizontal">
+
+                <TextView android:id="@+id/mc_speed" style="@style/Nathflix.PlayerButton" android:drawableStart="@drawable/ic_speed" android:text="Speed" />
+                <TextView android:id="@+id/mc_lock" style="@style/Nathflix.PlayerButton" android:drawableStart="@drawable/ic_lock_open" android:text="Lock" />
+                <TextView android:id="@+id/mc_episodes" style="@style/Nathflix.PlayerButton" android:drawableStart="@drawable/ic_episodes" android:text="Episodes" />
+                <TextView android:id="@+id/mc_audio" style="@style/Nathflix.PlayerButton" android:drawableStart="@drawable/ic_subtitles" android:text="Audio &amp; Subtitles" />
+                <TextView android:id="@+id/mc_next" style="@style/Nathflix.PlayerButton" android:drawableStart="@drawable/ic_skip_next" android:text="Next Episode" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- Locked: only this, until it's tapped -->
+    <TextView
+        android:id="@+id/mc_unlock"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="32dp"
+        android:background="@drawable/mc_pill"
+        android:drawableStart="@drawable/ic_lock"
+        android:drawablePadding="10dp"
+        android:gravity="center_vertical"
+        android:paddingStart="18dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="10dp"
+        android:text="Screen locked · tap to unlock"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:visibility="gone" />
+
+    <!-- Double tap feedback: -10 s on the left, +10 s on the right -->
+    <TextView
+        android:id="@+id/mc_tap_back"
+        style="@style/Nathflix.PlayerBubble"
+        android:layout_gravity="start|center_vertical"
+        android:layout_marginStart="56dp" />
+
+    <TextView
+        android:id="@+id/mc_tap_forward"
+        style="@style/Nathflix.PlayerBubble"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="56dp" />
+
+    <!-- Brightness (slide on the left) and volume (slide on the right) -->
+    <LinearLayout
+        android:id="@+id/mc_level"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="40dp"
+        android:background="@drawable/mc_pill"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="16dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="18dp"
+        android:paddingBottom="10dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/mc_level_icon"
+            android:layout_width="22dp"
+            android:layout_height="22dp" />
+
+        <ProgressBar
+            android:id="@+id/mc_level_bar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="140dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:max="100"
+            android:progressTint="@android:color/white" />
+    </LinearLayout>
+
+    <!-- Speed, Audio & Subtitles and Episodes open over the picture, filled in by MobilePlayerControls -->
+    <FrameLayout
+        android:id="@+id/mc_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#E6000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone">
+
+        <ImageButton
+            android:id="@+id/mc_panel_close"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="8dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Close"
+            android:src="@drawable/ic_close" />
+
+        <LinearLayout
+            android:id="@+id/mc_panel_body"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="56dp"
+            android:orientation="horizontal"
+            android:paddingStart="32dp"
+            android:paddingEnd="8dp" />
+    </FrameLayout>
+</FrameLayout>

@@ -115,6 +115,10 @@
     skipButtons: true,
     autoSkip: "off",
     pip: true,
+    // phones and tablets (Nathflix for Android)
+    mobilePip: true,
+    backgroundPlay: true,
+    autoNext: true,
     subtitleStyle: "stremio",
     subtitleFont: "default",
     subtitlesStart: "off",
@@ -362,6 +366,9 @@
     { key: "playerKeys", type: "toggle", label: "Extra keyboard shortcuts", description: "0–9 jump to 0–90% of the video, and ? shows every shortcut.", defaultValue: DEFAULTS.playerKeys },
     { key: "watchStats", type: "toggle", label: "Watch stats", description: "Counts how long you watch (on this PC only). See them under your profile menu → Your stats.", defaultValue: DEFAULTS.watchStats },
     { key: "whoIsWatching", type: "toggle", label: "Who's watching?", description: "With more than one viewer, choose who's watching at start. Each viewer has their own library, stats, volume and party name.", defaultValue: DEFAULTS.whoIsWatching },
+    { key: "mobilePip", type: "toggle", label: "Picture-in-picture", description: "Leaving Nathflix while a video plays keeps it going in a small window over your other apps.", defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
+    { key: "backgroundPlay", type: "toggle", label: "Keep playing in the background", description: "The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification.", defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
+    { key: "autoNext", type: "toggle", label: "Play the next episode automatically", description: "When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams).", defaultValue: DEFAULTS.autoNext, mobileOnly: true },
     { key: "pip", type: "toggle", label: "Picture-in-picture button", description: "Keep watching in a small floating window while you use other apps. In the Nathflix app it also keeps playing while you browse Nathflix.", defaultValue: DEFAULTS.pip },
     { key: "addonTools", type: "toggle", label: "Addon order & backup", description: "Adds a button to the Addons page to reorder your addons (the order streams and catalogs appear in) and to back them up or restore them.", defaultValue: DEFAULTS.addonTools },
     { key: "externalPlayer", type: "toggle", label: "Open in mpv / VLC button", description: "Adds a button to the player that hands the stream to mpv or VLC (only shown when one is installed). Handy when a file stutters or won't play here: they handle more formats and are lighter on slower PCs.", defaultValue: DEFAULTS.externalPlayer },
@@ -395,9 +402,9 @@
     ["Home", ["videoRowsOnly", "billboard", "billboardSource", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching"]],
     ["Hover cards & trailers", ["previews", "trailers", "trailerDelay"]],
     ["Browsing & library", ["watchedTitles", "librarySort", "streamTools", "addonTools", "watchStats", "reviews", "tmdbKey", "mdblistKey"]],
-    ["Player", ["tvTorrents", "playerExtras", "remainingTime", "seekPreviews", "enhance", "pictureSound", "streamStats", "rememberPlayback", "playerKeys", "pip", "externalPlayer", "convertVideo"]],
+    ["Player", ["tvTorrents", "mobilePip", "backgroundPlay", "playerExtras", "remainingTime", "seekPreviews", "enhance", "pictureSound", "streamStats", "rememberPlayback", "playerKeys", "pip", "externalPlayer", "convertVideo"]],
     ["Subtitles", ["subtitleStyle", "subtitleFont", "subtitlesStart", "hdrSubtitles"]],
-    ["Episodes & skipping", ["skipButtons", "autoSkip", "upNext", "preloadNext", "fillerGuide", "skipFiller"]],
+    ["Episodes & skipping", ["skipButtons", "autoSkip", "autoNext", "upNext", "preloadNext", "fillerGuide", "skipFiller"]],
     ["Watch party", ["watchParty", "partyFollow", "partyActivity", "partySounds"]],
     ["Intro & sounds", ["splash", "introSound", "uiSounds", "soundVolume"]],
   ];
@@ -437,7 +444,7 @@
       await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY);
     } catch (_) { /* nothing registered yet */ }
     // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
-    Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly)))).catch(() => { /* already registered */ });
+    Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly)))).catch(() => { /* already registered */ });
     const values = await Promise.all(
       Object.keys(DEFAULTS).map((key) => API.getSetting(key).then((v) => [key, v]).catch(() => [key, null]))
     );

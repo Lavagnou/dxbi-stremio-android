@@ -586,7 +586,10 @@
       : [];
     if (location.hash !== hash) { handoff = null; return; }
     handoff = { hash, videoId, started: Date.now() };
+    // Phones and tablets: the player's Episodes and Next episode, and how it behaves when you leave
+    const mobile = PHONE ? mobilePlayback(state, meta, video, metaPath) : {};
     native.play(JSON.stringify({
+      ...mobile,
       hash,
       videoId,
       skips,
@@ -613,6 +616,39 @@
     }));
   }
 
+  // Episodes and Next episode for the phone and tablet player: where the page goes for each (the
+  // player hands the route back as it closes). The next episode's player when Stremio already knows
+  // its stream (same release), otherwise its list of streams, like Stremio's own "play next"
+  function mobilePlayback(state, meta, video, metaPath) {
+    const type = meta.type || (metaPath && metaPath.type) || "series";
+    const metaId = meta.id || (metaPath && metaPath.id) || "";
+    const streamsOf = (id) => `#/detail/${encodeURIComponent(type)}/${encodeURIComponent(metaId)}/${encodeURIComponent(id)}`;
+    const label = (v) => (v.season != null ? `S${v.season} E${v.episode}` : "") + (v.title || v.name ? ` · ${v.title || v.name}` : "");
+    const out = {};
+    if (video && video.season != null && metaId) {
+      out.episodes = (meta.videos || [])
+        .filter((v) => v && v.season === video.season)
+        .sort((a, b) => (a.episode || 0) - (b.episode || 0))
+        .slice(0, 80)
+        .map((v) => ({ route: streamsOf(v.id), episode: v.episode || 0, title: v.title || v.name || "", overview: String(v.overview || v.description || "").slice(0, 160), current: v.id === video.id }));
+    }
+    const next = state.nextVideo;
+    if (next && next.id && metaId) {
+      const player = next.deepLinks && next.deepLinks.player;
+      out.next = { label: label(next).replace(/^ · /, ""), route: player ? "#" + String(player).replace(/^#/, "") : streamsOf(next.id) };
+    }
+    const own = readSettings(PLUGIN.replace(/\.plugin\.js$/, ""));
+    out.mobile = { pip: own.mobilePip !== false, background: own.backgroundPlay !== false, autoNext: own.autoNext !== false };
+    return out;
+  }
+
+  // Goes somewhere in place of the current page (the player's), so Back from there doesn't land on a
+  // player that has closed
+  function replaceRoute(hash) {
+    history.replaceState(history.state, "", hash);
+    window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+  }
+
   // The native player reports where it is every few seconds, and once more when it closes
   tv.onProgress = (timeMs, durationMs, paused) => {
     if (!handoff || !/^#\/player\//.test(location.hash)) return;
@@ -621,12 +657,14 @@
     dispatch({ action: "Player", args: { action: "PausedChanged", args: { paused: !!paused } } });
   };
 
-  function closeHandoff(timeMs, durationMs, ended, error) {
+  // playRoute: the player went on to another episode (Next episode, or one picked in Episodes)
+  function closeHandoff(timeMs, durationMs, ended, error, playRoute) {
     if (handoff && /^#\/player\//.test(location.hash)) {
       if (timeMs > 0) tv.onProgress(timeMs, durationMs, true);
       if (ended) dispatch({ action: "Player", args: { action: "Ended" } });
       handoff = null;
-      history.back();
+      if (playRoute && /^#\/(player|detail)\//.test(playRoute)) replaceRoute(playRoute);
+      else history.back();
     } else {
       handoff = null;
     }
@@ -641,7 +679,7 @@
     if (!raw) return;
     try {
       const c = JSON.parse(raw);
-      closeHandoff(c.timeMs, c.durationMs, c.ended, c.error);
+      closeHandoff(c.timeMs, c.durationMs, c.ended, c.error, c.playRoute);
     } catch (err) {
       console.warn("[Nathflix TV] couldn't read how the player closed", err);
     }
@@ -671,7 +709,7 @@
     silenceWebPlayer();
     resuming = false;
     if (closed) {
-      closeHandoff(info.timeMs, info.durationMs, info.ended, info.error);
+      closeHandoff(info.timeMs, info.durationMs, info.ended, info.error, info.playRoute);
     } else {
       tv.playerClosed(); // it may have closed while we waited
     }

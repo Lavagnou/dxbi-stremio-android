@@ -1,18 +1,32 @@
 package com.lavagnou.nathflix
 
+import android.Manifest
+import android.app.PendingIntent
+import android.app.PictureInPictureParams
+import android.content.ComponentName
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Rational
 import android.view.KeyEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -20,10 +34,12 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
@@ -31,15 +47,23 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.session.MediaController
+import androidx.media3.session.MediaSession
+import androidx.media3.session.SessionToken
 import androidx.media3.ui.SubtitleView
+import androidx.lifecycle.Lifecycle
+import com.google.common.util.concurrent.ListenableFuture
 import okhttp3.OkHttpClient
 import org.json.JSONObject
+import java.lang.ref.WeakReference
 import java.util.concurrent.TimeUnit
 
 /**
  * The native player: plays the stream Stremio picked (MKV, HEVC, HDR and surround sound included,
- * as far as the TV's hardware can), with the addons' subtitles. Reports its position back so the
- * watch progress is kept.
+ * as far as the device's hardware can), with the addons' subtitles. Reports its position back so the
+ * watch progress is kept. A TV gets Media3's controls, steered with the remote; a phone or tablet
+ * gets Netflix-like touch controls ([MobilePlayerControls]), picture-in-picture, Next episode and
+ * playback that carries on in the background ([PlaybackService]).
  */
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -52,6 +76,19 @@ class PlayerActivity : AppCompatActivity() {
     private var closed = false
     private var lastError: String? = null
     private var lastText: List<String?> = emptyList()
+
+    // Phones and tablets
+    private val mobile by lazy { Device.isMobile(this) }
+    private var controls: MobilePlayerControls? = null
+    private var session: MediaSession? = null
+    private var controller: ListenableFuture<MediaController>? = null
+    private var pipWanted = false
+    private var background = false
+    private var autoNext = false
+    // Where the page goes for the next episode (its player, or its list of streams), and whether
+    // Next episode has taken the skip button's place
+    private var nextRoute: String? = null
+    private var nextShowing = false
 
     private val reportProgress = object : Runnable {
         override fun run() {
@@ -107,9 +144,19 @@ class PlayerActivity : AppCompatActivity() {
         titleBar = findViewById(R.id.title_bar)
         seekFlash = findViewById(R.id.seek_flash)
         skipButton = findViewById(R.id.skip_button)
-        skipButton.setOnClickListener { doSkip() }
+        skipButton.setOnClickListener { if (nextShowing) playNext() else doSkip() }
+
+        // A film still playing in picture-in-picture gives way to the new one
+        current?.get()?.takeIf { it !== this }?.closeQuietly()
+        current = WeakReference(this)
 
         val stream = JSONObject(intent.getStringExtra(EXTRA_STREAM) ?: "{}")
+        val options = stream.optJSONObject("mobile")
+        pipWanted = mobile && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (options?.optBoolean("pip", true) ?: true) &&
+            packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+        background = mobile && (options?.optBoolean("background", true) ?: true)
+        autoNext = options?.optBoolean("autoNext", true) ?: true
+        nextRoute = stream.optJSONObject("next")?.optString("route")?.ifEmpty { null }
         segments = stream.optJSONArray("skips")?.let { list ->
             (0 until list.length()).mapNotNull { i ->
                 val o = list.optJSONObject(i) ?: return@mapNotNull null
@@ -163,14 +210,18 @@ class PlayerActivity : AppCompatActivity() {
             .build()
         player = exo
         playerView.player = exo
-        // Animated, the controls never fully go: they shrink to a thin bar, and the title (which
-        // follows them) stayed on screen over the film
-        playerView.setControllerAnimationEnabled(false)
-        playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
-            titleBar.visibility = visibility
-            // The remote starts on play/pause, and the arrows move between the controls from there
-            if (visibility == View.VISIBLE) playerView.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.requestFocus()
-        })
+        if (mobile) {
+            setUpMobile(stream, exo)
+        } else {
+            // Animated, the controls never fully go: they shrink to a thin bar, and the title (which
+            // follows them) stayed on screen over the film
+            playerView.setControllerAnimationEnabled(false)
+            playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
+                titleBar.visibility = visibility
+                // The remote starts on play/pause, and the arrows move between the controls from there
+                if (visibility == View.VISIBLE) playerView.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.requestFocus()
+            })
+        }
 
         // Subtitles start off, like Netflix (and Nathflix's default): pick one from the subtitles button.
         // Files with several audio tracks (dual-audio releases) start in Stremio's audio language
@@ -197,14 +248,24 @@ class PlayerActivity : AppCompatActivity() {
             }
         }
 
+        // (what the notification and the lock screen show while it plays in the background)
+        val about = MediaMetadata.Builder()
+            .setTitle(stream.optString("title"))
+            .setArtist(stream.optString("subtitle").ifEmpty { null })
+            .apply { stream.optString("background").takeIf { it.startsWith("http") }?.let { setArtworkUri(Uri.parse(it)) } }
+            .build()
         val item = MediaItem.Builder()
             .setUri(Uri.parse(url))
             .setSubtitleConfigurations(subtitles)
+            .setMediaMetadata(about)
             .build()
         exo.setMediaItem(item, stream.optLong("startMs", 0L).coerceAtLeast(0L))
         exo.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_ENDED) finishWith(ended = true)
+                if (state != Player.STATE_ENDED) return
+                // Phones and tablets go on to the next episode, like Netflix (unless Up next is off)
+                val next = nextRoute
+                if (mobile && autoNext && next != null) finishWith(ended = true, playRoute = next) else finishWith(ended = true)
             }
 
             // A subtitle switched on mid-line only shows from its next line: a seek to where we are
@@ -223,12 +284,16 @@ class PlayerActivity : AppCompatActivity() {
         exo.prepare()
         exo.playWhenReady = true
         handler.postDelayed(reportProgress, PROGRESS_INTERVAL_MS)
-        if (segments.isNotEmpty()) handler.postDelayed(checkSkip, 500)
+        if (segments.isNotEmpty() || (mobile && nextRoute != null)) handler.postDelayed(checkSkip, 500)
         if (torrent) handler.post(torrentStatus)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            // Back leaves the player straight away, like Netflix (the position is kept)
-            override fun handleOnBackPressed() = finishWith()
+            // Back leaves the player straight away, like Netflix (the position is kept); on a phone it
+            // first closes an open panel (Speed, Audio & Subtitles, Episodes)
+            override fun handleOnBackPressed() {
+                if (controls?.back() == true) return
+                finishWith()
+            }
         })
     }
 
@@ -282,6 +347,23 @@ class PlayerActivity : AppCompatActivity() {
             doSkip(seg)
             return
         }
+        // Phones and tablets: during the credits, or the last half minute, Next episode takes the
+        // skip button's place, like Netflix
+        val wantNext = mobile && nextRoute != null && (seg?.type == "credits" || (seg == null && duration - now < NEXT_WINDOW_MS))
+        if (wantNext) {
+            if (!nextShowing) {
+                nextShowing = true
+                showing = null
+                skipButton.text = "Next episode"
+                skipButton.visibility = View.VISIBLE
+            }
+            return
+        }
+        if (nextShowing) {
+            nextShowing = false
+            showing = null
+            skipButton.visibility = View.GONE
+        }
         if (seg == showing) return
         showing = seg
         if (seg == null) {
@@ -322,16 +404,148 @@ class PlayerActivity : AppCompatActivity() {
         PlaybackBus.listener?.onProgress(exo.currentPosition, duration, !exo.isPlaying)
     }
 
-    private fun finishWith(ended: Boolean = false, error: String? = null) {
+    /** Closes the player, keeping the progress; [playRoute]: where the page goes next (another episode) */
+    private fun finishWith(ended: Boolean = false, error: String? = null, playRoute: String? = null) {
         if (closed) return
         closed = true
         handler.removeCallbacksAndMessages(null)
         val exo = player
         val duration = exo?.duration?.takeIf { it != C.TIME_UNSET } ?: 0L
         val position = if (ended) duration else exo?.currentPosition ?: 0L
-        PlaybackBus.closed(position, duration, ended, error)
+        PlaybackBus.closed(position, duration, ended, error, playRoute)
         if (torrent) TorrentEngine.close()
         finish()
+    }
+
+    /** Another film started while this one played in picture-in-picture: it just goes */
+    private fun closeQuietly() {
+        if (closed) return
+        closed = true
+        handler.removeCallbacksAndMessages(null)
+        // released now, not when Android gets round to destroying it: the new player's session takes
+        // the same name, and only one at a time may have it
+        controls?.release()
+        releaseSession()
+        player?.release()
+        player = null
+        finish()
+    }
+
+    // ---- Phones and tablets
+
+    private fun setUpMobile(stream: JSONObject, exo: ExoPlayer) {
+        playerView.useController = false
+        titleBar.visibility = View.GONE
+        val episodes = stream.optJSONArray("episodes")?.let { list ->
+            (0 until list.length()).mapNotNull { i ->
+                val o = list.optJSONObject(i) ?: return@mapNotNull null
+                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optBoolean("current"))
+            }
+        } ?: emptyList()
+        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes,
+            stream.optJSONObject("next")?.optString("label")?.takeIf { nextRoute != null }, pipWanted)
+        // over the picture, under the skip button and the torrent's status
+        findViewById<FrameLayout>(R.id.player_root).addView(c.view, 1, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        controls = c
+
+        // Play/pause from headphones, the lock screen, the notification and the picture-in-picture window
+        val open = PendingIntent.getActivity(this, 0,
+            Intent(this, PlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val s = MediaSession.Builder(this, exo).setId("nathflix-player").setSessionActivity(open).build()
+        session = s
+        if (background) {
+            PlaybackService.session = s
+            controller = MediaController.Builder(this, SessionToken(this, ComponentName(this, PlaybackService::class.java))).buildAsync()
+            askForNotifications()
+        }
+        exo.addListener(object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) = updatePip()
+            override fun onVideoSizeChanged(videoSize: VideoSize) = updatePip()
+        })
+        updatePip()
+    }
+
+    fun leave() = finishWith()
+
+    fun playNext() {
+        nextRoute?.let { finishWith(playRoute = it) }
+    }
+
+    fun playEpisode(route: String) {
+        if (route.isNotEmpty()) finishWith(playRoute = route)
+    }
+
+    fun enterPip() {
+        if (!pipWanted || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            enterPictureInPictureMode(pipParams())
+        } catch (_: Exception) { /* not allowed right now */ }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun pipParams(): PictureInPictureParams {
+        val size = player?.videoSize
+        val shape = if (size != null && size.width > 0 && size.height > 0) size.width.toFloat() / size.height else 16f / 9
+        // Android takes shapes between 1:2.39 and 2.39:1 only
+        val ratio = Rational((shape.coerceIn(0.42f, 2.39f) * 1000).toInt(), 1000)
+        return PictureInPictureParams.Builder().setAspectRatio(ratio).apply {
+            // Android 12+: Home turns a playing film into the small window by itself
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setAutoEnterEnabled(player?.isPlaying == true)
+                setSeamlessResizeEnabled(false)
+            }
+        }.build()
+    }
+
+    private fun updatePip() {
+        if (!pipWanted || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            setPictureInPictureParams(pipParams())
+        } catch (_: Exception) { /* not allowed right now */ }
+    }
+
+    // Home (before Android 12, which does it by itself): a playing film goes on in a small window
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (pipWanted && Build.VERSION.SDK_INT < Build.VERSION_CODES.S && player?.isPlaying == true) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        controls?.setPip(isInPictureInPictureMode)
+        if (isInPictureInPictureMode) {
+            skipButton.visibility = View.GONE
+            showing = null
+            nextShowing = false
+        } else if (lifecycle.currentState == Lifecycle.State.CREATED) {
+            // the small window was closed (its ✕, or swiped away): the player closes, keeping the progress
+            finishWith()
+        }
+    }
+
+    // Opened again from the notification: it's the film already playing
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+    }
+
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        val prefs = getSharedPreferences("app", MODE_PRIVATE)
+        if (prefs.getBoolean("askedNotifications", false)) return
+        prefs.edit().putBoolean("askedNotifications", true).apply()
+        ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+    }
+
+    private fun releaseSession() {
+        controller?.let { MediaController.releaseFuture(it) }
+        controller = null
+        if (PlaybackService.session === session) PlaybackService.session = null
+        session?.release()
+        session = null
+        // (unless a new film has handed its session over already)
+        if (background && PlaybackService.session == null) stopService(Intent(this, PlaybackService::class.java))
     }
 
     // Back from another app (or the screen turning on): the bars that came up go away again
@@ -350,16 +564,27 @@ class PlayerActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        // Leaving the app (Home button) pauses, and the progress so far is kept
-        player?.pause()
+        // On a TV, leaving the app (Home button) pauses, and the progress so far is kept (a phone
+        // decides in onStop: picture-in-picture and playing in the background carry on)
+        if (!mobile) player?.pause()
         report()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Phones and tablets: with the screen off or Nathflix in the background, the film only goes on
+        // when that's switched on in Nathflix settings (its controls are then in the notification)
+        if (mobile && !closed && !isInPictureInPictureMode && !background) player?.pause()
     }
 
     override fun onDestroy() {
         if (!closed) finishWith()
         handler.removeCallbacksAndMessages(null)
+        controls?.release()
+        releaseSession()
         player?.release()
         player = null
+        if (current?.get() === this) current = null
         super.onDestroy()
     }
 
@@ -436,6 +661,9 @@ class PlayerActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_STREAM = "stream"
         private const val PROGRESS_INTERVAL_MS = 5000L
+        private const val NEXT_WINDOW_MS = 30_000L
+        // The player on screen (or in picture-in-picture), so a new film can close it
+        private var current: WeakReference<PlayerActivity>? = null
         private const val SEEK_STEP_MS = 10_000L
     }
 }
