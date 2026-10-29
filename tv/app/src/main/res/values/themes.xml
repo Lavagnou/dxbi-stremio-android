@@ -11,7 +11,7 @@
         <item name="android:selectableItemBackgroundBorderless">@drawable/player_focus</item>
     </style>
     <!-- The phone player's bottom row: icon then label, the row's width shared out -->
-    <style name="Nathflix.PlayerButton">
+    <style name="Nathflix.PlayerButton" parent="">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">48dp</item>
         <item name="android:layout_weight">1</item>
@@ -24,7 +24,7 @@
         <item name="android:textStyle">bold</item>
         <item name="android:background">@drawable/mc_option</item>
     </style>
-    <style name="Nathflix.PlayerBubble">
+    <style name="Nathflix.PlayerBubble" parent="">
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:background">@drawable/mc_pill</item>
