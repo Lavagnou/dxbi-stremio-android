@@ -1289,6 +1289,9 @@ Réponses ensuite :
 **Vérification**
 - `node --check`, `bash -n install.sh`, section `## 0.3.0` lue comme `release.yml` (30 lignes).
 - `main/install.sh` répond (200).
+- **CI de la PR** : `mpv-windows.yml` échouait depuis T-009 (`744fe52`) sur « embedded subtitles ».
+  - Cause : l'app de test démarre maintenant Stremio en français, donc le bouton est « Sous-titres ». `tools/mpv-test.mjs` le cherchait par son nom anglais (`data-dx-label="Subtitles"`).
+  - Correctif : il le cherche par son icône (`data-dx-icon="subtitles"`), et la piste sous « Track 1 » ou « Piste 1 ».
 
 <!--
 ### T-000 — Titre court
