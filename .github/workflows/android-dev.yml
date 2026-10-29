@@ -55,3 +55,9 @@ jobs:
           gh release create dev nathflix-dev.apk --prerelease --latest=false --target "$GITHUB_SHA" \
             --title "Nathflix Dev (test build)" \
             --notes "Test build of ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Installs next to Nathflix as \"Nathflix Dev\", and over the previous test build. Not offered as an update."
+
+      # The release build too (unsigned here): R8 shrinks it, and a class it strips by mistake (or a
+      # missing -dontwarn) only shows up there. Last, so a release-only problem never holds back the
+      # test build
+      - name: Release build (unsigned, checks R8)
+        run: ./gradlew assembleRelease --no-daemon

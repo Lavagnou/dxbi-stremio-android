@@ -33,7 +33,13 @@ Le reste du dépôt :
   2. ajouter une entrée en haut de `CHANGELOG.md` ;
   3. lancer `node tools/bundle-theme.mjs` ;
   4. commiter ;
-  5. publier une release GitHub avec un tag `vX.Y.Z` (les mises à jour le comparent à la version installée) et y joindre à la main `nathflix.plugin.js`, `install.sh` et `install.ps1`. Les workflows `app.yml` et `tv.yml` y ajoutent les apps desktop et `nathflix-tv.apk`.
+  5. pousser le tag : `git tag vX.Y.Z && git push origin vX.Y.Z`. Le workflow `release.yml` fait le reste :
+     - il vérifie que le tag correspond à `@version` et à une section `## X.Y.Z` du CHANGELOG ;
+     - il publie la release avec ces notes et une liste de téléchargements ;
+     - il y joint `nathflix.plugin.js`, `install.sh` et `install.ps1` ;
+     - il appelle `tv.yml` (APK signée) et `app.yml` (apps desktop).
+
+     Une release créée par le jeton du workflow ne déclenche pas l'événement `release` : d'où les appels `workflow_call`.
 - **Ne jamais modifier à la main** la chaîne du thème intégrée au plugin. Modifier `nathflix.theme.css`, puis relancer le script.
 
 ## Nathflix TV / Android (`tv/`)
@@ -42,7 +48,11 @@ Le reste du dépôt :
 
 - AGP 8.7.3, Kotlin 2.0.21, JDK 17 (toolchain), compile/target SDK 35, minSdk 24.
 - Package `com.lavagnou.nathflix`, un seul module `:app`.
-- Dépendances : androidx.webkit, Media3 1.5.1 (ExoPlayer, HLS, DASH, UI, OkHttp), OkHttp 4.12, libtorrent4j 2.1.0-39, NanoHTTPD 2.3.1.
+- Dépendances : androidx.webkit, Media3 1.5.1 (ExoPlayer, HLS, DASH, UI, OkHttp, Session), OkHttp 4.12, libtorrent4j 2.1.0-39, NanoHTTPD 2.3.1.
+- **Décodeur audio FFmpeg** : `org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1`, la build par Jellyfin de l'extension FFmpeg de Media3.
+  - Il décode en logiciel AC3, E-AC3, DTS, TrueHD, FLAC, Opus… quand le matériel ne sait pas, ce qui est le cas de la plupart des téléphones pour Dolby et DTS. Sans lui, ces épisodes se jouaient sans son.
+  - Le matériel passe toujours en premier (`EXTENSION_RENDERER_MODE_ON`).
+  - Sa version doit suivre celle de Media3 (même mineure).
 - Il n'y a pas de Compose ni de tests unitaires.
 
 ### Fichiers (`tv/app/src/main/java/com/lavagnou/nathflix/`)
@@ -229,7 +239,8 @@ cd tv && ./gradlew assembleDebug  # si tv/ a changé et que le SDK est disponibl
 Côté CI :
 - `cross-platform.yml` (push sur main et PR) installe le plugin et lance un vrai Stremio Enhanced sur Windows, macOS et Linux.
 - `mpv-windows.yml` se lance quand `app/` ou le plugin changent.
-- `android-dev.yml` compile l'app Android (debug) à chaque push touchant `tv/**` ou le plugin, et publie la pré-release `dev`.
+- `android-dev.yml` compile l'app Android (debug) à chaque push touchant `tv/**` ou le plugin, et publie la pré-release `dev`. Ensuite, il construit aussi la release non signée, pour vérifier R8 (minify).
+- `release.yml` : au push d'un tag `v*`, publie la release et lance `tv.yml` et `app.yml`.
 - `tv.yml` et `app.yml` ne tournent qu'à la publication d'une release (ou à la main).
 
 ## Conventions

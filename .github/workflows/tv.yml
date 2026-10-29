@@ -12,6 +12,13 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  # release.yml calls it with the tag it just published (a release made by the workflow's own token
+  # doesn't start the "release" event)
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -64,7 +71,7 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to the release
-        if: env.HAS_KEY == 'true' && github.event_name == 'release'
-        run: gh release upload "${{ github.event.release.tag_name }}" nathflix-tv.apk --clobber
+        if: env.HAS_KEY == 'true' && (github.event_name == 'release' || inputs.tag != '')
+        run: gh release upload "${{ inputs.tag || github.event.release.tag_name }}" nathflix-tv.apk --clobber
         env:
           GH_TOKEN: ${{ github.token }}

@@ -1,0 +1,58 @@
+name: Release
+
+# Pushing a version tag publishes that release:
+#   git tag v0.2.0 && git push origin v0.2.0
+# The tag must match @version in nathflix.plugin.js and a "## 0.2.0" section of CHANGELOG.md, which
+# becomes the release notes. The plugin and its installers are attached, then the Android app
+# (tv.yml: signed with the release key in the repository's secrets) and the desktop apps (app.yml)
+# are built and added to it.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          grep -q "@version $version\$" nathflix.plugin.js || { echo "::error::nathflix.plugin.js isn't @version $version"; exit 1; }
+          awk -v v="## $version" '$0 == v {on = 1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md has no \"## $version\" section"; exit 1; }
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME"
+          {
+            echo
+            echo "## Download"
+            echo
+            echo "- **Android** (phones, tablets, Android TV, Google TV, Fire TV): [nathflix-tv.apk]($base/nathflix-tv.apk)"
+            echo "- **Windows**: [installer]($base/nathflix-Setup-x64.exe) · [portable]($base/nathflix-portable-x64.exe)"
+            echo "- **Mac**: [Apple chip]($base/nathflix-mac-arm64.dmg) · [Intel]($base/nathflix-mac-x64.dmg)"
+            echo "- **Linux**: [x86_64]($base/nathflix-linux-x86_64.AppImage) · [ARM]($base/nathflix-linux-arm64.AppImage)"
+            echo "- **Stremio Enhanced plugin**: [nathflix.plugin.js]($base/nathflix.plugin.js)"
+          } >> notes.md
+          cat notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" nathflix.plugin.js install.sh install.ps1 --verify-tag --title "Nathflix ${GITHUB_REF_NAME#v}" --notes-file notes.md
+
+  android:
+    needs: publish
+    uses: ./.github/workflows/tv.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  desktop:
+    needs: publish
+    uses: ./.github/workflows/app.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

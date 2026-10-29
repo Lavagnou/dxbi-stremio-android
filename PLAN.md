@@ -64,6 +64,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
+| T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | En cours | P0 | tv, ci | T-006 | 2026-10-29 |
 
 ---
 
@@ -546,6 +547,42 @@ Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app An
 **Questions ouvertes**
 - —
 
+### T-007 — Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0
+
+- **Statut :** En cours
+- **Priorité :** P0
+- **Cible :** tv, ci
+- **Dépend de :** T-006
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> J'ai aucune piste audio de dispo quand je lis un épisode avec Nathflix, sur Streamio le même fichier marche bien. Corrige ça puis sort moi une nouvelle release.
+
+**Besoin**
+Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
+
+**Critères d'acceptation**
+- [x] Les pistes AC3, E-AC3, DTS et TrueHD se lisent même sans décodeur matériel (FFmpeg)
+- [x] Le panneau Audio et sous-titres montre aussi les pistes non lisibles (grisées, avec la raison) et le format de chaque piste
+- [x] Workflow de release (`release.yml`) : tag → release avec notes du CHANGELOG, plugin, installeurs, APK et apps desktop
+- [ ] Release 0.2.0 publiée
+- [ ] Son vérifié sur l'épisode de l'utilisateur
+
+**Notes techniques**
+- **Cause.** Le lecteur natif n'avait que les décodeurs matériels d'Android : aucun décodeur logiciel n'était embarqué (le message d'erreur le disait déjà pour DTS et TrueHD). Stremio, lui, décode en logiciel (libVLC/mpv). La plupart des téléphones n'ont ni Dolby ni DTS, d'où le silence. Mon panneau filtrait en plus les pistes non lisibles, d'où la liste vide.
+- **Correctif.** `org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1` sur Maven Central, environ 1,4 Mo par ABI. Il inclut les décodeurs ac3, eac3, dca, truehd/mlp, flac, opus, vorbis, mp3 et alac (vérifié dans le `.so`). AAC reste au matériel.
+  - `DefaultRenderersFactory` en `EXTENSION_RENDERER_MODE_ON` le trouve par réflexion ; une règle ProGuard `-keep` est ajoutée par sécurité.
+- **Release.** Aucune release n'avait encore été publiée sur le fork (0.1.0 n'a jamais été publiée). 0.2.0 regroupe donc tout le travail téléphone et tablette, plus ce correctif.
+
+**Vérification**
+- (à compléter : CI, release)
+
+**Livraison**
+- Commits : « Android: sound for Dolby, DTS and TrueHD tracks… », « 0.2.0… »
+- Version / CHANGELOG : 0.2.0
+
 <!--
 ### T-000 — Titre court
 
@@ -623,6 +660,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-007 | Créée : pas de son sur certains épisodes (pas de décodeur logiciel) ; FFmpeg ajouté ; release 0.2.0 en préparation |
 | 2026-10-29 | T-005, T-006 | Implémentées en autonome à la demande de l'utilisateur (feuille titre, pages mobiles, lecteur Netflix, PiP, arrière-plan, épisode suivant). À valider sur appareil |
 | 2026-10-29 | T-005, T-006 | Créées : navigation et lecteur façon Netflix mobile |
 | 2026-10-29 | T-004 | Créée et implémentée : clavier à la connexion, mode mobile, mise en page, fenêtres au doigt, APK de test. À valider sur téléphone |
