@@ -193,7 +193,13 @@ adb logcat -s nathflix nathflix-torrent
   - `langWatch` (dans `sync()`) recharge la page quand la langue change, jamais pendant un film.
   - **Tout texte visible passe par `t("English text", { vars })`**, avec sa traduction dans `frDictionary()` (en fin de fichier, juste avant `anime4kShaders()`). La clé est le texte anglais exact, et `{nom}` est rempli par `t()`. Un texte absent du dictionnaire reste en anglais.
   - Dates : `LOCALE`. Les libellés écrits en CSS par le thème ont leur variante `html.dx-lang-fr` (bloc « FRENCH » du thème).
-- **Réglages Stremio par défaut** (`profileDefaults`) : interface et audio en français (`"fre"`), pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
+- **Réglages Stremio par défaut** (`profileDefaults`) : interface en français, audio en français, pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
+  - **Langue de l'interface : `"fr-FR"`, jamais `"fre"`.** Le menu de Stremio enregistre `codes[0]` de `interfaceLanguages.json` et `i18n.changeLanguage()` ne connaît que ce code. Avec `"fre"`, le menu affiche Français mais Stremio reste en anglais. Les langues audio et sous-titres, elles, sont en code à trois lettres (`"fre"`).
+  - Les comptes passés en `"fre"` par une version précédente sont corrigés une fois (drapeau `profileLangFixed:<id>`).
+- **Billboard** (`hero`) : jusqu'à trois listes mélangées (`billboardSource`, `billboardSource2`, `billboardSource3`), au choix parmi les listes Cinemeta et **tous les catalogues des addons du compte** (`catalogChoices`, `readCatalogs`, `catalogOptions`).
+  - Valeur `cat:<id du manifest>|<nom du catalogue>` : jamais l'adresse de l'addon (elle contient souvent une clé, et les réglages partent dans les rapports).
+  - Les choix sont gardés dans `localStorage` `nathflix.catalogs` (le schéma des réglages est enregistré avant que le core soit prêt), puis rafraîchis (`catalogChoices.watch` sur Addons et Settings), avec `registerSchema()` pour réenregistrer les réglages.
+  - Les titres sans image ni description sont complétés par Cinemeta. Si rien n'est utilisable, le billboard prend les titres populaires.
 - Organisé en sections délimitées par `// ----…` puis un titre. Pour s'y retrouver :
 
 ```bash

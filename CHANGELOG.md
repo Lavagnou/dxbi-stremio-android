@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Stremio itself in French too.** Nathflix set Stremio's interface language in a form Stremio's menu showed as Français but its own texts didn't recognise, so much of Stremio stayed English. It now uses Stremio's own code, and fixes accounts it set before.
+- **The billboard shows your lists.** Nathflix settings → Home → *Billboard content* now offers every list of your addons (a Trakt addon's Recommendations, a streaming service's catalog…) next to the popular titles, and up to two more lists can be mixed in (a list of films and one of series, say). Titles the list gives without a picture or description get Cinemeta's; if the list is gone or empty, the popular titles show.
 - **Nathflix speaks French.** Every text of Nathflix (its settings, Home rows, title sheet, messages, the player on phones and TVs, update prompts) now follows the language picked for Stremio's interface: French or English. Changing the language reloads the page in the new one.
 - **French by default.** On its first start with an account, Nathflix sets Stremio's interface and audio to French, subtitles to none and blurs unwatched episodes, once: anything changed afterwards in Settings stays as you chose. The window offering catalog addons at start is gone (they're still in Addons → Order & backup).
 - **Continue Watching comes first.** On Home, *Airing this week* now comes after Continue Watching. On phones, the Shows, Movies and My List chips stay at the top instead of landing on the first row.

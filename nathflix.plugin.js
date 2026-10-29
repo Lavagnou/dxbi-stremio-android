@@ -156,6 +156,8 @@
     builtInTheme: true,
     billboard: true,
     billboardSource: "mixed",
+    billboardSource2: "none",
+    billboardSource3: "none",
     billboardInterval: "9",
     previews: true,
     ratings: true,
@@ -258,8 +260,26 @@
         { label: t("Popular movies"), value: "movie" },
         { label: t("Popular series"), value: "series" },
         { label: t("Top rated (IMDb)"), value: "rated" },
+        // and every list (catalog) of the account's addons, e.g. a Trakt addon's Recommendations
+        ...catalogOptions(),
       ],
     },
+    // up to two more lists, mixed in with the first (a Trakt list of films and one of series…)
+    ...["billboardSource2", "billboardSource3"].map((key, i) => ({
+      key,
+      type: "select",
+      label: i ? t("Billboard: third list") : t("Billboard: second list"),
+      description: i ? "" : t("Mixed in with the first, e.g. a list of films and one of series."),
+      defaultValue: DEFAULTS[key],
+      options: [
+        { label: t("None"), value: "none" },
+        { label: t("Popular movies & series"), value: "mixed" },
+        { label: t("Popular movies"), value: "movie" },
+        { label: t("Popular series"), value: "series" },
+        { label: t("Top rated (IMDb)"), value: "rated" },
+        ...catalogOptions(),
+      ],
+    })),
     {
       key: "billboardInterval",
       type: "select",
@@ -455,7 +475,7 @@
   // option carries its group's name, and they're listed group by group.
   const SETTING_GROUPS = [
     [t("Look"), ["accent", "focusColour", "builtInTheme", "ratings", "animeTitles", "wideContinue"]],
-    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching"]],
+    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching"]],
     [t("Hover cards & trailers"), ["previews", "trailers", "trailerDelay"]],
     [t("Browsing & library"), ["watchedTitles", "librarySort", "streamTools", "addonTools", "watchStats", "reviews", "tmdbKey", "mdblistKey"]],
     [t("Player"), ["tvTorrents", "mobilePip", "backgroundPlay", "playerExtras", "remainingTime", "seekPreviews", "enhance", "pictureSound", "streamStats", "rememberPlayback", "playerKeys", "pip", "externalPlayer", "convertVideo"]],
@@ -499,8 +519,7 @@
     try {
       await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY);
     } catch (_) { /* nothing registered yet */ }
-    // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
-    Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly)))).catch(() => { /* already registered */ });
+    registerSchema();
     const values = await Promise.all(
       Object.keys(DEFAULTS).map((key) => API.getSetting(key).then((v) => [key, v]).catch(() => [key, null]))
     );
@@ -520,6 +539,11 @@
       hero.reset();
       scheduleSync();
     });
+  }
+
+  // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
+  function registerSchema() {
+    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly)))).catch(() => { /* already registered */ });
   }
 
   function persistSettings() {
@@ -904,6 +928,90 @@
   }
 
   // ---------------------------------------------------------------------------
+  // The billboard's lists: besides Cinemeta's, any catalog of the account's addons (a Trakt addon's
+  // Recommendations, a streaming service's…). Settings keep "cat:<addon id>|<catalog name>", never the
+  // addon's address: Trakt and debrid addons put a key in it, and settings go into problem reports.
+  // The list of choices is kept from the last look (settings are set up before the core is ready).
+  // ---------------------------------------------------------------------------
+
+  // (function declarations, not consts: the settings list uses them before this part has run)
+  function cachedCatalogs() {
+    try { return JSON.parse(localStorage.getItem("nathflix.catalogs") || "[]") || []; } catch (_) { return []; }
+  }
+
+  // Films and series of the same name in one addon are one choice, mixed
+  function catalogOptions(list = cachedCatalogs()) {
+    return list.map((c) => {
+      const vars = { addon: c.addon, catalog: c.name };
+      const label = c.types.length > 1 ? t("{addon} — {catalog} (Movies & series)", vars) : c.types[0] === "movie" ? t("{addon} — {catalog} (Movies)", vars) : t("{addon} — {catalog} (Series)", vars);
+      return { label, value: `cat:${c.id}|${c.name}` };
+    });
+  }
+
+  // The account's catalogs that list films or series by themselves (no search or genre to give)
+  function readCatalogs(addons) {
+    const out = [];
+    for (const a of addons || []) {
+      const m = a && a.manifest;
+      if (!m || !m.id || !Array.isArray(m.catalogs)) continue;
+      const byName = new Map();
+      for (const c of m.catalogs) {
+        if (!c || !c.id || !/^(movie|series)$/.test(c.type)) continue;
+        const required = (c.extraRequired && c.extraRequired.length) || (Array.isArray(c.extra) && c.extra.some((e) => e && e.isRequired));
+        if (required) continue;
+        const name = String(c.name || c.id);
+        const entry = byName.get(name) || { id: m.id, addon: String(m.name || m.id), name, types: [] };
+        if (!entry.types.includes(c.type)) entry.types.push(c.type);
+        byName.set(name, entry);
+      }
+      out.push(...byName.values());
+    }
+    return out;
+  }
+
+  const catalogChoices = {
+    next: 0,
+    busy: false,
+
+    // Looked at once Nathflix has started, then whenever Addons or Settings is open
+    watch() {
+      const route = currentRoute();
+      if (this.busy || Date.now() < this.next || (this.next && route !== "addons" && route !== "settings")) return;
+      this.busy = true;
+      this.next = Date.now() + 15000;
+      this.refresh().catch(() => { /* core busy */ }).finally(() => { this.busy = false; });
+    },
+
+    async refresh() {
+      const profile = await addonTools.profile();
+      if (!profile || !Array.isArray(profile.addons)) return;
+      const list = readCatalogs(profile.addons);
+      const text = JSON.stringify(list);
+      if (text === JSON.stringify(cachedCatalogs())) return;
+      try { localStorage.setItem("nathflix.catalogs", text); } catch (_) { /* offered from the next start */ }
+      for (const option of SCHEMA.filter((o) => /^billboardSource/.test(o.key))) {
+        option.options = [...option.options.filter((o) => !String(o.value).startsWith("cat:")), ...catalogOptions(list)];
+      }
+      if (!API) return;
+      try { await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY); } catch (_) { /* nothing to clear */ }
+      registerSchema();
+    },
+
+    // The addresses of the lists a "cat:" choice stands for ([] when that addon is gone)
+    async urls(value) {
+      const [id, ...rest] = value.slice(4).split("|");
+      const name = rest.join("|");
+      const profile = await addonTools.profile().catch(() => null);
+      const addon = profile && (profile.addons || []).find((a) => a && a.manifest && a.manifest.id === id);
+      if (!addon || !addon.transportUrl) return [];
+      const base = addon.transportUrl.replace(/\/manifest\.json$/, "");
+      return (addon.manifest.catalogs || [])
+        .filter((c) => c && /^(movie|series)$/.test(c.type) && String(c.name || c.id) === name)
+        .map((c) => `${base}/catalog/${c.type}/${encodeURIComponent(c.id)}.json`);
+    },
+  };
+
+  // ---------------------------------------------------------------------------
   // Billboard
   // ---------------------------------------------------------------------------
 
@@ -915,11 +1023,12 @@
     loading: null,
     stalled: false,
 
-    sourceUrls() {
+    // Cinemeta's lists for one of the built-in choices
+    sourceUrls(source) {
       const base = "https://v3-cinemeta.strem.io/catalog";
       // kids profiles: animation and family titles
       if (restrict.kidsAge()) return [`${base}/movie/top/genre=Animation.json`, `${base}/series/top/genre=Animation.json`, `${base}/movie/top/genre=Family.json`];
-      switch (settings.billboardSource) {
+      switch (source) {
         case "movie": return [`${base}/movie/top.json`];
         case "series": return [`${base}/series/top.json`];
         case "rated": return [`${base}/movie/imdbRating.json`, `${base}/series/imdbRating.json`];
@@ -930,21 +1039,12 @@
     async load() {
       if (this.loading) return this.loading;
       this.loading = (async () => {
-        const lists = await Promise.all(
-          this.sourceUrls().map((u) =>
-            fetch(u, { signal: AbortSignal.timeout(10000) })
-              .then((r) => (r.ok ? r.json() : { metas: [] }))
-              .then((j) => j.metas || [])
-              .catch(() => [])
-          )
-        );
-        // Interleave movies and series, keep ones with real artwork and a description
-        const merged = [];
-        const max = Math.max(...lists.map((l) => l.length), 0);
-        for (let i = 0; i < max && merged.length < 24; i++) {
-          for (const list of lists) if (list[i]) merged.push(list[i]);
-        }
-        const candidates = merged.filter((m) => isImdb(m.id) && m.description && (m.background || m.poster));
+        // The lists picked (up to three, mixed); the account's own lists when they're gone, empty or have
+        // nothing to show leave the popular titles
+        const sources = restrict.kidsAge() ? ["kids"] : [...new Set([settings.billboardSource, settings.billboardSource2, settings.billboardSource3].filter((v) => v && v !== "none"))];
+        const urls = (await Promise.all(sources.map((v) => (String(v).startsWith("cat:") ? catalogChoices.urls(v).catch(() => []) : this.sourceUrls(v))))).flat();
+        let candidates = await this.candidates([...new Set(urls)], true);
+        if (!candidates.length) candidates = await this.candidates(this.popularUrls(), false);
         // nothing hidden, and on a kids profile only what's rated for it
         const fits = await Promise.all(candidates.map((m) => restrict.decide(m.type, m.id).catch(() => false)));
         const usable = candidates.filter((m, i) => fits[i]).slice(0, 8);
@@ -954,6 +1054,41 @@
         return this.items;
       })();
       return this.loading;
+    },
+
+    popularUrls() {
+      const base = "https://v3-cinemeta.strem.io/catalog";
+      return [`${base}/movie/top.json`, `${base}/series/top.json`];
+    },
+
+    // The titles of these lists worth a slide: movies and series interleaved, with real artwork and a
+    // description. Lists people keep (Trakt…) often give only an id and a name: Cinemeta fills in the rest
+    async candidates(urls, fillIn) {
+      const lists = await Promise.all(
+        urls.map((u) =>
+          fetch(u, { signal: AbortSignal.timeout(10000) })
+            .then((r) => (r.ok ? r.json() : { metas: [] }))
+            .then((j) => (Array.isArray(j.metas) ? j.metas : []))
+            .catch(() => [])
+        )
+      );
+      const merged = [];
+      const max = Math.max(...lists.map((l) => l.length), 0);
+      for (let i = 0; i < max && merged.length < 24; i++) {
+        for (const list of lists) if (list[i]) merged.push(list[i]);
+      }
+      let items = merged.filter((m) => m && isImdb(m.id));
+      if (fillIn) {
+        items = await Promise.all(items.slice(0, 12).map(async (m) => {
+          if (m.description && (m.background || m.poster)) return m;
+          const full = await fetch(`https://v3-cinemeta.strem.io/meta/${m.type === "movie" ? "movie" : "series"}/${m.id}.json`, { signal: AbortSignal.timeout(8000) })
+            .then((r) => (r.ok ? r.json() : {}))
+            .then((j) => j.meta || null)
+            .catch(() => null);
+          return full ? { ...full, ...Object.fromEntries(Object.entries(m).filter(([, v]) => v)), type: m.type || full.type } : m;
+        }));
+      }
+      return items.filter((m) => m.description && (m.background || m.poster));
     },
 
     host() {
@@ -6868,7 +7003,7 @@
       ? [updateRoute, brandTitle, () => addonTools.ensure(), communitySync]
       : [updateRoute, brandTitle, () => player.ensure(), () => { convert.ensure().catch(() => { /* player state not ready */ }); }, () => convert.confirmHevc(), () => externalDefault.ensure(), () => placeholder.ensure(), () => playbackHelp.ensure(), () => scrub.ensure(), () => enhance.ensure(), () => watchParty.ensure(), () => skip.ensure(), () => tune.ensure(), () => streamInfo.ensure(), () => addonTools.ensure(), communitySync];
     if (currentRoute() === "detail") steps.push(() => streamTools.ensure());
-    steps.push(() => langWatch.check(), () => profileDefaults.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
+    steps.push(() => langWatch.check(), () => profileDefaults.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
     if (currentRoute() !== "player") {
       steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
     }
@@ -7361,8 +7496,10 @@
   }
   // Nathflix's own starting point for Stremio's settings, set once per account (a new sign-in gets
   // it too) and never again, so anything changed afterwards in Settings stays as chosen: French
-  // interface and audio, no subtitles, unwatched episodes blurred
-  const PROFILE_DEFAULTS = { interfaceLanguage: "fre", audioLanguage: "fre", subtitlesLanguage: null, hideSpoilers: true };
+  // interface and audio, no subtitles, unwatched episodes blurred. The interface language is the
+  // code Stremio's own menu saves ("fr-FR"): with "fre" the menu said Français but Stremio's texts,
+  // looked up under "fr-FR", stayed English. Audio languages are three-letter codes ("fre")
+  const PROFILE_DEFAULTS = { interfaceLanguage: "fr-FR", audioLanguage: "fre", subtitlesLanguage: null, hideSpoilers: true };
   const profileDefaults = {
     // The account the page is signed in to ("guest" before signing in), read without waiting on the core
     account() {
@@ -7374,7 +7511,8 @@
     },
 
     pending() {
-      return !store.get("profileDefaults:" + this.account(), false);
+      const account = this.account();
+      return !store.get("profileDefaults:" + account, false) || !store.get("profileLangFixed:" + account, false);
     },
 
     // Resolves true once the defaults are in (or were already), false when the core isn't ready yet
@@ -7387,10 +7525,21 @@
       if (!current) return false;
       const user = ctx.profile.auth && ctx.profile.auth.user;
       const account = user && user._id ? user._id : "guest";
-      if (store.get("profileDefaults:" + account, false)) return true;
-      dispatch({ action: "Ctx", args: { action: "UpdateSettings", args: { ...current, ...PROFILE_DEFAULTS } } });
-      store.set("profileDefaults:" + account, true);
-      log("Nathflix's default settings applied");
+      if (!store.get("profileDefaults:" + account, false)) {
+        dispatch({ action: "Ctx", args: { action: "UpdateSettings", args: { ...current, ...PROFILE_DEFAULTS } } });
+        store.set("profileDefaults:" + account, true);
+        store.set("profileLangFixed:" + account, true);
+        log("Nathflix's default settings applied");
+        return true;
+      }
+      // Accounts given "fre" by an earlier Nathflix: Stremio's own texts stayed English. Once
+      if (!store.get("profileLangFixed:" + account, false)) {
+        if (current.interfaceLanguage === "fre") {
+          dispatch({ action: "Ctx", args: { action: "UpdateSettings", args: { ...current, interfaceLanguage: "fr-FR" } } });
+          log("interface language fre → fr-FR");
+        }
+        store.set("profileLangFixed:" + account, true);
+      }
       return true;
     },
 
@@ -13499,6 +13648,13 @@ vec4 hook() {
       "Billboard on Home": "Grande bannière sur l'accueil",
       "Large rotating feature banner at the top of Home.": "Grande bannière qui fait défiler des titres en haut de l'accueil.",
       "Billboard content": "Contenu de la bannière",
+      "{addon} — {catalog} (Movies & series)": "{addon} — {catalog} (films et séries)",
+      "{addon} — {catalog} (Movies)": "{addon} — {catalog} (films)",
+      "{addon} — {catalog} (Series)": "{addon} — {catalog} (séries)",
+      "None": "Aucune",
+      "Billboard: second list": "Bannière : deuxième liste",
+      "Billboard: third list": "Bannière : troisième liste",
+      "Mixed in with the first, e.g. a list of films and one of series.": "Mélangée à la première, par exemple une liste de films et une de séries.",
       "Popular movies & series": "Films et séries populaires",
       "Popular movies": "Films populaires",
       "Popular series": "Séries populaires",

@@ -71,6 +71,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-011 | Glisser-déposer pour réordonner les addons | À valider | P2 | plugin | — | 2026-10-29 |
 | T-012 | Bouton « Lancer l'épisode » qui lance la première source | À valider | P1 | plugin | — | 2026-10-29 |
 | T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | À valider | P1 | tv | T-006 | 2026-10-29 |
+| T-014 | Stremio resté en anglais malgré « Français » (langue enregistrée en `fre` au lieu de `fr-FR`) | À valider | P0 | plugin | T-008 | 2026-10-29 |
+| T-015 | Billboard : listes au choix parmi les catalogues des addons (Trakt…), jusqu'à trois mélangées | À valider | P1 | plugin | — | 2026-10-29 |
 
 ---
 
@@ -784,6 +786,66 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - CI `android-dev.yml` (commit d186daf) : build debug et release R8 réussies avec le nouveau lecteur.
 - Non vérifié : le rendu du lecteur sur un téléphone (pas d'émulateur ici).
 
+### T-014 — Stremio resté en anglais malgré « Français »
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P0
+- **Cible :** plugin
+- **Dépend de :** T-008
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> J'ai installé l'app, et j'ai pas mal d'anglais un peu partout malgrès que dans les options j'ai bien UI languague sur Français, j'ai selectionné une autre langue puis reséléctionné le Français et seulement la j'ai bien eu l'UI en français. Corrige ce bug
+
+**Critères d'acceptation**
+- [x] Les réglages par défaut enregistrent `interfaceLanguage: "fr-FR"`
+- [x] Un compte resté en `"fre"` est corrigé une fois
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause** (sources de stremio-web) : `Settings/Interface/useInterfaceOptions.ts` enregistre `codes[0]` (`"fr-FR"`) et affiche aussi `codes[1]` (`"fre"`) comme « Français ». Mais `App.js` fait `i18n.changeLanguage(interfaceLanguage)`, et les traductions sont rangées sous `"fr-FR"`. T-008 enregistrait `"fre"`.
+- **Correctif** dans `PROFILE_DEFAULTS`, plus une réparation dans `profileDefaults.apply()` (drapeau `profileLangFixed:<compte>`).
+
+**Vérification**
+- Playwright : un compte en `"fre"` (défauts déjà appliqués) reçoit une seule fois `UpdateSettings` avec `"fr-FR"` (« interface language fre → fr-FR » dans le journal), puis plus rien après rechargement.
+
+### T-015 — Billboard depuis les listes des addons (Trakt…)
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Pour le billboard (la bannière hero) qui affiche des série/films sur l'accueil, j'aimerais que ça affiche des films et séries de ma liste Traktv Recommandations ? […] ou alors même de rajouter dans les paramètre le choix manuel de la liste a utiliser
+> Il faudrait pouvoir choisir plusieurs listes […] pour avoir une liste Traktv pour les série et une pour les films en même temps sur le billboard
+
+**Critères d'acceptation**
+- [x] « Contenu de la bannière » propose les listes Cinemeta et chaque catalogue des addons du compte (choix de l'utilisateur : tous les catalogues)
+- [x] Deux listes de plus (« Bannière : deuxième liste », « troisième liste »), mélangées à la première
+- [x] Titres sans image ni description complétés par Cinemeta ; repli sur les titres populaires
+- [ ] Vérifié sur l'appareil avec l'addon Trakt de l'utilisateur
+
+**Notes techniques**
+- La liste Trakt de l'utilisateur est une rangée de l'accueil, donc fournie par un addon : pas besoin de l'API Trakt (qui demanderait une clé d'API à lui).
+- `readCatalogs()` : types `movie` / `series` seulement, sans paramètre obligatoire (`extraRequired`, `extra[].isRequired`). Les catalogues de même nom d'un addon sont groupés (films et séries mélangés).
+- Valeurs `cat:<id>|<nom>` sans adresse. `catalogChoices.urls()` retrouve l'adresse dans les addons du compte.
+- Le schéma des réglages est enregistré au chargement, avant le core : les choix viennent de `localStorage` `nathflix.catalogs`, puis `refresh()` met à jour le schéma et le réenregistre (`clearRegisteredSettings` + `registerSchema()`).
+
+**Vérification**
+- Playwright, avec un faux addon « Trakt » dont l'adresse contient une clé :
+  - choix « Trakt — Recommendations (films et séries) » proposé, catalogue de recherche et type `channel` écartés ;
+  - billboard avec ses titres (complétés par Cinemeta) ;
+  - deux listes séparées (films en 1re, séries en 2e) mélangées ;
+  - catalogue vide ou addon retiré : repli sur les titres populaires ;
+  - la valeur enregistrée ne contient jamais l'adresse.
+- Dictionnaire : 0 clé manquante.
+
 <!--
 ### T-000 — Titre court
 
@@ -861,6 +923,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-014, T-015 | Créées et implémentées : langue de Stremio en `fr-FR` ; billboard depuis les listes des addons (jusqu'à trois). APK de test publiée |
 | 2026-10-29 | T-008 à T-013 | Implémentées et testées (Playwright, CI) ; APK de test publiée ; à valider sur l'appareil |
 | 2026-10-29 | T-008 à T-013 | Créées : retours sur l'APK de test (réglages par défaut, traductions, accueil, addons, Lancer l'épisode, lecteur Netflix) ; en cours |
 | 2026-10-29 | T-007 | Release v0.2.0 publiée (desktop, plugin, installeurs) ; APK bloquée faute de clé de signature dans les secrets |
