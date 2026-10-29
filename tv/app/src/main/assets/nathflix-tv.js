@@ -415,6 +415,43 @@
   // ---------------------------------------------------------------------------
   let handoff = null; // { hash, video id } of the stream the native player has
 
+  // Stremio's own player screen never shows: from the moment a stream is picked, a black veil covers
+  // the page (with a spinner while the stream is looked up), until the page has left the player screen
+  const VEIL_CSS = `
+    #dxtv-veil { position: fixed; inset: 0; z-index: 2147483500; display: flex; align-items: center; justify-content: center; background: #000; }
+    #dxtv-veil i { width: 46px; height: 46px; border: 4px solid rgba(255,255,255,.18); border-top-color: #e50914; border-radius: 50%; animation: dxtv-spin .8s linear infinite; opacity: 0; transition: opacity .2s .3s; }
+    #dxtv-veil.is-pending i { opacity: 1; }
+    @keyframes dxtv-spin { to { transform: rotate(360deg); } }
+  `;
+  function veil(on, pending) {
+    let el = document.getElementById("dxtv-veil");
+    if (!on) {
+      if (el) el.remove();
+      return;
+    }
+    if (!document.getElementById("dxtv-veil-style")) {
+      const style = document.createElement("style");
+      style.id = "dxtv-veil-style";
+      style.textContent = VEIL_CSS;
+      (document.head || document.documentElement).append(style);
+    }
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "dxtv-veil";
+      el.innerHTML = "<i></i>";
+      (document.body || document.documentElement).append(el);
+    }
+    el.classList.toggle("is-pending", !!pending);
+  }
+  // Earlier still than the address change: the tap on a stream itself
+  document.addEventListener("click", (e) => {
+    const link = e.target instanceof Element && e.target.closest('a[href^="#/player/"]');
+    if (!link || e.defaultPrevented) return;
+    veil(true, true);
+    // the tap may still be turned down (by Stremio or the plugin): never leave the page covered
+    setTimeout(() => { if (!/^#\/player\//.test(location.hash)) veil(false); }, 1500);
+  }, true);
+
   // Stremio's in-page video never plays while the native player has the stream
   const realPlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
@@ -491,6 +528,7 @@
     const hash = location.hash;
     if (!/^#\/player\//.test(hash) || (handoff && handoff.hash === hash)) return;
     handoff = { hash, pending: true };
+    veil(true, true);
     let state = null;
     // With no streaming server online, torrents play on the TV itself: nothing to wait for
     const serverUp = await streamingServerUp();
@@ -511,7 +549,7 @@
       }
       await new Promise((r) => setTimeout(r, 250));
     }
-    if (location.hash !== hash || !state || !state.selected) { handoff = null; return; }
+    if (location.hash !== hash || !state || !state.selected) { handoff = null; veil(false); return; }
     const stream = state.selected.stream || {};
     // Trailers are YouTube videos, which Stremio plays through a streaming server (none on a TV): the
     // TV's YouTube app plays them instead, and Back comes straight back here
@@ -564,7 +602,7 @@
       history.back();
       return;
     }
-    if (!url) { handoff = null; return; }
+    if (!url) { handoff = null; veil(false); return; }
 
     const meta = state.metaItem && state.metaItem.type === "Ready" ? state.metaItem.content : (state.metaItem && state.metaItem.content) || {};
     const videoId = state.selected.streamRequest && state.selected.streamRequest.path && state.selected.streamRequest.path.id;
@@ -586,6 +624,7 @@
       : [];
     if (location.hash !== hash) { handoff = null; return; }
     handoff = { hash, videoId, started: Date.now() };
+    veil(true, false);
     // Phones and tablets: the player's Episodes and Next episode, and how it behaves when you leave
     const mobile = PHONE ? mobilePlayback(state, meta, video, metaPath) : {};
     native.play(JSON.stringify({
@@ -630,7 +669,8 @@
         .filter((v) => v && v.season === video.season)
         .sort((a, b) => (a.episode || 0) - (b.episode || 0))
         .slice(0, 80)
-        .map((v) => ({ route: streamsOf(v.id), episode: v.episode || 0, title: v.title || v.name || "", overview: String(v.overview || v.description || "").slice(0, 160), current: v.id === video.id }));
+        .map((v) => ({ route: streamsOf(v.id), episode: v.episode || 0, title: v.title || v.name || "", overview: String(v.overview || v.description || "").slice(0, 220), thumbnail: /^https?:/.test(v.thumbnail || "") ? v.thumbnail : "", current: v.id === video.id }));
+      out.season = video.season;
     }
     const next = state.nextVideo;
     if (next && next.id && metaId) {
@@ -699,6 +739,7 @@
     const { info, closed } = target;
     resuming = true;
     handoff = { hash: info.hash, videoId: info.videoId || null, started: Date.now(), resumed: true };
+    veil(true, false);
     if (location.hash !== info.hash) location.hash = info.hash;
     // Stremio needs a moment to load the player screen before it takes progress
     for (let i = 0; i < 60 && location.hash === info.hash; i++) {
@@ -851,6 +892,7 @@
   function onRoute() {
     ensureSettingsEntry();
     if (/^#\/player\//.test(location.hash)) startHandoff();
+    else veil(false);
     if (/^#\/search\?search=./.test(location.hash) && document.activeElement && document.activeElement.tagName !== "INPUT") resultsFirst();
   }
 

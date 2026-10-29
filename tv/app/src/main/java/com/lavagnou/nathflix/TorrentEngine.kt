@@ -58,7 +58,7 @@ object TorrentEngine {
 
     @Volatile private var active: Active? = null
     @Volatile private var opening: String? = null
-    @Volatile private var failure: String? = null
+    @Volatile private var failure: Int? = null // a string resource: why the torrent failed
 
     /** Set up once: the download folder (emptied) and the session */
     @Synchronized
@@ -108,7 +108,7 @@ object TorrentEngine {
             val bytes = s.fetchMagnet(magnet, METADATA_TIMEOUT_S, dir)
             if (opening != hash) return
             if (bytes == null) {
-                failure = "No peers answered for this torrent. Try another stream."
+                failure = R.string.torrent_no_peers
                 return
             }
             val info = TorrentInfo.bdecode(bytes)
@@ -117,7 +117,7 @@ object TorrentEngine {
             // only the file being watched is downloaded
             val priorities = Array(files.numFiles()) { if (it == pick) Priority.DEFAULT else Priority.IGNORE }
             s.download(info, dir, null, priorities, null, TorrentFlags.SEQUENTIAL_DOWNLOAD)
-            val handle = s.find(Sha1Hash.parseHex(hash)) ?: run { failure = "Couldn't start the torrent."; return }
+            val handle = s.find(Sha1Hash.parseHex(hash)) ?: run { failure = R.string.torrent_cant_start; return }
             handle.setFlags(TorrentFlags.SEQUENTIAL_DOWNLOAD)
             // the torrent's details don't carry the trackers: give them back, and ask them for peers now
             for (t in allTrackers) handle.addTracker(AnnounceEntry(t))
@@ -135,7 +135,7 @@ object TorrentEngine {
             Log.i(TAG, "playing ${files.filePath(pick)} (${a.size / 1048576} MB)")
         } catch (e: Exception) {
             Log.w(TAG, "couldn't open $hash", e)
-            failure = "Couldn't open this torrent."
+            failure = R.string.torrent_cant_open
         }
     }
 
@@ -159,17 +159,24 @@ object TorrentEngine {
     }
 
     /** For the player's status line: "Finding peers…", "12 peers · 2.4 MB/s", or why it failed */
-    fun status(): String? {
-        failure?.let { return it }
-        val a = active ?: return if (opening != null) "Finding peers…" else null
+    fun status(context: Context): String? {
+        failure?.let { return Lang.text(context, it) }
+        val a = active ?: return if (opening != null) Lang.text(context, R.string.torrent_finding_peers) else null
         return try {
             val st = a.handle.status()
-            val rate = st.downloadPayloadRate() / 1048576.0
-            "${st.numPeers()} peer${if (st.numPeers() == 1) "" else "s"} · ${"%.1f".format(rate)} MB/s"
+            val rate = "%.1f".format(st.downloadPayloadRate() / 1048576.0)
+            if (st.numPeers() == 1) Lang.text(context, R.string.torrent_one_peer, rate)
+            else Lang.text(context, R.string.torrent_peers, st.numPeers(), rate)
         } catch (_: Exception) { null }
     }
 
-    fun failed(): String? = failure
+    /** Whether the player's status line is the torrent's ("Finding peers…", "12 peers…") */
+    fun isStatus(context: Context, text: CharSequence): Boolean {
+        val finding = Lang.text(context, R.string.torrent_finding_peers)
+        return text == finding || Regex("""^\d+ \S+ · [\d.,]+ \S+/s$""").matches(text)
+    }
+
+    fun failed(context: Context): String? = failure?.let { Lang.text(context, it) }
 
     // ---- Reading the file as it arrives ----
 
@@ -225,7 +232,7 @@ object TorrentEngine {
                 Thread.sleep(100)
                 a = active
             }
-            if (a == null || a.hash != hash) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, failure ?: "not playing")
+            if (a == null || a.hash != hash) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, if (failure != null) "failed" else "not playing")
             // the file is created as soon as the download starts; wait for it to exist
             for (i in 0 until 50) { if (a.path.exists()) break; Thread.sleep(100) }
 

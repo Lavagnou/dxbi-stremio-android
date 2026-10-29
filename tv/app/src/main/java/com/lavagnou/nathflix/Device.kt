@@ -21,6 +21,20 @@ object Device {
         else -> "phone"
     }
 
+    /** "this phone", "ce téléphone"…: the device in messages, in Nathflix's language */
+    fun thisOne(context: Context): String = Lang.text(context, when (kind(context)) {
+        "tv" -> R.string.this_tv
+        "tablet" -> R.string.this_tablet
+        else -> R.string.this_phone
+    })
+
+    /** "the phone", "le téléphone"… */
+    fun theOne(context: Context): String = Lang.text(context, when (kind(context)) {
+        "tv" -> R.string.the_tv
+        "tablet" -> R.string.the_tablet
+        else -> R.string.the_phone
+    })
+
     /** The device's name in messages: "TV", "phone" or "tablet" */
     fun noun(context: Context): String = when (kind(context)) {
         "tv" -> "TV"

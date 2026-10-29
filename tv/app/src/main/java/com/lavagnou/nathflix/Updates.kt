@@ -86,11 +86,11 @@ object Updates {
             activity.runOnUiThread {
                 if (activity.isFinishing) return@runOnUiThread
                 AlertDialog.Builder(activity)
-                    .setTitle("Nathflix $latest is out")
-                    .setMessage("You have $current. Update now? It downloads in the background, then Android asks you to install it.")
-                    .setPositiveButton("Update") { _, _ -> download(activity, url, size, latest) }
-                    .setNegativeButton("Not now", null)
-                    .setNeutralButton("Skip this version") { _, _ -> prefs.edit().putString("skipped", latest).apply() }
+                    .setTitle(Lang.text(activity, R.string.update_title, latest))
+                    .setMessage(Lang.text(activity, R.string.update_message, current))
+                    .setPositiveButton(Lang.text(activity, R.string.update_now)) { _, _ -> download(activity, url, size, latest) }
+                    .setNegativeButton(Lang.text(activity, R.string.not_now), null)
+                    .setNeutralButton(Lang.text(activity, R.string.skip_version)) { _, _ -> prefs.edit().putString("skipped", latest).apply() }
                     .show()
             }
         } catch (_: Exception) { /* offline: try again next launch */ }
@@ -103,22 +103,22 @@ object Updates {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             try {
                 activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
-                Toast.makeText(activity, "Allow Nathflix to install apps, then choose Update again", Toast.LENGTH_LONG).show()
+                Toast.makeText(activity, Lang.text(activity, R.string.allow_installs), Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
                 // Some TVs (Fire OS among them) have no such screen to open directly
-                val where = if (Device.isMobile(activity)) "the ${Device.noun(activity)}'s settings (Apps → Special app access → Install unknown apps)"
-                else "the TV's settings (on Fire TV: My Fire TV → Developer options → Install unknown apps)"
-                Toast.makeText(activity, "Allow Nathflix to install apps in $where, then choose Update again", Toast.LENGTH_LONG).show()
+                val where = if (Device.isMobile(activity)) Lang.text(activity, R.string.installs_where_mobile, Device.theOne(activity))
+                else Lang.text(activity, R.string.installs_where_tv)
+                Toast.makeText(activity, Lang.text(activity, R.string.allow_installs_where, where), Toast.LENGTH_LONG).show()
             }
             return
         }
         // One download at a time: pressing Update twice had two downloads writing the same file, and
         // Android then said "There was a problem parsing the package"
         if (!downloading.compareAndSet(false, true)) {
-            Toast.makeText(activity, "The update is already downloading…", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, Lang.text(activity, R.string.update_downloading_already), Toast.LENGTH_SHORT).show()
             return
         }
-        Toast.makeText(activity, "Downloading the update…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, Lang.text(activity, R.string.update_downloading), Toast.LENGTH_SHORT).show()
         thread(name = "nathflix-apk-download") {
             try {
                 val dir = File(activity.cacheDir, "updates").apply { deleteRecursively(); mkdirs() }
@@ -140,8 +140,10 @@ object Updates {
                 activity.runOnUiThread {
                     if (activity.isFinishing) return@runOnUiThread
                     AlertDialog.Builder(activity)
-                        .setTitle("The update didn't download")
-                        .setMessage("${e.message}\n\nTry again later, or install it ${if (Device.isMobile(activity)) "from your browser" else "with the Downloader app"} from:\ngithub.com/$REPO/releases/latest/download/nathflix-tv.apk")
+                        .setTitle(Lang.text(activity, R.string.update_failed_title))
+                        .setMessage(Lang.text(activity, R.string.update_failed_message, e.message ?: "",
+                            Lang.text(activity, if (Device.isMobile(activity)) R.string.update_failed_browser else R.string.update_failed_downloader),
+                            "github.com/$REPO/releases/latest/download/nathflix-tv.apk"))
                         .setPositiveButton("OK", null)
                         .show()
                 }
@@ -159,26 +161,26 @@ object Updates {
         val partial = File(apk.parentFile, apk.name + ".part")
         try {
             http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                if (!response.isSuccessful) return "the server answered ${response.code}"
+                if (!response.isSuccessful) return Lang.text(activity, R.string.update_error_status, response.code)
                 partial.outputStream().use { out -> response.body!!.byteStream().copyTo(out) }
             }
         } catch (e: Exception) {
             partial.delete()
-            return "the download was interrupted (${e.message ?: e.javaClass.simpleName})"
+            return Lang.text(activity, R.string.update_error_interrupted, e.message ?: e.javaClass.simpleName)
         }
         if (size > 0 && partial.length() != size) {
             val got = partial.length()
             partial.delete()
-            return "the download was incomplete ($got of $size bytes)"
+            return Lang.text(activity, R.string.update_error_incomplete, got, size)
         }
         @Suppress("DEPRECATION")
         val info = activity.packageManager.getPackageArchiveInfo(partial.path, 0)
         if (info == null || info.packageName != activity.packageName || info.versionName != version) {
             partial.delete()
-            return "the downloaded file isn't a Nathflix $version app"
+            return Lang.text(activity, R.string.update_error_not_ours, version)
         }
         apk.delete()
-        if (!partial.renameTo(apk)) return "the update couldn't be saved"
+        if (!partial.renameTo(apk)) return Lang.text(activity, R.string.update_error_save)
         return null
     }
 

@@ -44,6 +44,13 @@ class Bridge(private val activity: MainActivity) {
         }
     }
 
+    /** The language picked for Stremio's interface ("fr" or "en"): Nathflix's own screens follow it */
+    @JavascriptInterface
+    fun setLanguage(token: String, lang: String) {
+        if (!allowed(token)) return
+        Lang.set(activity, lang)
+    }
+
     @JavascriptInterface
     fun play(token: String, json: String) {
         if (!allowed(token)) return
@@ -114,7 +121,7 @@ class Bridge(private val activity: MainActivity) {
                 .put("webView", webView ?: "unknown")
                 .put("memoryMB", JSONObject().put("total", mem.totalMem / 1048576).put("available", mem.availMem / 1048576).put("low", mem.lowMemory))
                 .put("phone", isPhone())
-                .put("torrent", TorrentEngine.status() ?: "idle")
+                .put("torrent", TorrentEngine.status(activity) ?: "idle")
                 .toString()
         } catch (e: Exception) {
             JSONObject().put("error", e.message ?: "?").toString()

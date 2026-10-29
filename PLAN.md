@@ -65,6 +65,12 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
 | T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | Bloqué | P0 | tv, ci | T-006 | 2026-10-29 |
+| T-008 | Réglages par défaut (UI et audio en français, sans sous-titres, épisodes floutés) ; plus de fenêtre d'addons au démarrage | En cours | P1 | plugin | — | 2026-10-29 |
+| T-009 | Tout en français (et en anglais), selon la langue de l'interface | En cours | P1 | plugin, tv | — | 2026-10-29 |
+| T-010 | Accueil : Continuer de regarder avant Airing, puces, 3 points et appui long sur les cartes | En cours | P1 | plugin | — | 2026-10-29 |
+| T-011 | Glisser-déposer pour réordonner les addons | En cours | P2 | plugin | — | 2026-10-29 |
+| T-012 | Bouton « Lancer l'épisode » qui lance la première source | En cours | P1 | plugin | — | 2026-10-29 |
+| T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | En cours | P1 | tv | T-006 | 2026-10-29 |
 
 ---
 
@@ -597,6 +603,178 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Commits : « Android: sound for Dolby, DTS and TrueHD tracks… », « 0.2.0… »
 - Version / CHANGELOG : 0.2.0
 
+### T-008 — Réglages par défaut et fenêtre d'addons
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Il faut par défault avoir ces options activé : Langue de l'UI en français, Sous-titre par défault en aucun, piste audio par défault en français, Flouter les épisodes non vus activé. Il y a une fenêtre a l'ouverture qui propose d'installer des addons de catalogues, retire la.
+
+**Critères d'acceptation**
+- [x] Au premier lancement d'un compte : `interfaceLanguage` et `audioLanguage` en `"fre"`, `subtitlesLanguage` à `null`, `hideSpoilers` à `true`, une seule fois (choix de l'utilisateur : « Une fois »)
+- [x] Plus de fenêtre « Set up Home like Nathflix? » au démarrage (le pack reste dans Addons → Order & backup)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Valeurs** vérifiées dans les sources de stremio-web (`interfaceLanguages.json` : Français = `["fr-FR","fre"]` ; `languageNames.json` : `fre`) et de stremio-core (`settings.rs` : `interface_language`, `hide_spoilers`, `audio_language`, `subtitles_language`).
+- **`profileDefaults`** (plugin, à côté de `subtitlesStart`) :
+  - `UpdateSettings` avec `{ ...current, ...PROFILE_DEFAULTS }` ;
+  - drapeau `store` `profileDefaults:<id du compte ou guest>` : un nouveau compte reçoit aussi les défauts ;
+  - `watch()` dans `sync()`, toutes les 10 s au plus, pour un compte connecté plus tard.
+- **Ordre au démarrage** : défauts, puis `subtitlesStart` 500 ms après. Chacun envoie tout l'objet des réglages ; lancés ensemble, l'un écraserait l'autre.
+- **`offerPack()`** et son `setTimeout` dans `start()` sont supprimés.
+
+**Vérification**
+- (à compléter)
+
+### T-009 — Tout en français (et en anglais), selon la langue de l'interface
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> il manque des éléments comme le "Airing this week" qui ne sont pas traduits en français, vu que c'est une app pour moi principalement, je veux que tout soit bien en français partout (tout en gardant l'anglais, il faut les deux, et que ça suive la langue de l'interface choisi)
+
+**Critères d'acceptation**
+- [ ] Plugin : tout texte visible passe par `t()` (dictionnaire `FR`, clé = texte anglais), selon `interfaceLanguage`
+- [ ] Thème : libellés posés en CSS traduits (`html.dx-lang-fr`)
+- [ ] `nathflix-tv.js` : dialogues et réglages traduits ; langue envoyée à l'app (`setLanguage`)
+- [x] App Android : textes dans `strings.xml` et `values-fr/strings.xml`, langue suivie par `Lang.kt`
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Android** :
+  - `Lang.kt` garde la langue reçue de la page (SharedPreferences `nathflix-lang`) ; `Lang.context()` donne un contexte dans cette langue, et `Lang.text()` un texte.
+  - Le lecteur gonfle ses vues avec ce contexte.
+  - `Device.thisOne()` et `Device.theOne()` donnent « ce téléphone », « la tablette »…
+  - `TorrentEngine` garde ses erreurs en identifiants de ressources ; `status(context)`.
+- **Bridge** : `setLanguage(token, lang)`, détectée avant usage côté page.
+
+**Vérification**
+- (à compléter)
+
+### T-010 — Accueil : ordre des rangées, puces, 3 points et appui long
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Je voudrais avoir "Continuer de regarder" avant "Airing this week" dans l'ordre dans l'onglet Home. Sur le texte Continuer de Regarder, j'ai 3 pastilles Shows, Movies, et list qui sont superposé sous le texte. Il y a 3 petits points sur les miniature dans "Continuer à regarder", mais ils sont mal placés, corrige ça. Et je veux que si je laisse appuyer sur la miniature ça ouvre la même fenetre contextuelle que en appuyant sur les 3 petits points.
+
+**Critères d'acceptation**
+- [x] « Airing this week » après Continuer de regarder (`airing.ensure`)
+- [x] Puces en haut, par-dessus le billboard, plus jamais sur la première rangée
+- [x] 3 points : petit bouton rond en bas à droite de la miniature, la barre de progression s'arrête avant
+- [x] Appui long (500 ms) ou clic droit sur une carte : même menu que les 3 points (`cardPress`)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Puces** : la règle du thème `> .dx-hero ~ * { position: relative }` les attrapait (elles viennent après le billboard dans le DOM), d'où leur chute sous le billboard. Exclues avec `:not(.dxm-chips)`, plus une règle mobile `!important`. Les remettre en premier enfant aurait fait boucler `hero.ensure()` et le `MutationObserver`.
+- **3 points** : c'est le bouton de Stremio (`menu-label-container`), placé pour sa barre de titre que le thème masque dans les rangées.
+- **Appui long** : écouteurs `pointer*` en capture sur `window`. `menu.click()` ouvre le menu de Stremio ; le clic qui suit est avalé. `fired` est posé *après* `menu.click()`, sinon ce clic-là serait avalé aussi. CSS `-webkit-touch-callout: none` sur les cartes (mobile).
+
+**Vérification**
+- (à compléter)
+
+### T-011 — Glisser-déposer pour réordonner les addons
+
+- **Statut :** En cours
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> On peux réorganiser les addons dans l'app, mais seulement en appuyant sur les flèches haut/bas mais pas en faisant de drag and drop, ce qui serait beaucoup plus simple quand on a beaucoup d'addons comme moi, rajoute le drag n drop.
+
+**Critères d'acceptation**
+- [x] Glisser-déposer au doigt (poignée ⠿) et à la souris (toute la ligne), partout
+- [x] La liste défile près de ses bords pendant le glisser ; les flèches restent
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `addonTools.wireDrag()` : Pointer Events à la place du drag HTML5 (qui ne marche pas au doigt dans une WebView). Branché une fois sur `.dxe-list` (`render()` reconstruit les lignes). Positions mesurées au départ, en coordonnées du contenu de la liste (le défilement pendant le glisser ne les fausse pas). `move(from, to)` et `apply()` inchangés.
+
+**Vérification**
+- (à compléter)
+
+### T-012 — Bouton « Lancer l'épisode »
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Quand on est sur une série, sur un épisode, j'aimerais ajouter juste au dessus du bouton "Bande-annonce" un bouton Lancer l'épisode/Play episode, qui lance la première source dans la liste, vu que c'est toujours celle la que je choisi en général
+
+**Critères d'acceptation**
+- [x] Bouton blanc avant la bande-annonce sur la page des flux d'un épisode (et « Lecture » pour un film), partout
+- [x] Il clique la première source visible dans l'ordre affiché (tri et filtres de `streamTools` compris)
+- [x] Grisé (« Recherche de sources… ») tant qu'aucune source n'est là
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `episodePlay` (plugin), dans `sync()`. Route `#/detail/<type>/<id>/<videoId>`. Première source : `[class*="stream-container"]` sans `data-dx-hide`, plus petit `style.order`, puis ordre du DOM. `click()` garde le comportement de Stremio (et le relais vers le lecteur natif sur Android).
+- Avec le bouton présent, la bande-annonce passe en bouton sombre.
+
+**Vérification**
+- (à compléter)
+
+### T-013 — Lecteur téléphone : clone de l'UI Netflix, sans flash du lecteur Stremio
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** tv
+- **Dépend de :** T-006
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> L'interface sur le player des boutons en bas n'est vraiment pas du tout ergonomique et design, l'icone et le texte c'est trop. Organise ça mieux, rangé et placé de manière cohérente et claire. Je veux un clone de l'UI de Netflix, mais juste adapté avec les features que j'ai sur Nathflix. Pareil quand ouvre la fenetre de choix de langue de sous-titre et piste audio, ce genre de choses, ça ne fait pas pro et pas Netflix. Quand je lance une vidéo, j'ai pendant une fraction de seconde le lecteur de stremio qui s'affiche avant d'afficher le lecteur Nathflix, corrige ça
+
+**Critères d'acceptation**
+- [x] Rangée du bas façon Netflix (choix de l'utilisateur) : petite icône et libellé court, groupés au centre ; « Vitesse (1x) »
+- [x] Haut : retour, titre sur une ligne, PiP ; centre : −10 s / lecture / +10 s
+- [x] Vitesse : 5 points sur une ligne ; Audio et sous-titres : deux colonnes, Annuler / Appliquer ; Épisodes : cartes avec image et résumé
+- [x] Voile noir dès le choix d'un flux, jusqu'au départ de la page du lecteur (plus de lecteur Stremio visible)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Flash** : entre `#/player/` et `native.play()`, `startHandoff` attend le flux, les sous-titres et les segments (0,5 s à plusieurs secondes). Rien ne masquait le lecteur web.
+  - `veil()` dans `nathflix-tv.js` : un `#dxtv-veil` noir (spinner tant que le flux est cherché), sous les dialogues `.dxtv-modal` ;
+  - posé au clic sur `a[href^="#/player/"]` (filet : retiré après 1,5 s si la page n'est pas allée au lecteur), dans `startHandoff` et `resumePlayback` ;
+  - retiré par `onRoute` hors de `#/player/` et quand le relais abandonne sur place.
+- **Contrôles** : `player_mobile_controls.xml` et `MobilePlayerControls.kt` réécrits. Panneaux faits en code dans `mc_panel_body` (un `FrameLayout`).
+  - Audio et sous-titres : le choix est gardé dans `pickedAudio` / `pickedText` et appliqué seulement à « Appliquer ». La logique des pistes est inchangée (`select`, `trackName`, pistes illisibles grisées).
+  - Épisodes : `thumbnail` et `season` ajoutés au JSON de `native.play` (`mobilePlayback`). Images chargées par `Thumbs.kt` (OkHttp, 3 à la fois, cache de 8 Mo).
+- Textes du lecteur dans `strings.xml` (voir T-009).
+
+**Vérification**
+- (à compléter)
+
 <!--
 ### T-000 — Titre court
 
@@ -674,6 +852,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-008 à T-013 | Créées : retours sur l'APK de test (réglages par défaut, traductions, accueil, addons, Lancer l'épisode, lecteur Netflix) ; en cours |
 | 2026-10-29 | T-007 | Release v0.2.0 publiée (desktop, plugin, installeurs) ; APK bloquée faute de clé de signature dans les secrets |
 | 2026-10-29 | T-007 | Créée : pas de son sur certains épisodes (pas de décodeur logiciel) ; FFmpeg ajouté ; release 0.2.0 en préparation |
 | 2026-10-29 | T-005, T-006 | Implémentées en autonome à la demande de l'utilisateur (feuille titre, pages mobiles, lecteur Netflix, PiP, arrière-plan, épisode suivant). À valider sur appareil |

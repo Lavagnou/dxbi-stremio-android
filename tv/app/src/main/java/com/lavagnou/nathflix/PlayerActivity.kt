@@ -112,11 +112,11 @@ class PlayerActivity : AppCompatActivity() {
         override fun run() {
             val exo = player
             val waiting = exo == null || exo.playbackState == Player.STATE_BUFFERING || exo.playbackState == Player.STATE_IDLE
-            val text = if (torrent && waiting) TorrentEngine.status() else null
+            val text = if (torrent && waiting) TorrentEngine.status(this@PlayerActivity) else null
             if (text != null) {
                 seekFlash.text = text
                 seekFlash.visibility = View.VISIBLE
-            } else if (seekFlash.text.contains("peer") || seekFlash.text.startsWith("Finding")) {
+            } else if (TorrentEngine.isStatus(this@PlayerActivity, seekFlash.text)) {
                 seekFlash.visibility = View.GONE
             }
             handler.postDelayed(this, 700)
@@ -177,7 +177,7 @@ class PlayerActivity : AppCompatActivity() {
 
         val url = stream.optString("url")
         if (url.isEmpty()) {
-            finishWith(error = "no stream address")
+            finishWith(error = Lang.text(this, R.string.error_no_address))
             return
         }
 
@@ -278,7 +278,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                lastError = (if (torrent) TorrentEngine.failed() else null) ?: describe(error)
+                lastError = (if (torrent) TorrentEngine.failed(this@PlayerActivity) else null) ?: describe(error)
                 finishWith(error = lastError)
             }
         })
@@ -355,7 +355,7 @@ class PlayerActivity : AppCompatActivity() {
             if (!nextShowing) {
                 nextShowing = true
                 showing = null
-                skipButton.text = "Next episode"
+                skipButton.text = Lang.text(this, R.string.player_next_short)
                 skipButton.visibility = View.VISIBLE
             }
             return
@@ -371,11 +371,11 @@ class PlayerActivity : AppCompatActivity() {
             skipButton.visibility = View.GONE
             return
         }
-        skipButton.text = when (seg.type) {
-            "intro" -> "Skip intro"
-            "recap" -> "Skip recap"
-            else -> "Skip credits"
-        }
+        skipButton.text = Lang.text(this, when (seg.type) {
+            "intro" -> R.string.player_skip_intro
+            "recap" -> R.string.player_skip_recap
+            else -> R.string.player_skip_credits
+        })
         skipButton.visibility = View.VISIBLE
         if (!playerView.isControllerFullyVisible) skipButton.requestFocus()
     }
@@ -440,10 +440,10 @@ class PlayerActivity : AppCompatActivity() {
         val episodes = stream.optJSONArray("episodes")?.let { list ->
             (0 until list.length()).mapNotNull { i ->
                 val o = list.optJSONObject(i) ?: return@mapNotNull null
-                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optBoolean("current"))
+                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optString("thumbnail"), o.optBoolean("current"))
             }
         } ?: emptyList()
-        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes,
+        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes, stream.optInt("season", 0),
             stream.optJSONObject("next")?.optString("label")?.takeIf { nextRoute != null }, pipWanted)
         // over the picture, under the skip button and the torrent's status
         findViewById<FrameLayout>(R.id.player_root).addView(c.view, 1, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -641,15 +641,15 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun describe(error: PlaybackException): String = when (error.errorCode) {
-        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "the server refused it"
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> Lang.text(this, R.string.error_refused)
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "the connection failed"
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> Lang.text(this, R.string.error_connection)
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ->
             // Audio has a software decoder (FFmpeg) for whatever the hardware can't do; video doesn't
-            "this ${Device.noun(this)} can't decode its video format (pick a release in H.264 / x264, or without HDR or Dolby Vision)"
-        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "its file format isn't supported"
+            Lang.text(this, R.string.error_video_format, Device.thisOne(this))
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> Lang.text(this, R.string.error_container)
         else -> error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
     }
 

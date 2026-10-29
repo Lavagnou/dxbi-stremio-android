@@ -1,3 +1,93 @@
 <resources>
-    <string name="app_name">Nathflix</string>
+    <string name="app_name" translatable="false">Nathflix</string>
+
+    <!-- The device, in messages ("Can't play on this phone") -->
+    <string name="this_tv">this TV</string>
+    <string name="this_phone">this phone</string>
+    <string name="this_tablet">this tablet</string>
+    <string name="the_tv">the TV</string>
+    <string name="the_phone">the phone</string>
+    <string name="the_tablet">the tablet</string>
+
+    <!-- Player -->
+    <string name="player_back">Back</string>
+    <string name="player_pip">Picture in picture</string>
+    <string name="player_play_pause">Play or pause</string>
+    <string name="player_back_10">Back 10 seconds</string>
+    <string name="player_forward_10">Forward 10 seconds</string>
+    <string name="player_speed">Speed (%1$s)</string>
+    <string name="player_lock">Lock</string>
+    <string name="player_episodes">Episodes</string>
+    <string name="player_audio_subtitles">Audio &amp; Subtitles</string>
+    <string name="player_next_episode">Next Episode</string>
+    <string name="player_locked">Screen locked</string>
+    <string name="player_tap_to_unlock">Tap to unlock</string>
+    <string name="player_close">Close</string>
+    <string name="player_speed_title">Playback speed</string>
+    <string name="player_speed_normal">%1$s (Normal)</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_subtitles_off">Off</string>
+    <string name="player_audio_default">Default</string>
+    <string name="player_cancel">Cancel</string>
+    <string name="player_apply">Apply</string>
+    <string name="player_cant_play">Can\'t play on %1$s</string>
+    <string name="player_season">Season %1$d</string>
+    <string name="player_now_playing">Now playing</string>
+    <string name="player_skip_intro">Skip Intro</string>
+    <string name="player_skip_recap">Skip Recap</string>
+    <string name="player_skip_credits">Skip Credits</string>
+    <string name="player_next_short">Next Episode</string>
+    <string name="track_mono">Mono</string>
+    <string name="track_stereo">Stereo</string>
+
+    <!-- Why a stream couldn't play (the page says "This stream couldn't play: …") -->
+    <string name="error_refused">the server refused it</string>
+    <string name="error_connection">the connection failed</string>
+    <string name="error_video_format">%1$s can\'t decode its video format (pick a release in H.264 / x264, or without HDR or Dolby Vision)</string>
+    <string name="error_container">its file format isn\'t supported</string>
+    <string name="error_no_address">no stream address</string>
+
+    <!-- A torrent played on the device itself -->
+    <string name="torrent_finding_peers">Finding peers…</string>
+    <string name="torrent_peers">%1$d peers · %2$s MB/s</string>
+    <string name="torrent_one_peer">1 peer · %1$s MB/s</string>
+    <string name="torrent_no_peers">No peers answered for this torrent. Try another stream.</string>
+    <string name="torrent_cant_start">Couldn\'t start the torrent.</string>
+    <string name="torrent_cant_open">Couldn\'t open this torrent.</string>
+
+    <!-- App -->
+    <string name="back_again">Press Back again to leave Nathflix</string>
+    <string name="crash_title">Nathflix keeps stopping</string>
+    <string name="crash_message">Nathflix\'s screen stopped twice in a row on %1$s, usually because it\'s short of memory. Closing other apps (or restarting %2$s) helps. Try again?</string>
+    <string name="try_again">Try again</string>
+    <string name="close">Close</string>
+    <string name="no_app_for_link">No app on %1$s can open that link</string>
+    <string name="update_fire_tv_title">Update your Fire TV</string>
+    <string name="update_webview_title">Update Android System WebView</string>
+    <string name="update_fire_tv_message">Nathflix needs a newer web engine than this Fire TV has (%1$d). Update it under Settings → My Fire TV → About → Check for Updates, then open Nathflix again.</string>
+    <string name="update_webview_message">Nathflix needs Android System WebView %1$d or newer (%2$s has %3$d). Update it from the Play Store (search \"Android System WebView\"), then open Nathflix again.</string>
+    <string name="open_play_store">Open Play Store</string>
+
+    <!-- Updates -->
+    <string name="update_title">Nathflix %1$s is out</string>
+    <string name="update_message">You have %1$s. Update now? It downloads in the background, then Android asks you to install it.</string>
+    <string name="update_now">Update</string>
+    <string name="not_now">Not now</string>
+    <string name="skip_version">Skip this version</string>
+    <string name="allow_installs">Allow Nathflix to install apps, then choose Update again</string>
+    <string name="allow_installs_where">Allow Nathflix to install apps in %1$s, then choose Update again</string>
+    <string name="installs_where_mobile">the settings of %1$s (Apps → Special app access → Install unknown apps)</string>
+    <string name="installs_where_tv">the TV\'s settings (on Fire TV: My Fire TV → Developer options → Install unknown apps)</string>
+    <string name="update_downloading_already">The update is already downloading…</string>
+    <string name="update_downloading">Downloading the update…</string>
+    <string name="update_failed_title">The update didn\'t download</string>
+    <string name="update_failed_message">%1$s\n\nTry again later, or install it %2$s from:\n%3$s</string>
+    <string name="update_failed_browser">from your browser</string>
+    <string name="update_failed_downloader">with the Downloader app</string>
+    <string name="update_error_status">the server answered %1$d</string>
+    <string name="update_error_interrupted">the download was interrupted (%1$s)</string>
+    <string name="update_error_incomplete">the download was incomplete (%1$d of %2$d bytes)</string>
+    <string name="update_error_not_ours">the downloaded file isn\'t a Nathflix %1$s app</string>
+    <string name="update_error_save">the update couldn\'t be saved</string>
 </resources>

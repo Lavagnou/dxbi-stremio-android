@@ -842,9 +842,35 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     opacity: 0;
 }
 
-/* Card menu dots */
+/* Card menu dots: Stremio places them for its title bar, which the rows here hide, so they landed
+   on the progress bar. A small round button in the bottom-right corner instead, the progress bar
+   stopping short of it */
 #app [class*="meta-item-container"] [class*="menu-label-container"] {
-    border-radius: var(--dx-radius-s);
+    z-index: 6 !important;
+    top: auto !important;
+    left: auto !important;
+    right: 0.3rem !important;
+    bottom: 0.15rem !important;
+    width: 1.6rem !important;
+    height: 1.6rem !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+    background: rgba(12, 12, 14, 0.62) !important;
+    backdrop-filter: blur(6px);
+}
+
+#app [class*="meta-item-container"] [class*="menu-label-container"] svg {
+    position: static !important;
+    width: 1rem !important;
+    height: 1rem !important;
+    color: #fff !important;
+}
+
+#app [class*="meta-item-container"]:has([class*="menu-label-container"]) [class*="progress-bar-layer"] {
+    right: 2.3rem;
 }
 
 /* Placeholders while loading */
@@ -1175,8 +1201,8 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     to { transform: scaleX(1); }
 }
 
-/* Rows that follow the billboard sit above its fade */
-#app [class*="board-content-"]:not([class*="board-content-container"]) > .dx-hero ~ * {
+/* Rows that follow the billboard sit above its fade (not the phone's chips: they float at the top) */
+#app [class*="board-content-"]:not([class*="board-content-container"]) > .dx-hero ~ :not(.dxm-chips) {
     position: relative;
     z-index: 2;
 }
@@ -4739,6 +4765,13 @@ html.dx-mobile .dx-row-pages {
     display: none !important;
 }
 
+/* Holding a card opens its menu (plugin): no text selection or link preview from the WebView */
+html.dx-mobile #app [class*="meta-item-container"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
 /* Continue Watching: play and remove are always there (no hover to bring them up) */
 html.dx-mobile #app [class*="meta-item-container"] [class*="play-icon-layer"],
 html.dx-mobile #app [class*="meta-item-container"] [class*="dismiss-icon-layer"] {
@@ -4780,6 +4813,14 @@ html.dx-mobile #app [class*="meta-row"] > [class*="header-container"] {
 /* The category chips (plugin) sit over the billboard under the top bar */
 html.dx-mobile #app [class*="board-content-"]:not([class*="board-content-container"]) {
     position: relative;
+}
+
+html.dx-mobile #app [class*="board-content-"]:not([class*="board-content-container"]) > .dxm-chips {
+    position: absolute !important;
+    top: var(--dx-nav-h) !important;
+    left: 0;
+    right: 0;
+    z-index: 4 !important;
 }
 
 html.dx-mobile #app [class*="board-content-"]:not([class*="board-content-container"]):not(:has(> .dx-hero)) {

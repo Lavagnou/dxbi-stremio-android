@@ -189,7 +189,7 @@ class MainActivity : AppCompatActivity() {
             if (now - lastBack < 2500) finish()
             else {
                 lastBack = now
-                Toast.makeText(this, "Press Back again to leave Nathflix", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, Lang.text(this, R.string.back_again), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -215,11 +215,11 @@ class MainActivity : AppCompatActivity() {
         if (again) {
             setContentView(View(this))
             AlertDialog.Builder(this)
-                .setTitle("Nathflix keeps stopping")
-                .setMessage("Nathflix's screen stopped twice in a row on this ${Device.noun(this)}, usually because it's short of memory. Closing other apps (or restarting the ${Device.noun(this)}) helps. Try again?")
+                .setTitle(Lang.text(this, R.string.crash_title))
+                .setMessage(Lang.text(this, R.string.crash_message, Device.thisOne(this), Device.theOne(this)))
                 .setCancelable(false)
-                .setPositiveButton("Try again") { _, _ -> recreate() }
-                .setNegativeButton("Close") { _, _ -> finish() }
+                .setPositiveButton(Lang.text(this, R.string.try_again)) { _, _ -> recreate() }
+                .setNegativeButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
                 .show()
         } else {
             recreate()
@@ -246,7 +246,7 @@ class MainActivity : AppCompatActivity() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (_: Exception) {
-            Toast.makeText(this, "No app on this ${Device.noun(this)} can open that link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, Lang.text(this, R.string.no_app_for_link, Device.thisOne(this)), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -298,18 +298,18 @@ class MainActivity : AppCompatActivity() {
         val fireTv = Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
         setContentView(View(this))
         val builder = AlertDialog.Builder(this)
-            .setTitle(if (fireTv) "Update your Fire TV" else "Update Android System WebView")
+            .setTitle(Lang.text(this, if (fireTv) R.string.update_fire_tv_title else R.string.update_webview_title))
             .setCancelable(false)
         if (fireTv) {
-            builder.setMessage("Nathflix needs a newer web engine than this Fire TV has ($major). Update it under Settings → My Fire TV → About → Check for Updates, then open Nathflix again.")
-                .setPositiveButton("Close") { _, _ -> finish() }
+            builder.setMessage(Lang.text(this, R.string.update_fire_tv_message, major))
+                .setPositiveButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
         } else {
-            builder.setMessage("Nathflix needs Android System WebView $MIN_WEBVIEW or newer (this ${Device.noun(this)} has $major). Update it from the Play Store (search \"Android System WebView\"), then open Nathflix again.")
-                .setPositiveButton("Open Play Store") { _, _ ->
+            builder.setMessage(Lang.text(this, R.string.update_webview_message, MIN_WEBVIEW, Device.thisOne(this), major))
+                .setPositiveButton(Lang.text(this, R.string.open_play_store)) { _, _ ->
                     openExternal("market://details?id=com.google.android.webview")
                     finish()
                 }
-                .setNegativeButton("Close") { _, _ -> finish() }
+                .setNegativeButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
         }
         builder.show()
         return false
