@@ -77,7 +77,8 @@
     } catch (_) { return ""; }
   }
   const langOf = (code) => (/^(fr|fre|fra)(\b|-|_)/i.test(code || "") ? "fr" : "en");
-  const LANG = langOf(interfaceLanguage());
+  const LANG_CODE = interfaceLanguage();
+  const LANG = langOf(LANG_CODE);
   const LOCALE = LANG === "fr" ? "fr-FR" : "en-US";
   const FR = LANG === "fr" ? frDictionary() : {};
 
@@ -107,8 +108,11 @@
         const code = ctx && ctx.profile && ctx.profile.settings && ctx.profile.settings.interfaceLanguage;
         if (!code) return;
         try { localStorage.setItem("nathflix.lang", code); } catch (_) { /* read from the profile next time */ }
+        // Any change reloads, not only French ↔ English: Stremio keeps some texts (a card's ⋮ menu) in the
+        // language they were first drawn in. On the very first look, only a change of Nathflix's own
+        if (code === LANG_CODE || (!LANG_CODE && langOf(code) === LANG)) return;
         // never in the middle of a film
-        if (langOf(code) === LANG || currentRoute() === "player") return;
+        if (currentRoute() === "player") return;
         this.reloading = true;
         log("interface language changed: reloading");
         setTimeout(() => location.reload(), 300);
@@ -9712,14 +9716,31 @@
   // Hide (any viewer) and Allow for kids (grown-ups, when there's a kids profile) on a title's page,
   // and the note that comes up after hiding one from its hover card
   // "Play episode" (or "Play" for a film) on the streams page, above the trailer: plays the first
-  // stream in the list as it's shown (sorted and filtered), like Netflix's one Play button
+  // stream in the list as it's shown (sorted and filtered), like Netflix's one Play button, once every
+  // addon has answered. On a series' own page it's "Resume S1 E3" (or the episode after the one last
+  // finished): it opens that episode's streams and plays the first the same way
   const episodePlay = {
+    // the episode a series page's button opened, to play as soon as its streams are in
+    pending: null,
+    waiting: false,
+    // the series page's episode, worked out from Stremio's details ({ id, videoId, label })
+    series: null,
+
     ensure() {
-      const parts = (location.hash || "").replace(/^#\/?/, "").split("/");
-      const box = parts[0] === "detail" && parts[3] ? document.querySelector('[class*="metadetails-container"] [class*="meta-preview-container"]') : null;
+      const parts = (location.hash || "").replace(/^#\/?/, "").split("/").map((p) => decodeURIComponent(p.split("?")[0]));
+      const onStreams = parts[0] === "detail" && !!parts[3];
+      const onSeries = parts[0] === "detail" && parts[1] === "series" && parts[2] && !parts[3];
+      const box = onStreams || onSeries ? document.querySelector('[class*="metadetails-container"] [class*="meta-preview-container"]') : null;
       const row = box && box.querySelector('[class*="action-buttons-container"]');
+      // worked out again on each visit (the episode in progress moves on as you watch)
+      if (!onSeries) this.series = null;
       if (!row) {
         document.querySelectorAll(".dx-play-ep").forEach((n) => n.remove());
+        return;
+      }
+      if (onSeries && (!this.series || this.series.id !== parts[2])) this.findEpisode(parts[2]);
+      if (onSeries && (!this.series || this.series.id !== parts[2] || !this.series.videoId)) {
+        row.querySelector(":scope > .dx-play-ep")?.remove();
         return;
       }
       ensureExtrasStyle();
@@ -9731,8 +9752,12 @@
         b.tabIndex = 0;
         b.addEventListener("click", (e) => {
           e.stopPropagation();
-          const first = this.firstStream();
-          if (first) first.click();
+          const now = (location.hash || "").replace(/^#\/?/, "").split("/").map((p) => decodeURIComponent(p.split("?")[0]));
+          if (now[3]) this.playWhenReady(now[3]);
+          else if (this.series && this.series.id === now[2] && this.series.videoId) {
+            this.pending = { videoId: this.series.videoId, until: Date.now() + 30000 };
+            navigate(`/detail/series/${encodeURIComponent(now[2])}/${encodeURIComponent(this.series.videoId)}`);
+          }
         });
         b.addEventListener("keydown", (e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -9745,12 +9770,91 @@
       const trailer = row.querySelector(':scope > [class*="action-button-container"][class*="wide"]');
       const before = trailer || row.firstElementChild;
       if (b.parentElement !== row || (before && before !== b && b.nextElementSibling !== before)) row.insertBefore(b, before);
-      const ready = !!this.firstStream();
-      const label = !ready ? t("Finding streams…") : parts[1] === "movie" ? t("Play") : t("Play episode");
+      // arrived from a series page's button: play once the streams are in
+      if (onStreams && this.pending && this.pending.videoId === parts[3] && Date.now() < this.pending.until) {
+        this.pending = null;
+        this.playWhenReady(parts[3]);
+      }
+      const ready = onSeries || (!this.waiting && !!this.firstStream());
+      const label = this.waiting || (onStreams && !ready) ? t("Finding streams…")
+        : onSeries ? this.series.label
+        : parts[1] === "movie" ? t("Play") : t("Play episode");
       const html = `${ICONS.play}<span>${esc(label)}</span>`;
       if (b.innerHTML !== html) b.innerHTML = html;
       b.classList.toggle("is-waiting", !ready);
       b.setAttribute("aria-disabled", String(!ready));
+    },
+
+    // Waits until every addon has answered (or 12 s), and a moment more for the list's sorting, then
+    // plays the first stream shown
+    async playWhenReady(videoId) {
+      if (this.waiting) return;
+      this.waiting = true;
+      scheduleSync();
+      const started = Date.now();
+      try {
+        while (Date.now() - started < 12000) {
+          await new Promise((r) => setTimeout(r, 300));
+          if (!(location.hash || "").includes(encodeURIComponent(videoId)) && !(location.hash || "").includes(videoId)) return;
+          let s = null;
+          try { s = await core().getState("meta_details"); } catch (_) { /* core busy */ }
+          const sel = s && s.selected && s.selected.streamPath;
+          const groups = s && Array.isArray(s.streams) ? s.streams : [];
+          const settled = sel && sel.id === videoId && groups.length > 0 && !groups.some((g) => g && g.content && g.content.type === "Loading");
+          if (settled && this.firstStream()) break;
+        }
+        await new Promise((r) => setTimeout(r, 700));
+        const first = this.firstStream();
+        if (first) first.click();
+        else {
+          ensureExtrasStyle();
+          document.querySelectorAll(".dxe-toast").forEach((n) => n.remove());
+          const note = document.createElement("div");
+          note.className = "dxe-toast";
+          note.textContent = t("No streams found for this episode.");
+          document.body.append(note);
+          setTimeout(() => note.remove(), 5000);
+        }
+      } finally {
+        this.waiting = false;
+        scheduleSync();
+      }
+    },
+
+    // The episode to resume: the one in progress, else the one after the episode last finished, else
+    // the first (specials left out)
+    async findEpisode(id) {
+      if (this.looking === id) return;
+      this.looking = id;
+      try {
+        const s = await core().getState("meta_details").catch(() => null);
+        const meta = s && s.metaItem && s.metaItem.content;
+        if (!meta || meta.id !== id || !Array.isArray(meta.videos)) return;
+        const videos = meta.videos
+          .filter((v) => v && v.id && v.season != null && v.season > 0)
+          .sort((a, b) => a.season - b.season || (a.episode || 0) - (b.episode || 0));
+        if (!videos.length) return;
+        const st = (s.libraryItem && s.libraryItem.state) || (stremioLibrary().find((i) => i._id === id) || {}).state || null;
+        let video = videos[0];
+        let resume = false;
+        const at = st && st.video_id ? videos.findIndex((v) => v.id === st.video_id) : -1;
+        if (at >= 0) {
+          const part = st.duration > 0 ? st.timeOffset / st.duration : 0;
+          if (st.timeOffset > 0 && part < 0.9) {
+            video = videos[at];
+            resume = true;
+          } else {
+            // finished (Stremio puts the time back to 0 at the end): the next one out
+            const next = videos.slice(at + 1).find((v) => !v.released || new Date(v.released).getTime() <= Date.now());
+            video = next || videos[at];
+          }
+        }
+        const vars = { s: video.season, e: video.episode };
+        this.series = { id, videoId: video.id, label: resume ? t("Resume S{s} E{e}", vars) : t("Play S{s} E{e}", vars) };
+        scheduleSync();
+      } finally {
+        this.looking = null;
+      }
     },
 
     // The first stream as the list shows it: sorting moves streams with CSS order, filters hide them
@@ -14134,6 +14238,8 @@ vec4 hook() {
       "Allow with PIN": "Autoriser avec le code",
       "Let {name} watch this?": "Autoriser {name} à regarder ce titre ?",
       "Finding streams…": "Recherche des flux…",
+      "Play S{s} E{e}": "Lancer S{s} É{e}",
+      "No streams found for this episode.": "Aucun flux trouvé pour cet épisode.",
       "Play episode": "Lancer l'épisode",
       "Hidden": "Masqué",
       "Show it again everywhere": "L'afficher de nouveau partout",

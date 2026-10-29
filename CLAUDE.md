@@ -190,7 +190,7 @@ adb logcat -s nathflix nathflix-torrent
 - `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés ; `THIS_DEVICE` / `THE_DEVICE` le donnent traduit.
 - **Langue (français ou anglais)** : elle suit la langue de l'interface de Stremio (`interfaceLanguage`).
   - `LANG` (« fr » ou « en ») et `LOCALE` sont fixés au chargement : la langue vue en dernier dans le core (`localStorage` `nathflix.lang`), sinon le profil Stremio.
-  - `langWatch` (dans `sync()`) recharge la page quand la langue change, jamais pendant un film.
+  - `langWatch` (dans `sync()`) recharge la page quand le code de langue de Stremio change (`LANG_CODE`), jamais pendant un film. Tout changement compte : certains textes de Stremio (le menu ⋮ des cartes, mémorisé par `LibItem`) gardent la langue de leur premier affichage.
   - **Tout texte visible passe par `t("English text", { vars })`**, avec sa traduction dans `frDictionary()` (en fin de fichier, juste avant `anime4kShaders()`). La clé est le texte anglais exact, et `{nom}` est rempli par `t()`. Un texte absent du dictionnaire reste en anglais.
   - Dates : `LOCALE`. Les libellés écrits en CSS par le thème ont leur variante `html.dx-lang-fr` (bloc « FRENCH » du thème).
 - **Réglages Stremio par défaut** (`profileDefaults`) : interface en français, audio en français, pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
@@ -228,6 +228,8 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 - **Partout** :
   - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`, replacé par le thème dans le coin de la miniature).
   - `episodePlay` : bouton « Lancer l'épisode » (« Lecture » pour un film) avant la bande-annonce, sur la page des flux. Il clique la première source affichée (sans `data-dx-hide`, plus petit `style.order`).
+    - **Attente des sources** (`playWhenReady`) : jusqu'à ce que plus aucun addon ne soit en `Loading` dans `meta_details.streams` (12 s au plus), plus 700 ms pour le tri, puis le clic.
+    - **Page d'une série** : « Reprendre S1 É3 » (épisode en cours, si moins de 90 % vus), sinon « Lancer » l'épisode suivant le dernier fini (Stremio remet `timeOffset` à 0 à la fin), sinon S1 É1 (spéciaux exclus), d'après `meta_details.libraryItem.state`. Le clic ouvre la page des flux de l'épisode (`pending`), qui lance ensuite comme ci-dessus.
   - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris).
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.

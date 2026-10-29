@@ -73,6 +73,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | À valider | P1 | tv | T-006 | 2026-10-29 |
 | T-014 | Stremio resté en anglais malgré « Français » (langue enregistrée en `fre` au lieu de `fr-FR`) | À valider | P0 | plugin | T-008 | 2026-10-29 |
 | T-015 | Billboard : listes au choix parmi les catalogues des addons (Trakt…), jusqu'à trois mélangées | À valider | P1 | plugin | — | 2026-10-29 |
+| T-016 | Bouton « Reprendre » sur la page d'une série ; attendre toutes les sources avant de lancer | À valider | P1 | plugin | T-012 | 2026-10-29 |
+| T-017 | Menu ⋮ des cartes (Details, Dismiss) resté en anglais | À valider | P2 | plugin | T-014 | 2026-10-29 |
 
 ---
 
@@ -846,6 +848,58 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
   - la valeur enregistrée ne contient jamais l'adresse.
 - Dictionnaire : 0 clé manquante.
 
+### T-016 — Bouton « Reprendre » sur la page d'une série
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-012
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Si on est sur la page d'un série (pas sur un épisode en particulier) il faudrait le même bouton qui reprend la lecture de la série sur l'épisode en cours ou le prochain épisode, en fonctionnant pareil que sur un épisode, prendre le premier lien de la liste des sources, mais il faudrait un leger délai qui laisse le temps à toute les sources de charger.
+
+**Critères d'acceptation**
+- [x] « Reprendre S1 É3 » / « Lancer S1 É4 » / « Lancer S1 É1 » sur la page d'une série, avant la bande-annonce
+- [x] Le clic ouvre les flux de l'épisode, attend que tous les addons aient répondu, puis lance la première source affichée
+- [x] Même attente pour « Lancer l'épisode » sur la page d'un épisode
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `episodePlay.findEpisode()` lit `meta_details` (`metaItem.content.videos`, `libraryItem.state`), avec repli sur `library_recent`. Épisode en cours si `timeOffset > 0` et moins de 90 % ; sinon le suivant sorti du dernier fini ; spéciaux (saison 0) exclus.
+- `playWhenReady()` attend la fin des `Loading` dans `meta_details.streams` (12 s au plus), puis 700 ms ; sans source, un message « Aucun flux trouvé pour cet épisode. ».
+
+**Vérification**
+- Playwright (faux core ; un addon rapide à 0,3 s et un lent à 2,5 s dont la source passe en tête) :
+  - en cours → « Reprendre S1 É2 » ;
+  - fini → « Lancer S1 É3 » ;
+  - rien → « Lancer S1 É1 » ;
+  - le bouton affiche « Recherche des flux… » pendant l'attente ;
+  - c'est la source de l'addon lent (première une fois tout chargé) qui est lancée.
+
+### T-017 — Menu ⋮ des cartes resté en anglais
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-014
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Quand je clique sur les 3 point sur une série ça affiche Details et Dismiss, c'est pas traduit en français.
+
+**Notes techniques**
+- Les traductions françaises existent dans `stremio-translations` (« Détails », « Effacer »). Mais `LibItem.js` (stremio-web) calcule ses options dans un `useMemo` sans `t` dans ses dépendances : elles gardent la langue de leur premier affichage. Changer de langue sans recharger (ou la réparation `fre` → `fr-FR` de T-014) les laissait en anglais.
+- Correctif : `langWatch` recharge la page à tout changement du code de langue de Stremio (`LANG_CODE`), plus seulement quand la langue de Nathflix change.
+
+**Vérification**
+- Code de stremio-web et traductions vérifiés (commit de `stremio-translations` utilisé par stremio-web).
+- Non vérifié : sur l'appareil.
+
 <!--
 ### T-000 — Titre court
 
@@ -923,6 +977,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-016, T-017 | Créées et implémentées : Reprendre sur la page d'une série, attente des sources ; rechargement à tout changement de langue. APK de test publiée |
 | 2026-10-29 | T-014, T-015 | Créées et implémentées : langue de Stremio en `fr-FR` ; billboard depuis les listes des addons (jusqu'à trois). APK de test publiée |
 | 2026-10-29 | T-008 à T-013 | Implémentées et testées (Playwright, CI) ; APK de test publiée ; à valider sur l'appareil |
 | 2026-10-29 | T-008 à T-013 | Créées : retours sur l'APK de test (réglages par défaut, traductions, accueil, addons, Lancer l'épisode, lecteur Netflix) ; en cours |

@@ -1,6 +1,8 @@
 # Changelog
 
 ## Unreleased
+- **Resume a series from its page.** A series' page now has *Resume S1 E3* (or *Play* the next episode, or the first) above the trailer: it opens that episode's streams and plays the first one in the list. *Play episode* now waits a moment for every addon to answer before picking the first stream, so a slower addon's better stream isn't skipped.
+- **Stremio's menus follow a change of language.** Some of Stremio's own texts (the ⋮ menu of a card: Details, Dismiss…) stayed in the language they were first shown in: Nathflix now reloads the page whenever the interface language changes.
 - **Stremio itself in French too.** Nathflix set Stremio's interface language in a form Stremio's menu showed as Français but its own texts didn't recognise, so much of Stremio stayed English. It now uses Stremio's own code, and fixes accounts it set before.
 - **The billboard shows your lists.** Nathflix settings → Home → *Billboard content* now offers every list of your addons (a Trakt addon's Recommendations, a streaming service's catalog…) next to the popular titles, and up to two more lists can be mixed in (a list of films and one of series, say). Titles the list gives without a picture or description get Cinemeta's; if the list is gone or empty, the popular titles show.
 - **Nathflix speaks French.** Every text of Nathflix (its settings, Home rows, title sheet, messages, the player on phones and TVs, update prompts) now follows the language picked for Stremio's interface: French or English. Changing the language reloads the page in the new one.
