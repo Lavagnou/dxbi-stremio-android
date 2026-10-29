@@ -74,6 +74,12 @@ Le reste du dépôt :
     - sur téléphone et tablette, seulement si une flèche vient d'y mener. Le focus automatique de Stremio ne verrouille jamais (sinon le clavier ne s'ouvre pas à la connexion).
     - Toucher un champ verrouillé le libère.
   - Fait le **handoff de lecture** (`startHandoff`) : quand Stremio ouvre `#/player/…`, le flux est envoyé au lecteur natif.
+- **`nathflix-tv.js` → lecteur (téléphone et tablette)** :
+  - `mobilePlayback()` ajoute au JSON de `native.play` :
+    - `episodes` : la saison, chaque épisode avec sa `route` ;
+    - `next` : `label` et `route` (le lecteur du prochain épisode si Stremio connaît son flux, `nextVideo.deepLinks.player`, sinon sa liste de flux) ;
+    - `mobile` : `{ pip, background, autoNext }`, tirés des réglages.
+  - `closeHandoff(…, playRoute)` remplace la page du lecteur par cette route (`replaceRoute`), sinon fait `history.back()`.
 - **`Bridge.kt`** : interface JS `window.NathflixTV`.
   - Chaque méthode `@JavascriptInterface` prend `token` en premier argument et le vérifie avec `allowed()`. `isPhone()` et `version()` font exception.
   - Le token est aléatoire à chaque lancement ; il remplace `__NATHFLIX_TV_TOKEN__` dans `nathflix-tv.js`. Il empêche les iframes (trailers YouTube) d'appeler le bridge.
@@ -81,6 +87,23 @@ Le reste du dépôt :
   - En-têtes `proxyHeaders` (le User-Agent de l'addon remplace celui de Nathflix), sous-titres des addons, style des sous-titres Stremio.
   - Boutons Skip intro/recap/crédits, ±10 s.
   - Renvoie la position toutes les 5 s.
+  - **TV** : contrôles Media3 à la télécommande ; Home met en pause (`onPause`).
+  - **Téléphone et tablette** (`setUpMobile`) :
+    - `useController = false`, avec à la place `MobilePlayerControls` ;
+    - picture-in-picture (`pipParams`, `onUserLeaveHint`, entrée automatique dès Android 12) ; fermer la petite fenêtre ferme le lecteur ;
+    - `MediaSession`, confiée à `PlaybackService` pour la lecture en arrière-plan ;
+    - pause dans `onStop` seulement si l'arrière-plan est coupé ;
+    - « Next episode » prend la place du bouton Skip pendant le générique ou les 30 dernières secondes ;
+    - épisode suivant automatique à la fin.
+  - **Routes rendues à la page** : `finishWith(playRoute = …)` renvoie à la page la route où aller (épisode suivant ou épisode choisi), via `PlaybackBus.closed`.
+  - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`).
+- **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`) : contrôles façon Netflix.
+  - Haut : retour, titre.
+  - Centre : −10 s, lecture, +10 s.
+  - Bas : barre de progression (`DefaultTimeBar`) et rangée Vitesse / Verrouiller / Épisodes / Audio et sous-titres / Épisode suivant.
+  - Gestes : tap, double tap ±10 s, glisser à gauche pour la luminosité et à droite pour le volume (pas près des bords haut et bas, réservés aux gestes d'Android).
+  - Panneaux Vitesse, Audio et sous-titres (pistes Media3 via `TrackSelectionOverride`), Épisodes.
+- **`PlaybackService.kt`** : `MediaSessionService` (media3-session) qui garde le film en arrière-plan, avec la notification. La session appartient à `PlayerActivity`, qui la passe via `PlaybackService.session`.
 - **`PlaybackBus.kt`** : état de lecture partagé (`activePlayback`, `pendingClose`). Il survit au redémarrage de la page ou de `MainActivity` pendant une lecture.
 - **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>`.
   - Un seul torrent à la fois, supprimé à l'arrêt.
@@ -154,9 +177,22 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 - **Ajouter un réglage** :
   - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS` ;
   - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
+  - s'il ne concerne que téléphone et tablette, ajouter `mobileOnly: true` (exemples : `mobilePip`, `backgroundPlay`, `autoNext`) ;
   - s'il n'a pas de sens au doigt, ajouter sa clé au `Set` `NOT_ON_TOUCH` de `nathflix-tv.js` ;
   - s'il ne sert que sur desktop (lecteur in-page), ajouter sa clé au `Set` `DESKTOP_ONLY` de `nathflix-tv.js`. Sinon il apparaîtra dans les réglages TV.
-- **Thème** : le bloc « PHONES AND TABLETS » en fin de `nathflix.theme.css` est gardé par `html.dx-mobile`. Il contient la barre d'onglets en bas, les colonnes de posters et les commandes visibles sans survol. Le bloc « WINDOWS AND TV » ne vaut que pour `dx-tv`.
+- **Thème** : le bloc « PHONES AND TABLETS » en fin de `nathflix.theme.css` est gardé par `html.dx-mobile`. Le bloc « WINDOWS AND TV » ne vaut que pour `dx-tv`. Le bloc mobile contient :
+  - la barre d'onglets en bas (« Library » affiché « My List ») ;
+  - les colonnes de posters ;
+  - les commandes visibles sans survol ;
+  - le billboard haut en portrait ;
+  - la page d'un titre en une colonne (image, détails, puis épisodes ou flux) ;
+  - les grilles Discover et Bibliothèque à 3 colonnes ;
+  - Réglages empilés ;
+  - les toasts au-dessus de la barre d'onglets.
+- **Plugin, téléphone et tablette** :
+  - `titleSheet` : un tap sur un poster (Accueil, Recherche, Découvrir, Bibliothèque ; sauf Reprendre) ouvre une feuille en bas de l'écran, avec Play ou Resume, My List, Hide et « Episodes & info ». Back la ferme (`closePreview`).
+  - `mobileChips` : puces Shows, Movies et My List en haut de l'accueil, qui mènent aux catalogues « top » de Cinemeta.
+  - Leur CSS (`.dxm-*`) est dans `EXTRAS_CSS`, toujours chargé.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
 

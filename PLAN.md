@@ -62,8 +62,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-002 | Renommer le projet en Nathflix, version 0.1.0, tous les liens vers ce dépôt | À valider | P1 | tv, plugin, app, tools, ci, docs | T-001 | 2026-10-28 |
 | T-003 | Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran | À faire | P2 | tv, plugin, app, tools, docs | T-002 | 2026-10-28 |
 | T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
-| T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À faire | P1 | plugin, tv | T-004 | 2026-10-29 |
-| T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À faire | P1 | tv | T-004 | 2026-10-29 |
+| T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
+| T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
 
 ---
 
@@ -418,71 +418,132 @@ Rendre l'app utilisable au doigt sur téléphone et tablette : pouvoir se connec
 
 ### T-005 — Téléphones et tablettes : navigation façon Netflix mobile
 
-- **Statut :** À faire
+- **Statut :** À valider
 - **Priorité :** P1
 - **Cible :** plugin, tv
-- **Dépend de :** T-004 (et des retours de l'utilisateur sur l'APK de test)
+- **Dépend de :** T-004
 - **Créée le :** 2026-10-29
 - **Mise à jour :** 2026-10-29
-- **Branche :** —
+- **Branche :** `claude/quirky-cannon-g7e9oy`
 
 **Demande**
 > Je voudrais copier le design de Netflix, donc je veux que ça soit visuellement comme sur l'app android de Netflix. Je veux avoir comme Netflix en gros.
+>
+> Continue tout le plan en autonome, je testerai à la fin
 
 **Besoin**
 Sur téléphone et tablette, une navigation qui ressemble à l'app Android de Netflix.
 
 **Critères d'acceptation**
-- [ ] Toucher un poster ouvre une feuille en bas de l'écran (titre, année, note, résumé, Lecture, Ma liste, « Détails »), comme Netflix mobile, au lieu d'ouvrir directement la page
-- [ ] Page d'un titre : grand bouton Lecture pleine largeur, actions (Ma liste, note, partager), liste des épisodes par saison
-- [ ] Accueil : billboard vertical façon Netflix, rangées balayables, Reprendre avec ses boutons ⓘ et ⋮
-- [ ] Barre d'onglets et en-tête façon Netflix (onglets à choisir avec l'utilisateur ; Stremio a Accueil, Découvrir, Bibliothèque, Calendrier, Addons, Réglages)
-- [ ] Mise en page tablette (portrait et paysage)
-- [ ] « Masquer ce titre » et « Ma liste » accessibles au doigt (aujourd'hui seulement dans la carte de survol)
+- [x] Toucher un poster (Accueil, Recherche, Découvrir, Bibliothèque) ouvre une feuille en bas de l'écran : poster, titre, année, note, durée ou saisons, genres, résumé, Play ou « Resume S1 E3 », My List, Hide, « Episodes & info ». Reprendre (Continue Watching) relance directement, comme avant.
+- [x] Page d'un titre en une colonne : image en haut, détails, boutons qui passent à la ligne (le bouton large Play ou Trailer prend toute la largeur), puis épisodes ou flux
+- [x] Accueil : puces Shows, Movies et My List, billboard haut en portrait (logo et boutons centrés, sans les points), « See All » toujours visible, cartes « Airing » à la largeur du téléphone
+- [x] Onglets en bas, « Library » renommé « My List » (comme Netflix)
+- [x] Découvrir et Bibliothèque : 3 colonnes en portrait, sans la colonne d'aperçu de Découvrir ; Réglages empilés ; toasts et fenêtres de l'extension au-dessus de la barre d'onglets
+- [ ] Rendu validé par l'utilisateur sur téléphone et tablette, avec le vrai Stremio
 
 **Plan technique**
-- À préciser avec les captures de T-004. Ces écrans dépendent du DOM réel de Stremio, qui n'est pas visible en cloud : le mieux est de travailler avec mobile-MCP et un émulateur (en local), ou à partir de captures.
-- La feuille du bas peut réutiliser les données de la carte de survol (`preview` dans le plugin), dans une présentation propre à `dx-mobile`.
+- **Plugin `titleSheet`** :
+  - un `click` en capture sur `document` intercepte le tap sur un poster (`cardInfo`) ;
+  - les données viennent de `getInfo()` et `scoreOf()` ;
+  - My List réutilise `preview.toggleList` et `preview.library` ; Hide réutilise `restrict.toggleHidden` et `hideButton.toast` ;
+  - Resume part de `stremioLibrary()` et `state.video_id` ;
+  - la feuille se ferme par balayage vers le bas, la croix, le fond, ou Back (`api.closePreview`).
+- **Plugin `mobileChips`** : appelé par `sync()`, il pose les puces au début du contenu de l'accueil. Leur cible : `/discover/<cinemeta>/series|movie/top` et `/library`.
+- **CSS** :
+  - `.dxm-*` dans `EXTRAS_CSS` ;
+  - mise en page des pages dans le bloc « PHONES AND TABLETS » du thème.
+
+**Notes techniques**
+- **Ce qui casse à 412 px.** Sur la page d'un titre, la liste des flux et épisodes faisait au moins 448 px (`clamp(28rem, 31vw, 42rem)`) à côté de la colonne de description. Elle passe maintenant en flex colonne, même en « mode grille » (quand une autre extension insère des éléments).
+- **Défilement de la page d'un titre.** C'est `metadetails-content` qui défile (`overflow-y: auto`). L'image de fond, elle, reste fixe en haut (`height: nav-h + 60vw`).
+- **Écrit sans le vrai Stremio** (bloqué en cloud) : vérifié seulement sur des pages de substitution. À ajuster d'après les captures de l'utilisateur.
+
+**Vérification**
+- **Playwright, page de substitution, téléphone** 412×915 :
+  - tap sur un poster de l'accueil : la feuille s'ouvre, l'URL ne change pas ;
+  - Play → `#/detail/movie/<id>/<id>` ;
+  - My List → `Ctx/AddToLibrary` ;
+  - Back (`__nathflixTv.back()`) ferme la feuille ;
+  - puces Shows, Movies et My List présentes ;
+  - aucune erreur.
+- **Même test, TV** : le tap ouvre directement le titre, pas de puces.
+- **Page d'un titre à 412 px** : détails (412 px de large), puis flux (388 px) en dessous, rien de plus large que l'écran (`scrollWidth` 412), bouton large sur toute la ligne.
+- **Non vérifié :** le vrai Stremio (couleurs, tailles réelles, grilles), une tablette.
+
+**Livraison**
+- Commits : « Phones and tablets: Netflix-style navigation… » sur `claude/quirky-cannon-g7e9oy`
+- Version / CHANGELOG : entrées « Unreleased »
 
 **Questions ouvertes**
-- Quels onglets en bas (Netflix : Accueil, Nouveautés, Mon Netflix) ?
+- Le rendu réel (captures) : page d'un titre, billboard, puces, feuille.
 
 ### T-006 — Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan)
 
-- **Statut :** À faire
+- **Statut :** À valider
 - **Priorité :** P1
 - **Cible :** tv
 - **Dépend de :** T-004
 - **Créée le :** 2026-10-29
 - **Mise à jour :** 2026-10-29
-- **Branche :** —
+- **Branche :** `claude/quirky-cannon-g7e9oy`
 
 **Demande**
 > Comme le fork, je voudrais copier le design de Netflix, donc je veux que ça soit visuellement comme sur l'app android de Netflix. (Extras) Picture-in-picture, gestes dans le lecteur, lecture en arrière-plan.
 
 **Besoin**
-Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app Android de Netflix, avec ses gestes. La TV garde son lecteur actuel.
+Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app Android de Netflix, avec ses gestes. La TV garde son lecteur.
 
 **Critères d'acceptation**
-- [ ] Contrôles maison (vues Kotlin sur `PlayerView` sans son contrôleur, en mobile seulement) :
-  - en haut : retour, titre et épisode ;
+- [x] Contrôles maison (`MobilePlayerControls`) :
+  - en haut : retour, titre et épisode, bouton picture-in-picture ;
   - au centre : −10 s, lecture/pause, +10 s ;
-  - en bas : barre de progression avec temps restant ;
-  - rangée de boutons : Vitesse, Verrouiller, Épisodes, Audio et sous-titres, Épisode suivant
-- [ ] Gestes : tap pour afficher ou masquer, double-tap à gauche ou à droite pour ±10 s, glisser à gauche pour la luminosité et à droite pour le volume
-- [ ] Verrouillage de l'écran (aucun geste ne passe jusqu'au déverrouillage)
-- [ ] Feuille « Audio et sous-titres » façon Netflix (deux colonnes)
-- [ ] Picture-in-picture : `supportsPictureInPicture`, entrée sur `onUserLeaveHint`, actions lecture/pause
-- [ ] Lecture en arrière-plan : `media3-session` (`MediaSessionService`), notification avec contrôles, reprise au retour
-- [ ] Bouton Skip et épisode suivant à la manière de Netflix
+  - en bas : barre de progression rouge, temps restant ;
+  - rangée : Vitesse, Verrouiller, Épisodes, Audio et sous-titres, Épisode suivant
+- [x] Gestes : tap pour afficher ou masquer (disparaît après 4 s en lecture, reste en pause), double tap à gauche ou à droite pour ±10 s (au centre : pause), glisser à gauche pour la luminosité et à droite pour le volume
+- [x] Verrouillage : aucun geste ne passe ; un tap montre « Screen locked · tap to unlock »
+- [x] Panneaux Vitesse (0.5× à 1.5×), Audio et sous-titres (deux colonnes, « Off »), Épisodes (la saison, l'épisode en cours coché) ; Back ferme d'abord le panneau
+- [x] Picture-in-picture : bouton, touche Home (avant Android 12), entrée automatique (Android 12+) ; fermer la petite fenêtre ferme le lecteur en gardant la position
+- [x] Lecture en arrière-plan : `PlaybackService` (media3-session), notification avec contrôles, écran éteint ; permission de notification demandée une fois (Android 13+)
+- [x] Épisode suivant : bouton pendant le générique ou les 30 dernières secondes, enchaînement automatique à la fin. Même release si Stremio la connaît, sinon sa liste de flux.
+- [x] Réglages (téléphone et tablette seulement) : Picture-in-picture, Keep playing in the background, Play the next episode automatically
+- [x] La TV garde son lecteur (aucun chemin TV modifié)
+- [ ] Testé sur téléphone par l'utilisateur
 
 **Plan technique**
-- Indépendant du DOM de Stremio : faisable en cloud et vérifiable en CI (`android-dev.yml`), puis testé par l'utilisateur.
-- Garder le chemin TV intact : brancher sur `Device.isMobile` dans `PlayerActivity`.
-- Le passage en arrière-plan doit s'accorder avec `onPause` (qui met en pause aujourd'hui) et avec `PlaybackBus` (progression envoyée à la page).
+- **Kotlin** :
+  - `MobilePlayerControls.kt`, `player_mobile_controls.xml`, 16 icônes vectorielles Material (`ic_*.xml`, vérifiées en rendu SVG), styles `Nathflix.PlayerButton` et `Nathflix.PlayerBubble` (avec `parent=""`, sinon aapt cherche un style `Nathflix`) ;
+  - `PlaybackService.kt` ;
+  - `PlayerActivity.setUpMobile`, avec PiP, `onStop`, `finishWith(playRoute)`, `closeQuietly` ;
+  - manifeste : `supportsPictureInPicture`, `singleTop`, service `mediaPlayback` et permissions ;
+  - dépendance `media3-session:1.5.1`.
+- **Page** :
+  - `nathflix-tv.js` `mobilePlayback()` (épisodes, suivant, options) ;
+  - `closeHandoff(…, playRoute)` et `replaceRoute` ;
+  - `PlaybackBus.closed(…, playRoute)`.
+- **Prochain épisode** : il vient de `state.nextVideo` du modèle « player » de Stremio. C'est ce qu'utilise le raccourci Shift+N de Stremio, et le plugin aussi (`upNext`).
+
+**Notes techniques**
+- **Pas d'historique en double.** La route suivante remplace la page du lecteur (`replaceState` + `popstate`) au lieu de s'empiler : Back depuis l'épisode suivant ne relance pas l'ancien.
+- **`deepLinks.player` de `nextVideo` non vérifié.** Je ne l'ai pas vérifié sur un vrai Stremio. S'il manque, c'est la liste de flux de l'épisode qui s'ouvre.
+- **Pendant le picture-in-picture**, l'écran principal reste sur la page du lecteur de Stremio (silencieuse). Lancer un autre titre ferme le lecteur en PiP (`closeQuietly`, progression des dernières secondes perdue).
+- **La session Media3 a un ID fixe** (`nathflix-player`). Une seule à la fois, d'où la libération immédiate dans `closeQuietly`.
+- **Pas d'entrée automatique en PiP avant Android 12** : c'est `onUserLeaveHint` qui le fait.
+
+**Vérification**
+- **CI `android-dev.yml`** :
+  - run du commit 4d596fa : échec aapt (`style/Nathflix` introuvable), corrigé ;
+  - run suivant (0190de4) : `BUILD SUCCESSFUL in 1m 37s`, APK publiée dans `dev`, seul avertissement l'ancien `databaseEnabled`.
+- **Icônes** : rendues en SVG avec Playwright, toutes correctes.
+- **Tests Playwright de la page** (T-004) toujours verts. Réglages : téléphone 31 lignes (3 nouvelles), TV 32 (inchangé).
+- **Non vérifié :** tout ce qui demande un appareil (gestes, PiP, notification, enchaînement d'épisodes réel).
+
+**Livraison**
+- Commits : 4d596fa (lecteur) et 0190de4 (correctif de style) sur `claude/quirky-cannon-g7e9oy`
+- Version / CHANGELOG : entrées « Unreleased »
 
 **Questions ouvertes**
-- Épisode suivant : il faut que la page fournisse l'épisode suivant au lecteur (aujourd'hui seul le flux courant est passé).
+- —
 
 <!--
 ### T-000 — Titre court
@@ -561,6 +622,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-005, T-006 | Implémentées en autonome à la demande de l'utilisateur (feuille titre, pages mobiles, lecteur Netflix, PiP, arrière-plan, épisode suivant). À valider sur appareil |
 | 2026-10-29 | T-005, T-006 | Créées : navigation et lecteur façon Netflix mobile |
 | 2026-10-29 | T-004 | Créée et implémentée : clavier à la connexion, mode mobile, mise en page, fenêtres au doigt, APK de test. À valider sur téléphone |
 | 2026-10-29 | T-002 | Compilation Android vérifiée en CI (`android-dev.yml`, run 1) |
