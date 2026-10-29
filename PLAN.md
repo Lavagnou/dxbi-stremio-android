@@ -83,7 +83,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
 | T-024 | Bouton « Lecture » absent de la page d'une série ; croix de Continuer de regarder retirée | À valider | P1 | plugin | T-016 | 2026-10-29 |
 | T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
-| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | En cours | P1 | release | — | 2026-10-29 |
+| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | Fait | P1 | release | — | 2026-10-29 |
 
 ---
 
@@ -1255,7 +1255,7 @@ On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué
 
 ### T-026 — Release 0.3.0 et fichiers des releases
 
-- **Statut :** En cours
+- **Statut :** Fait
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** —
@@ -1277,8 +1277,8 @@ Réponses ensuite :
 - [x] La mise à jour du plugin sur Android lit `raw.githubusercontent.com/<dépôt>/<tag>/nathflix.plugin.js`
 - [x] Les installeurs, le README et la CI pointent vers les fichiers de `main`
 - [x] `@version 0.3.0`, section `## 0.3.0` du CHANGELOG
-- [ ] PR fusionnée dans `main`
-- [ ] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
+- [x] PR fusionnée dans `main` (lavagnou/dxbi-stremio-android#2)
+- [x] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
 
 **Notes techniques**
 - `release.yml` : `gh release create` sans fichiers. Les notes renvoient vers le README pour le plugin.
@@ -1292,6 +1292,10 @@ Réponses ensuite :
 - **CI de la PR** : `mpv-windows.yml` échouait depuis T-009 (`744fe52`) sur « embedded subtitles ».
   - Cause : l'app de test démarre maintenant Stremio en français, donc le bouton est « Sous-titres ». `tools/mpv-test.mjs` le cherchait par son nom anglais (`data-dx-label="Subtitles"`).
   - Correctif : il le cherche par son icône (`data-dx-icon="subtitles"`), et la piste sous « Track 1 » ou « Piste 1 ».
+  - Résultat : Windows, Linux, macOS et mpv verts.
+- **Release** : PR fusionnée (`1d4a04b`), puis `release.yml` lancé à la main avec 0.3.0 (run 40947636619, vert).
+- **Fichiers de la release** (lus par l'API GitHub) : les 2 exe, le `.blockmap`, les 2 dmg, les 2 AppImage et les 3 `latest*.yml`. Pas de plugin ni d'installeurs.
+- **Nouvelles adresses** : `main/install.sh`, `main/nathflix.plugin.js` et `v0.3.0/nathflix.plugin.js` (`@version 0.3.0`) répondent tous en 200.
 
 <!--
 ### T-000 — Titre court
@@ -1371,6 +1375,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-026 | Fait : PR #2 fusionnée, release v0.3.0 publiée (apps desktop, `latest*.yml`, `.blockmap` ; sans APK faute de clé) |
 | 2026-10-29 | T-026 | Créée : release 0.3.0, releases réduites aux apps ; en cours (PR vers main, puis release) |
 | 2026-10-29 | T-024, T-025 | Bouton Lecture d'une série corrigé (forme de `meta_details`), croix de Continuer retirée, profils façon Netflix, bouton profil, menu du compte dans les Réglages. Testés (Playwright). APK de test publiée |
 | 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
