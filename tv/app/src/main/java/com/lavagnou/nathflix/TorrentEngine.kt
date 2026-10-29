@@ -43,13 +43,18 @@ object TorrentEngine {
         "udp://explodie.org:6969/announce",
     )
 
+    private val VIDEO = Regex("""\.(mkv|mp4|m4v|avi|mov|webm|ts|m2ts|wmv|flv)$""", RegexOption.IGNORE_CASE)
+    private val PEERS_STATUS = Regex("""^\d+ \S+ · [\d.,]+ \S+/s$""")
+
     private var session: SessionManager? = null
     private var server: Server? = null
     private lateinit var dir: File
-    private val worker = Executors.newSingleThreadExecutor()
+    // a thread per torrent being opened: one still waiting for an old torrent's details (up to a
+    // minute) mustn't hold up the next
+    private val worker = Executors.newCachedThreadPool()
 
-    /** The torrent being played */
-    private class Active(val hash: String, val handle: TorrentHandle, val info: TorrentInfo, val file: Int, val path: File) {
+    /** The torrent being played; [key]: its hash and the file asked for ("hash/3", or "hash/-1") */
+    private class Active(val key: String, val hash: String, val handle: TorrentHandle, val info: TorrentInfo, val file: Int, val path: File) {
         val offset: Long = info.files().fileOffset(file)
         val size: Long = info.files().fileSize(file)
         val pieceLength: Int = info.pieceLength()
@@ -58,14 +63,20 @@ object TorrentEngine {
 
     @Volatile private var active: Active? = null
     @Volatile private var opening: String? = null
-    @Volatile private var failure: String? = null
+    @Volatile private var failure: Int? = null // a string resource: why the torrent failed
 
     /** Set up once: the download folder (emptied) and the session */
     @Synchronized
     private fun ensure(context: Context) {
-        if (session != null) return
+        if (session != null) {
+            if (session!!.isPaused) session!!.resume()
+            return
+        }
         dir = File(context.cacheDir, "torrents")
-        dir.deleteRecursively()
+        // what an earlier run left (it can be gigabytes) is deleted in the background: this runs on
+        // the page's thread, which would freeze meanwhile
+        if (dir.exists() && !dir.renameTo(File(context.cacheDir, "torrents-old-${System.currentTimeMillis()}"))) dir.deleteRecursively()
+        worker.execute { context.cacheDir.listFiles { f -> f.name.startsWith("torrents-old-") }?.forEach { it.deleteRecursively() } }
         dir.mkdirs()
         val settings = SettingsPack()
             .listenInterfaces("0.0.0.0:6881,[::]:6881")
@@ -86,17 +97,20 @@ object TorrentEngine {
     fun open(context: Context, infoHash: String, fileIdx: Int, trackers: List<String>, nameHint: String): String {
         ensure(context)
         val hash = infoHash.lowercase()
-        val current = active
-        if (current == null || current.hash != hash) {
-            close()
-            opening = hash
-            failure = null
-            worker.execute { start(hash, fileIdx, trackers, nameHint) }
+        // (another file of the same torrent, a season pack's next episode, is another download)
+        val key = "$hash/$fileIdx"
+        synchronized(this) {
+            if (active?.key != key && opening != key) {
+                stop()
+                opening = key
+                failure = null
+                worker.execute { start(key, hash, fileIdx, trackers, nameHint) }
+            }
         }
-        return "http://127.0.0.1:${server!!.listeningPort}/t/$hash"
+        return "http://127.0.0.1:${server!!.listeningPort}/t/$key"
     }
 
-    private fun start(hash: String, fileIdx: Int, trackers: List<String>, nameHint: String) {
+    private fun start(key: String, hash: String, fileIdx: Int, trackers: List<String>, nameHint: String) {
         val s = session ?: return
         try {
             val allTrackers = (trackers.take(30) + OPEN_TRACKERS).distinct()
@@ -106,9 +120,9 @@ object TorrentEngine {
             }
             // the torrent's file list and pieces, from peers (DHT and the stream's trackers)
             val bytes = s.fetchMagnet(magnet, METADATA_TIMEOUT_S, dir)
-            if (opening != hash) return
+            if (opening != key) return
             if (bytes == null) {
-                failure = "No peers answered for this torrent. Try another stream."
+                failure = R.string.torrent_no_peers
                 return
             }
             val info = TorrentInfo.bdecode(bytes)
@@ -117,59 +131,83 @@ object TorrentEngine {
             // only the file being watched is downloaded
             val priorities = Array(files.numFiles()) { if (it == pick) Priority.DEFAULT else Priority.IGNORE }
             s.download(info, dir, null, priorities, null, TorrentFlags.SEQUENTIAL_DOWNLOAD)
-            val handle = s.find(Sha1Hash.parseHex(hash)) ?: run { failure = "Couldn't start the torrent."; return }
+            val handle = s.find(Sha1Hash.parseHex(hash)) ?: run { failure = R.string.torrent_cant_start; return }
             handle.setFlags(TorrentFlags.SEQUENTIAL_DOWNLOAD)
             // the torrent's details don't carry the trackers: give them back, and ask them for peers now
             for (t in allTrackers) handle.addTracker(AnnounceEntry(t))
             handle.forceReannounce()
             handle.forceDHTAnnounce()
-            val a = Active(hash, handle, info, pick, File(dir, files.filePath(pick)))
+            val a = Active(key, hash, handle, info, pick, File(dir, files.filePath(pick)))
             // the start and the very end first: players read a file's index (MP4's moov, MKV's cues)
             // from either end before playing
             val first = a.offset / a.pieceLength
             val last = (a.offset + a.size - 1) / a.pieceLength
             for (p in first..minOf(last, first + READ_AHEAD_PIECES)) handle.setPieceDeadline(p.toInt(), 300 + (p - first).toInt() * 150)
             for (p in maxOf(first, last - 1)..last) handle.setPieceDeadline(p.toInt(), 600)
-            if (opening != hash) { s.remove(handle, SessionHandle.DELETE_FILES); return }
-            active = a
+            // (closed meanwhile, or another torrent asked for: this one goes)
+            synchronized(this) {
+                if (opening != key) { s.remove(handle, SessionHandle.DELETE_FILES); return }
+                active = a
+            }
             Log.i(TAG, "playing ${files.filePath(pick)} (${a.size / 1048576} MB)")
         } catch (e: Exception) {
             Log.w(TAG, "couldn't open $hash", e)
-            failure = "Couldn't open this torrent."
+            if (opening == key) failure = R.string.torrent_cant_open
         }
     }
 
     // Stremio sends the file to play; when it doesn't, the biggest video file is the film/episode
     private fun chooseFile(info: TorrentInfo, nameHint: String): Int {
         val files = info.files()
-        val videos = (0 until files.numFiles()).filter { Regex("""\.(mkv|mp4|m4v|avi|mov|webm|ts|m2ts|wmv|flv)$""", RegexOption.IGNORE_CASE).containsMatchIn(files.fileName(it)) }
+        val videos = (0 until files.numFiles()).filter { VIDEO.containsMatchIn(files.fileName(it)) }
         val pool = videos.ifEmpty { (0 until files.numFiles()).toList() }
         val hinted = if (nameHint.isNotBlank()) pool.filter { files.fileName(it).contains(nameHint, ignoreCase = true) } else emptyList()
         return (hinted.ifEmpty { pool }).maxByOrNull { files.fileSize(it) } ?: 0
     }
 
-    /** Stops the download and deletes it */
-    fun close() {
+    /**
+     * Stops the download and deletes it. With [key] (what a player reads: "hash/file"), only when
+     * that's still the torrent playing: a newer film's torrent is left alone.
+     */
+    @Synchronized
+    fun close(key: String? = null) {
+        if (key != null && active?.key != key && opening != key) return
+        stop()
+        // nothing playing: no DHT, no peers, no open port until the next torrent
+        try { session?.takeIf { !it.isPaused }?.pause() } catch (_: Exception) { }
+    }
+
+    @Synchronized
+    private fun stop() {
         opening = null
-        val a = active ?: return
+        val a = active
         active = null
-        a.closed = true
-        try { session?.remove(a.handle, SessionHandle.DELETE_FILES) } catch (_: Exception) { }
-        Log.i(TAG, "closed ${a.hash}")
+        if (a != null) {
+            a.closed = true
+            try { session?.remove(a.handle, SessionHandle.DELETE_FILES) } catch (_: Exception) { }
+            Log.i(TAG, "closed ${a.hash}")
+        }
     }
 
     /** For the player's status line: "Finding peers…", "12 peers · 2.4 MB/s", or why it failed */
-    fun status(): String? {
-        failure?.let { return it }
-        val a = active ?: return if (opening != null) "Finding peers…" else null
+    fun status(context: Context): String? {
+        failure?.let { return Lang.text(context, it) }
+        val a = active ?: return if (opening != null) Lang.text(context, R.string.torrent_finding_peers) else null
         return try {
             val st = a.handle.status()
-            val rate = st.downloadPayloadRate() / 1048576.0
-            "${st.numPeers()} peer${if (st.numPeers() == 1) "" else "s"} · ${"%.1f".format(rate)} MB/s"
+            val rate = "%.1f".format(st.downloadPayloadRate() / 1048576.0)
+            if (st.numPeers() == 1) Lang.text(context, R.string.torrent_one_peer, rate)
+            else Lang.text(context, R.string.torrent_peers, st.numPeers(), rate)
         } catch (_: Exception) { null }
     }
 
-    fun failed(): String? = failure
+    /** Whether the player's status line is the torrent's ("Finding peers…", "12 peers…") */
+    fun isStatus(context: Context, text: CharSequence): Boolean {
+        val finding = Lang.text(context, R.string.torrent_finding_peers)
+        return text == finding || PEERS_STATUS.matches(text)
+    }
+
+    fun failed(context: Context): String? = failure?.let { Lang.text(context, it) }
 
     // ---- Reading the file as it arrives ----
 
@@ -191,10 +229,9 @@ object TorrentEngine {
         private var pos = start
         private var raf: RandomAccessFile? = null
 
-        override fun read(): Int {
-            val one = ByteArray(1)
-            return if (read(one, 0, 1) == 1) one[0].toInt() and 0xff else -1
-        }
+        private val one = ByteArray(1)
+
+        override fun read(): Int = if (read(one, 0, 1) == 1) one[0].toInt() and 0xff else -1
 
         override fun read(b: ByteArray, off: Int, len: Int): Int {
             if (pos > end || a.closed) return -1
@@ -217,15 +254,18 @@ object TorrentEngine {
 
     private class Server : NanoHTTPD("127.0.0.1", 0) {
         override fun serve(session: IHTTPSession): Response {
-            val hash = session.uri.removePrefix("/t/").lowercase()
+            val key = session.uri.removePrefix("/t/").lowercase()
+            // (addresses from before the file was part of them: just the hash)
+            fun ours(a: Active?) = a != null && (a.key == key || a.hash == key)
+            fun waiting() = opening == key || opening?.substringBefore('/') == key
             // the torrent's details can take a while to arrive from peers: the player's first request waits
             val until = System.currentTimeMillis() + (METADATA_TIMEOUT_S + 5) * 1000L
             var a = active
-            while ((a == null || a.hash != hash) && failure == null && opening == hash && System.currentTimeMillis() < until) {
+            while (!ours(a) && failure == null && waiting() && System.currentTimeMillis() < until) {
                 Thread.sleep(100)
                 a = active
             }
-            if (a == null || a.hash != hash) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, failure ?: "not playing")
+            if (a == null || !ours(a)) return newFixedLengthResponse(Response.Status.NOT_FOUND, MIME_PLAINTEXT, if (failure != null) "failed" else "not playing")
             // the file is created as soon as the download starts; wait for it to exist
             for (i in 0 until 50) { if (a.path.exists()) break; Thread.sleep(100) }
 
@@ -235,9 +275,16 @@ object TorrentEngine {
             val range = session.headers["range"]
             val ranged = range != null && range.startsWith("bytes=")
             if (ranged) {
-                val parts = range!!.removePrefix("bytes=").split("-")
-                start = parts[0].toLongOrNull() ?: 0L
-                end = parts.getOrNull(1)?.toLongOrNull()?.coerceAtMost(size - 1) ?: (size - 1)
+                val parts = range!!.removePrefix("bytes=").substringBefore(',').split("-")
+                val from = parts[0].trim().toLongOrNull()
+                val to = parts.getOrNull(1)?.trim()?.toLongOrNull()
+                if (from == null && to != null) {
+                    // "bytes=-500": the last 500 bytes
+                    start = (size - to).coerceAtLeast(0L)
+                } else {
+                    start = from ?: 0L
+                    end = to?.coerceAtMost(size - 1) ?: (size - 1)
+                }
                 if (start >= size) {
                     return newFixedLengthResponse(Response.Status.RANGE_NOT_SATISFIABLE, MIME_PLAINTEXT, "").apply { addHeader("Content-Range", "bytes */$size") }
                 }

@@ -1,0 +1,85 @@
+<resources>
+    <string name="this_tv">ce téléviseur</string>
+    <string name="this_phone">ce téléphone</string>
+    <string name="this_tablet">cette tablette</string>
+    <string name="the_tv">le téléviseur</string>
+    <string name="the_phone">le téléphone</string>
+    <string name="the_tablet">la tablette</string>
+
+    <string name="player_back">Retour</string>
+    <string name="player_pip">Image dans l\'image</string>
+    <string name="player_play_pause">Lecture ou pause</string>
+    <string name="player_back_10">Reculer de 10 secondes</string>
+    <string name="player_forward_10">Avancer de 10 secondes</string>
+    <string name="player_speed">Vitesse (%1$s)</string>
+    <string name="player_lock">Verrouiller</string>
+    <string name="player_episodes">Épisodes</string>
+    <string name="player_audio_subtitles">Audio et sous-titres</string>
+    <string name="player_next_episode">Épisode suivant</string>
+    <string name="player_locked">Écran verrouillé</string>
+    <string name="player_tap_to_unlock">Touchez pour déverrouiller</string>
+    <string name="player_close">Fermer</string>
+    <string name="player_speed_title">Vitesse de lecture</string>
+    <string name="player_speed_normal">%1$s (normale)</string>
+    <string name="player_audio">Audio</string>
+    <string name="player_subtitles">Sous-titres</string>
+    <string name="player_subtitles_off">Désactivés</string>
+    <string name="player_audio_default">Par défaut</string>
+    <string name="player_cancel">Annuler</string>
+    <string name="player_apply">Appliquer</string>
+    <string name="player_cant_play">Illisible sur %1$s</string>
+    <string name="player_season">Saison %1$d</string>
+    <string name="player_now_playing">En cours</string>
+    <string name="player_skip_intro">Passer l\'intro</string>
+    <string name="player_skip_recap">Passer le récap</string>
+    <string name="player_skip_credits">Passer le générique</string>
+    <string name="player_next_short">Épisode suivant</string>
+    <string name="track_mono">Mono</string>
+    <string name="track_stereo">Stéréo</string>
+
+    <string name="error_refused">le serveur l\'a refusé</string>
+    <string name="error_connection">la connexion a échoué</string>
+    <string name="error_video_format">%1$s ne sait pas décoder son format vidéo (choisissez une version en H.264 / x264, ou sans HDR ni Dolby Vision)</string>
+    <string name="error_container">son format de fichier n\'est pas pris en charge</string>
+    <string name="error_no_address">pas d\'adresse pour ce flux</string>
+
+    <string name="torrent_finding_peers">Recherche de pairs…</string>
+    <string name="torrent_peers">%1$d pairs · %2$s Mo/s</string>
+    <string name="torrent_one_peer">1 pair · %1$s Mo/s</string>
+    <string name="torrent_no_peers">Aucun pair n\'a répondu pour ce torrent. Essayez un autre flux.</string>
+    <string name="torrent_cant_start">Impossible de lancer le torrent.</string>
+    <string name="torrent_cant_open">Impossible d\'ouvrir ce torrent.</string>
+
+    <string name="back_again">Appuyez de nouveau sur Retour pour quitter Nathflix</string>
+    <string name="crash_title">Nathflix s\'arrête sans cesse</string>
+    <string name="crash_message">L\'écran de Nathflix s\'est arrêté deux fois de suite sur %1$s, le plus souvent par manque de mémoire. Fermer d\'autres apps (ou redémarrer %2$s) aide. Réessayer ?</string>
+    <string name="try_again">Réessayer</string>
+    <string name="close">Fermer</string>
+    <string name="no_app_for_link">Aucune app sur %1$s ne peut ouvrir ce lien</string>
+    <string name="update_fire_tv_title">Mettez à jour votre Fire TV</string>
+    <string name="update_webview_title">Mettez à jour Android System WebView</string>
+    <string name="update_fire_tv_message">Nathflix a besoin d\'un moteur web plus récent que celui de ce Fire TV (%1$d). Mettez-le à jour dans Paramètres → Mon Fire TV → À propos → Rechercher des mises à jour, puis rouvrez Nathflix.</string>
+    <string name="update_webview_message">Nathflix a besoin d\'Android System WebView %1$d ou plus récent (%2$s a la version %3$d). Mettez-le à jour depuis le Play Store (cherchez « Android System WebView »), puis rouvrez Nathflix.</string>
+    <string name="open_play_store">Ouvrir le Play Store</string>
+
+    <string name="update_title">Nathflix %1$s est disponible</string>
+    <string name="update_message">Vous avez la version %1$s. Mettre à jour maintenant ? Le téléchargement se fait en arrière-plan, puis Android vous propose de l\'installer.</string>
+    <string name="update_now">Mettre à jour</string>
+    <string name="not_now">Plus tard</string>
+    <string name="skip_version">Ignorer cette version</string>
+    <string name="allow_installs">Autorisez Nathflix à installer des apps, puis choisissez à nouveau Mettre à jour</string>
+    <string name="allow_installs_where">Autorisez Nathflix à installer des apps dans %1$s, puis choisissez à nouveau Mettre à jour</string>
+    <string name="installs_where_mobile">les paramètres de %1$s (Applications → Accès spéciaux des applications → Installer des applications inconnues)</string>
+    <string name="installs_where_tv">les paramètres du téléviseur (sur Fire TV : Mon Fire TV → Options pour les développeurs → Installer des applications inconnues)</string>
+    <string name="update_downloading_already">La mise à jour est déjà en cours de téléchargement…</string>
+    <string name="update_downloading">Téléchargement de la mise à jour…</string>
+    <string name="update_failed_title">La mise à jour n\'a pas pu être téléchargée</string>
+    <string name="update_failed_message">%1$s\n\nRéessayez plus tard, ou installez-la %2$s depuis :\n%3$s</string>
+    <string name="update_failed_browser">depuis votre navigateur</string>
+    <string name="update_failed_downloader">avec l\'app Downloader</string>
+    <string name="update_error_status">le serveur a répondu %1$d</string>
+    <string name="update_error_interrupted">le téléchargement a été interrompu (%1$s)</string>
+    <string name="update_error_incomplete">le téléchargement est incomplet (%1$d sur %2$d octets)</string>
+    <string name="update_error_not_ours">le fichier téléchargé n\'est pas l\'app Nathflix %1$s</string>
+    <string name="update_error_save">la mise à jour n\'a pas pu être enregistrée</string>
+</resources>

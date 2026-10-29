@@ -65,6 +65,25 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
 | T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | Bloqué | P0 | tv, ci | T-006 | 2026-10-29 |
+| T-008 | Réglages par défaut (UI et audio en français, sans sous-titres, épisodes floutés) ; plus de fenêtre d'addons au démarrage | À valider | P1 | plugin | — | 2026-10-29 |
+| T-009 | Tout en français (et en anglais), selon la langue de l'interface | À valider | P1 | plugin, tv | — | 2026-10-29 |
+| T-010 | Accueil : Continuer de regarder avant Airing, puces, 3 points et appui long sur les cartes | À valider | P1 | plugin | — | 2026-10-29 |
+| T-011 | Glisser-déposer pour réordonner les addons | À valider | P2 | plugin | — | 2026-10-29 |
+| T-012 | Bouton « Lancer l'épisode » qui lance la première source | À valider | P1 | plugin | — | 2026-10-29 |
+| T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | À valider | P1 | tv | T-006 | 2026-10-29 |
+| T-014 | Stremio resté en anglais malgré « Français » (langue enregistrée en `fre` au lieu de `fr-FR`) | À valider | P0 | plugin | T-008 | 2026-10-29 |
+| T-015 | Billboard : listes au choix parmi les catalogues des addons (Trakt…), jusqu'à trois mélangées | À valider | P1 | plugin | — | 2026-10-29 |
+| T-016 | Bouton « Reprendre » sur la page d'une série ; attendre toutes les sources avant de lancer | À valider | P1 | plugin | T-012 | 2026-10-29 |
+| T-017 | Menu ⋮ des cartes (Details, Dismiss) resté en anglais | À valider | P2 | plugin | T-014 | 2026-10-29 |
+| T-018 | Revue : plantage du lecteur, gel de la Bibliothèque, faille XSS, écran noir, torrents | À valider | P0 | tv, plugin | — | 2026-10-29 |
+| T-019 | Revue : robustesse du plugin (vieilles WebView, billboard hors ligne, stockage plein…) | À valider | P1 | plugin, tv | — | 2026-10-29 |
+| T-020 | Revue : performances (mesure des rangées, observateur, langue, boutons) | À valider | P2 | plugin, tv | — | 2026-10-29 |
+| T-021 | Organiser les rangées de l'Accueil (ordre, masquer), par spectateur | À valider | P2 | plugin | — | 2026-10-29 |
+| T-022 | Code et avatar par profil, verrouillage après inactivité | À valider | P2 | plugin | — | 2026-10-29 |
+| T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
+| T-024 | Bouton « Lecture » absent de la page d'une série ; croix de Continuer de regarder retirée | À valider | P1 | plugin | T-016 | 2026-10-29 |
+| T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
+| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | En cours | P1 | release | — | 2026-10-29 |
 
 ---
 
@@ -597,6 +616,683 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Commits : « Android: sound for Dolby, DTS and TrueHD tracks… », « 0.2.0… »
 - Version / CHANGELOG : 0.2.0
 
+### T-008 — Réglages par défaut et fenêtre d'addons
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Il faut par défault avoir ces options activé : Langue de l'UI en français, Sous-titre par défault en aucun, piste audio par défault en français, Flouter les épisodes non vus activé. Il y a une fenêtre a l'ouverture qui propose d'installer des addons de catalogues, retire la.
+
+**Critères d'acceptation**
+- [x] Au premier lancement d'un compte : `interfaceLanguage` et `audioLanguage` en `"fre"`, `subtitlesLanguage` à `null`, `hideSpoilers` à `true`, une seule fois (choix de l'utilisateur : « Une fois »)
+- [x] Plus de fenêtre « Set up Home like Nathflix? » au démarrage (le pack reste dans Addons → Order & backup)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Valeurs** vérifiées dans les sources de stremio-web (`interfaceLanguages.json` : Français = `["fr-FR","fre"]` ; `languageNames.json` : `fre`) et de stremio-core (`settings.rs` : `interface_language`, `hide_spoilers`, `audio_language`, `subtitles_language`).
+- **`profileDefaults`** (plugin, à côté de `subtitlesStart`) :
+  - `UpdateSettings` avec `{ ...current, ...PROFILE_DEFAULTS }` ;
+  - drapeau `store` `profileDefaults:<id du compte ou guest>` : un nouveau compte reçoit aussi les défauts ;
+  - `watch()` dans `sync()`, toutes les 10 s au plus, pour un compte connecté plus tard.
+- **Ordre au démarrage** : défauts, puis `subtitlesStart` 500 ms après. Chacun envoie tout l'objet des réglages ; lancés ensemble, l'un écraserait l'autre.
+- **`offerPack()`** et son `setTimeout` dans `start()` sont supprimés.
+
+**Vérification**
+- Playwright (UA mobile, faux core) : `UpdateSettings` envoyé une seule fois avec `fre` / `fre` / `null` / `true` ; rien de plus après rechargement de la page.
+- Non vérifié : sur le vrai Stremio (core, compte connecté).
+
+### T-009 — Tout en français (et en anglais), selon la langue de l'interface
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> il manque des éléments comme le "Airing this week" qui ne sont pas traduits en français, vu que c'est une app pour moi principalement, je veux que tout soit bien en français partout (tout en gardant l'anglais, il faut les deux, et que ça suive la langue de l'interface choisi)
+
+**Critères d'acceptation**
+- [x] Plugin : tout texte visible passe par `t()` (dictionnaire `FR`, clé = texte anglais), selon `interfaceLanguage`
+- [x] Thème : libellés posés en CSS traduits (`html.dx-lang-fr`)
+- [x] `nathflix-tv.js` : dialogues et réglages traduits ; langue envoyée à l'app (`setLanguage`)
+- [x] App Android : textes dans `strings.xml` et `values-fr/strings.xml`, langue suivie par `Lang.kt`
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Android** :
+  - `Lang.kt` garde la langue reçue de la page (SharedPreferences `nathflix-lang`) ; `Lang.context()` donne un contexte dans cette langue, et `Lang.text()` un texte.
+  - Le lecteur gonfle ses vues avec ce contexte.
+  - `Device.thisOne()` et `Device.theOne()` donnent « ce téléphone », « la tablette »…
+  - `TorrentEngine` garde ses erreurs en identifiants de ressources ; `status(context)`.
+- **Bridge** : `setLanguage(token, lang)`, détectée avant usage côté page.
+
+**Vérification**
+- `frDictionary()` : 709 entrées ; script de vérification : 652 clés `t()` utilisées, 0 absente du dictionnaire, 0 inutilisée, 0 `{…}` incohérent.
+- Playwright en français (`interfaceLanguage: "fre"`) : puces « Séries / Films / Ma liste », « Lancer l'épisode », fenêtre « Ordre et sauvegarde des addons », `html.dx-lang-fr`, langue transmise à l'app (`setLanguage("fr")`), aucune erreur de page. En anglais : textes d'origine.
+- CI `android-dev.yml` : les textes Android (`values-fr`) compilent (debug et release R8).
+- Non vérifié : les libellés de Stremio lui-même (traduits par Stremio) et le rendu sur l'appareil.
+- Laissé en anglais exprès : textes de support (rapport, « Copy details »), noms de marques, critiques Wikidata/TMDB (sources anglaises).
+- Logique qui dépendait d'un texte affiché, corrigée : `hideButton` (drapeau `on`), bouton Statistics de Stremio (`data-dx-icon`), filtres de flux (valeurs gardées en anglais), `playbackHelp` (regex étendue au français, à vérifier sur un Stremio en français).
+
+### T-010 — Accueil : ordre des rangées, puces, 3 points et appui long
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Je voudrais avoir "Continuer de regarder" avant "Airing this week" dans l'ordre dans l'onglet Home. Sur le texte Continuer de Regarder, j'ai 3 pastilles Shows, Movies, et list qui sont superposé sous le texte. Il y a 3 petits points sur les miniature dans "Continuer à regarder", mais ils sont mal placés, corrige ça. Et je veux que si je laisse appuyer sur la miniature ça ouvre la même fenetre contextuelle que en appuyant sur les 3 petits points.
+
+**Critères d'acceptation**
+- [x] « Airing this week » après Continuer de regarder (`airing.ensure`)
+- [x] Puces en haut, par-dessus le billboard, plus jamais sur la première rangée
+- [x] 3 points : petit bouton rond en bas à droite de la miniature, la barre de progression s'arrête avant
+- [x] Appui long (500 ms) ou clic droit sur une carte : même menu que les 3 points (`cardPress`)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Puces** : la règle du thème `> .dx-hero ~ * { position: relative }` les attrapait (elles viennent après le billboard dans le DOM), d'où leur chute sous le billboard. Exclues avec `:not(.dxm-chips)`, plus une règle mobile `!important`. Les remettre en premier enfant aurait fait boucler `hero.ensure()` et le `MutationObserver`.
+- **3 points** : c'est le bouton de Stremio (`menu-label-container`), placé pour sa barre de titre que le thème masque dans les rangées.
+- **Appui long** : écouteurs `pointer*` en capture sur `window`. `menu.click()` ouvre le menu de Stremio ; le clic qui suit est avalé. `fired` est posé *après* `menu.click()`, sinon ce clic-là serait avalé aussi. CSS `-webkit-touch-callout: none` sur les cartes (mobile).
+
+**Vérification**
+- Playwright : appui long de 700 ms sur une carte de Continuer de regarder, le menu s'ouvre une fois et la page ne bouge pas ; un tap ouvre toujours le titre. Les puces finissent au-dessus de la rangée (160 px < 168 px), en `position: absolute`.
+- Non vérifié : position des 3 points avec le vrai CSS de Stremio ; ordre Airing / Continuer de regarder (pas de données d'épisodes dans le faux core).
+
+### T-011 — Glisser-déposer pour réordonner les addons
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> On peux réorganiser les addons dans l'app, mais seulement en appuyant sur les flèches haut/bas mais pas en faisant de drag and drop, ce qui serait beaucoup plus simple quand on a beaucoup d'addons comme moi, rajoute le drag n drop.
+
+**Critères d'acceptation**
+- [x] Glisser-déposer au doigt (poignée ⠿) et à la souris (toute la ligne), partout
+- [x] La liste défile près de ses bords pendant le glisser ; les flèches restent
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `addonTools.wireDrag()` : Pointer Events à la place du drag HTML5 (qui ne marche pas au doigt dans une WebView). Branché une fois sur `.dxe-list` (`render()` reconstruit les lignes). Positions mesurées au départ, en coordonnées du contenu de la liste (le défilement pendant le glisser ne les fausse pas). `move(from, to)` et `apply()` inchangés.
+
+**Vérification**
+- Playwright au doigt (événements tactiles CDP) : Cinemeta glissé de la 1re à la 3e place, « Enregistrer l'ordre » activé.
+
+### T-012 — Bouton « Lancer l'épisode »
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Quand on est sur une série, sur un épisode, j'aimerais ajouter juste au dessus du bouton "Bande-annonce" un bouton Lancer l'épisode/Play episode, qui lance la première source dans la liste, vu que c'est toujours celle la que je choisi en général
+
+**Critères d'acceptation**
+- [x] Bouton blanc avant la bande-annonce sur la page des flux d'un épisode (et « Lecture » pour un film), partout
+- [x] Il clique la première source visible dans l'ordre affiché (tri et filtres de `streamTools` compris)
+- [x] Grisé (« Recherche de sources… ») tant qu'aucune source n'est là
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `episodePlay` (plugin), dans `sync()`. Route `#/detail/<type>/<id>/<videoId>`. Première source : `[class*="stream-container"]` sans `data-dx-hide`, plus petit `style.order`, puis ordre du DOM. `click()` garde le comportement de Stremio (et le relais vers le lecteur natif sur Android).
+- Avec le bouton présent, la bande-annonce passe en bouton sombre.
+
+**Vérification**
+- Playwright : bouton placé avant la bande-annonce, il ouvre la première source affichée (`#/player/…`), la source masquée est ignorée.
+
+### T-013 — Lecteur téléphone : clone de l'UI Netflix, sans flash du lecteur Stremio
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** tv
+- **Dépend de :** T-006
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> L'interface sur le player des boutons en bas n'est vraiment pas du tout ergonomique et design, l'icone et le texte c'est trop. Organise ça mieux, rangé et placé de manière cohérente et claire. Je veux un clone de l'UI de Netflix, mais juste adapté avec les features que j'ai sur Nathflix. Pareil quand ouvre la fenetre de choix de langue de sous-titre et piste audio, ce genre de choses, ça ne fait pas pro et pas Netflix. Quand je lance une vidéo, j'ai pendant une fraction de seconde le lecteur de stremio qui s'affiche avant d'afficher le lecteur Nathflix, corrige ça
+
+**Critères d'acceptation**
+- [x] Rangée du bas façon Netflix (choix de l'utilisateur) : petite icône et libellé court, groupés au centre ; « Vitesse (1x) »
+- [x] Haut : retour, titre sur une ligne, PiP ; centre : −10 s / lecture / +10 s
+- [x] Vitesse : 5 points sur une ligne ; Audio et sous-titres : deux colonnes, Annuler / Appliquer ; Épisodes : cartes avec image et résumé
+- [x] Voile noir dès le choix d'un flux, jusqu'au départ de la page du lecteur (plus de lecteur Stremio visible)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Flash** : entre `#/player/` et `native.play()`, `startHandoff` attend le flux, les sous-titres et les segments (0,5 s à plusieurs secondes). Rien ne masquait le lecteur web.
+  - `veil()` dans `nathflix-tv.js` : un `#dxtv-veil` noir (spinner tant que le flux est cherché), sous les dialogues `.dxtv-modal` ;
+  - posé au clic sur `a[href^="#/player/"]` (filet : retiré après 1,5 s si la page n'est pas allée au lecteur), dans `startHandoff` et `resumePlayback` ;
+  - retiré par `onRoute` hors de `#/player/` et quand le relais abandonne sur place.
+- **Contrôles** : `player_mobile_controls.xml` et `MobilePlayerControls.kt` réécrits. Panneaux faits en code dans `mc_panel_body` (un `FrameLayout`).
+  - Audio et sous-titres : le choix est gardé dans `pickedAudio` / `pickedText` et appliqué seulement à « Appliquer ». La logique des pistes est inchangée (`select`, `trackName`, pistes illisibles grisées).
+  - Épisodes : `thumbnail` et `season` ajoutés au JSON de `native.play` (`mobilePlayback`). Images chargées par `Thumbs.kt` (OkHttp, 3 à la fois, cache de 8 Mo).
+- Textes du lecteur dans `strings.xml` (voir T-009).
+
+**Vérification**
+- Playwright : le voile (`#dxtv-veil`, spinner) est posé dès le toucher du flux, puis retiré au retour hors de `#/player/`.
+- CI `android-dev.yml` (commit d186daf) : build debug et release R8 réussies avec le nouveau lecteur.
+- Non vérifié : le rendu du lecteur sur un téléphone (pas d'émulateur ici).
+
+### T-014 — Stremio resté en anglais malgré « Français »
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P0
+- **Cible :** plugin
+- **Dépend de :** T-008
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> J'ai installé l'app, et j'ai pas mal d'anglais un peu partout malgrès que dans les options j'ai bien UI languague sur Français, j'ai selectionné une autre langue puis reséléctionné le Français et seulement la j'ai bien eu l'UI en français. Corrige ce bug
+
+**Critères d'acceptation**
+- [x] Les réglages par défaut enregistrent `interfaceLanguage: "fr-FR"`
+- [x] Un compte resté en `"fre"` est corrigé une fois
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause** (sources de stremio-web) : `Settings/Interface/useInterfaceOptions.ts` enregistre `codes[0]` (`"fr-FR"`) et affiche aussi `codes[1]` (`"fre"`) comme « Français ». Mais `App.js` fait `i18n.changeLanguage(interfaceLanguage)`, et les traductions sont rangées sous `"fr-FR"`. T-008 enregistrait `"fre"`.
+- **Correctif** dans `PROFILE_DEFAULTS`, plus une réparation dans `profileDefaults.apply()` (drapeau `profileLangFixed:<compte>`).
+
+**Vérification**
+- Playwright : un compte en `"fre"` (défauts déjà appliqués) reçoit une seule fois `UpdateSettings` avec `"fr-FR"` (« interface language fre → fr-FR » dans le journal), puis plus rien après rechargement.
+
+### T-015 — Billboard depuis les listes des addons (Trakt…)
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Pour le billboard (la bannière hero) qui affiche des série/films sur l'accueil, j'aimerais que ça affiche des films et séries de ma liste Traktv Recommandations ? […] ou alors même de rajouter dans les paramètre le choix manuel de la liste a utiliser
+> Il faudrait pouvoir choisir plusieurs listes […] pour avoir une liste Traktv pour les série et une pour les films en même temps sur le billboard
+
+**Critères d'acceptation**
+- [x] « Contenu de la bannière » propose les listes Cinemeta et chaque catalogue des addons du compte (choix de l'utilisateur : tous les catalogues)
+- [x] Deux listes de plus (« Bannière : deuxième liste », « troisième liste »), mélangées à la première
+- [x] Titres sans image ni description complétés par Cinemeta ; repli sur les titres populaires
+- [ ] Vérifié sur l'appareil avec l'addon Trakt de l'utilisateur
+
+**Notes techniques**
+- La liste Trakt de l'utilisateur est une rangée de l'accueil, donc fournie par un addon : pas besoin de l'API Trakt (qui demanderait une clé d'API à lui).
+- `readCatalogs()` : types `movie` / `series` seulement, sans paramètre obligatoire (`extraRequired`, `extra[].isRequired`). Les catalogues de même nom d'un addon sont groupés (films et séries mélangés).
+- Valeurs `cat:<id>|<nom>` sans adresse. `catalogChoices.urls()` retrouve l'adresse dans les addons du compte.
+- Le schéma des réglages est enregistré au chargement, avant le core : les choix viennent de `localStorage` `nathflix.catalogs`, puis `refresh()` met à jour le schéma et le réenregistre (`clearRegisteredSettings` + `registerSchema()`).
+
+**Vérification**
+- Playwright, avec un faux addon « Trakt » dont l'adresse contient une clé :
+  - choix « Trakt — Recommendations (films et séries) » proposé, catalogue de recherche et type `channel` écartés ;
+  - billboard avec ses titres (complétés par Cinemeta) ;
+  - deux listes séparées (films en 1re, séries en 2e) mélangées ;
+  - catalogue vide ou addon retiré : repli sur les titres populaires ;
+  - la valeur enregistrée ne contient jamais l'adresse.
+- Dictionnaire : 0 clé manquante.
+
+### T-016 — Bouton « Reprendre » sur la page d'une série
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-012
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Si on est sur la page d'un série (pas sur un épisode en particulier) il faudrait le même bouton qui reprend la lecture de la série sur l'épisode en cours ou le prochain épisode, en fonctionnant pareil que sur un épisode, prendre le premier lien de la liste des sources, mais il faudrait un leger délai qui laisse le temps à toute les sources de charger.
+
+**Critères d'acceptation**
+- [x] « Reprendre S1 É3 » / « Lancer S1 É4 » / « Lancer S1 É1 » sur la page d'une série, avant la bande-annonce
+- [x] Le clic ouvre les flux de l'épisode, attend que tous les addons aient répondu, puis lance la première source affichée
+- [x] Même attente pour « Lancer l'épisode » sur la page d'un épisode
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `episodePlay.findEpisode()` lit `meta_details` (`metaItem.content.videos`, `libraryItem.state`), avec repli sur `library_recent`. Épisode en cours si `timeOffset > 0` et moins de 90 % ; sinon le suivant sorti du dernier fini ; spéciaux (saison 0) exclus.
+- `playWhenReady()` attend la fin des `Loading` dans `meta_details.streams` (12 s au plus), puis 700 ms ; sans source, un message « Aucun flux trouvé pour cet épisode. ».
+
+**Vérification**
+- Playwright (faux core ; un addon rapide à 0,3 s et un lent à 2,5 s dont la source passe en tête) :
+  - en cours → « Reprendre S1 É2 » ;
+  - fini → « Lancer S1 É3 » ;
+  - rien → « Lancer S1 É1 » ;
+  - le bouton affiche « Recherche des flux… » pendant l'attente ;
+  - c'est la source de l'addon lent (première une fois tout chargé) qui est lancée.
+
+### T-017 — Menu ⋮ des cartes resté en anglais
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-014
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Quand je clique sur les 3 point sur une série ça affiche Details et Dismiss, c'est pas traduit en français.
+
+**Notes techniques**
+- Les traductions françaises existent dans `stremio-translations` (« Détails », « Effacer »). Mais `LibItem.js` (stremio-web) calcule ses options dans un `useMemo` sans `t` dans ses dépendances : elles gardent la langue de leur premier affichage. Changer de langue sans recharger (ou la réparation `fre` → `fr-FR` de T-014) les laissait en anglais.
+- Correctif : `langWatch` recharge la page à tout changement du code de langue de Stremio (`LANG_CODE`), plus seulement quand la langue de Nathflix change.
+
+**Vérification**
+- Code de stremio-web et traductions vérifiés (commit de `stremio-translations` utilisé par stremio-web).
+- Non vérifié : sur l'appareil.
+
+### T-018 — Revue : plantage, gel, faille, écran noir, torrents
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P0
+- **Cible :** tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Fait une passe de revue de l'app, pour vérifier de potentiels soucis, bugs, optimisation possible, soucis de performances, corrections à apporter, etc. […] Oui, corrige tout
+
+**Critères d'acceptation**
+- [x] Plus de plantage « Session ID must be unique » en passant à l'épisode suivant
+- [x] Bibliothèque triée par Vus / Non vus sans résultat : plus de gel
+- [x] Adresses d'images des addons échappées (plus d'injection possible via `style`)
+- [x] Plus d'écran noir bloqué en relançant un flux laissé en PiP ou en arrière-plan
+- [x] Épisode suivant : le bon flux, jamais celui de l'épisode précédent
+- [x] Torrents :
+  - un torrent remplacé s'arrête ;
+  - un 2ᵉ torrent ne reste pas bloqué derrière le 1ᵉʳ ;
+  - chaque fichier d'un pack a sa propre adresse.
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `PlayerActivity` :
+  - `finishWith()` libère la session et les contrôles tout de suite ; l'id de session est unique (`nathflix-player-<nanoTime>`).
+  - `ownPlayback` : un lecteur remplacé ne renvoie plus ni progression ni fermeture à la page (`ownsPlayback()`).
+  - `closeQuietly(keepTorrent)` arrête son torrent, sauf si le nouveau film lit le même.
+  - `setWakeMode(WAKE_MODE_NETWORK)` en lecture en arrière-plan (permission `WAKE_LOCK`).
+  - `configChanges` gagne `locale|layoutDirection|fontScale|density`.
+  - Le statut du torrent est lu hors du thread principal.
+  - Ouvert depuis la notification sans film, il se ferme sans rien envoyer.
+- `TorrentEngine` :
+  - clé `hash/fichier` : adresse `/t/<hash>/<idx>`, l'ancienne `/t/<hash>` reste lue ;
+  - `close(key)` ne ferme que le torrent de ce lecteur ;
+  - pool de threads en cache au lieu d'un thread unique ;
+  - session en pause quand rien ne joue ;
+  - ancien dossier supprimé en arrière-plan ;
+  - plages `bytes=-N` ;
+  - affectation de `active` sous verrou.
+- `nathflix-tv.js` :
+  - `onRoute` oublie le `handoff` hors du lecteur ;
+  - `startHandoff().catch` retire le voile ;
+  - `forThisRoute()` compare `streamRequest.path.id` au dernier segment de la route ;
+  - `playerClosed` ignore la fermeture d'un autre flux.
+- Plugin :
+  - `libraryWatched` n'écrit son texte que s'il change, et `.dxl-empty` est ignoré par l'observateur ;
+  - `cssUrl()` pour toute image placée dans `url()`.
+- Mineurs :
+  - `Updates` : `isDestroyed`, réessais seulement sur erreur réseau, APK supprimée ensuite ;
+  - `Intro` : son coupé à `onStop`, `Surface` libérée ;
+  - hôte comparé exactement dans `onPageStarted` ;
+  - `PlaybackBus.closed` synchronisé ;
+  - listener vidé après un crash de la page.
+
+**Vérification**
+- Playwright, ancienne version puis nouvelle (`review-test.cjs`) :
+  - Bibliothèque « Vus » vide : page **gelée** avant, réactive (16 ms) après, avec le texte ;
+  - même flux relancé après un retour sans fermer le lecteur : 1 lancement avant, 2 après ;
+  - épisode suivant avec l'état de Stremio en retard d'1,2 s : `tt1` relancé avant, `tt2` après.
+- `cssUrl` : une adresse contenant `"` et `onmouseover=` reste dans `url("…")`.
+- Kotlin : CI `android-dev.yml`. L'API `SessionManager.pause/resume/isPaused` est vérifiée dans les sources de libtorrent4j 2.1.0-39.
+
+### T-019 — Revue : robustesse du plugin
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (même demande que T-018)
+
+**Critères d'acceptation**
+- [x] Les fiches se chargent sur WebView 100 à 102 (sans `AbortSignal.timeout`)
+- [x] Billboard : nouvel essai une minute après un démarrage hors ligne
+- [x] Les réglages par défaut attendent la copie disque de `store`
+- [x] Pas de rechargement en boucle de la langue ; caches anciens purgés
+- [x] Les petits défauts de la revue sont corrigés
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `timeoutSignal(ms)` remplace les 38 `AbortSignal.timeout` (repli `AbortController` + `setTimeout`).
+- `hero` :
+  - `gen` : un chargement dépassé par un `reset()` n'écrit plus ;
+  - liste vide → `loading = null` dans 60 s ;
+  - les fiches complétées passent par `getMeta` (cache).
+- `profileDefaults.apply()` attend `store.ready`.
+- `langWatch` :
+  - ne recharge que si `nathflix.lang` a bien été écrit ;
+  - au plus une fois par minute (`sessionStorage` `nathflix.langReload`).
+- `pruneOld()`, au démarrage et quand le stockage est plein : `nathflix.age:` et `nathflix.tmdb2imdb.` (30 j), `nathflix.eps.` (7 j).
+- `ages` : une recherche en échec n'est pas enregistrée (`skip`, nouvel essai dans 10 min).
+- `addonTools.open()` : garde `opening`.
+- `reregisterSchema()` : l'effacement et l'enregistrement du schéma passent l'un après l'autre.
+- `catalogChoices.urls()` garde le `?…` des adresses d'addons.
+- `episodePlay` :
+  - revérifie la route avant de cliquer ;
+  - `findEpisode` ne réessaie pas plus d'une fois toutes les 2 s.
+- `episodes.refresh` libère `loading` en `finally` ; `metaBases` ne garde pas une liste vide quand le core n'est pas prêt.
+- `restrict.card` : `.catch`. Les flux en direct sont ignorés par `placeholder`.
+- `nathflix-tv.js` :
+  - boutons Save / Cancel / OK traduits ;
+  - une seule recherche de serveur à la fois, garde sur `ctx` ;
+  - jamais deux fenêtres ;
+  - voile retiré si le toucher est annulé ;
+  - la recherche rend le focus à la première flèche ;
+  - garde sur `document.documentElement`.
+
+**Vérification**
+- Billboard sans `AbortSignal.timeout` : rien avant (erreurs `AbortSignal.timeout is not a function`), les deux titres Trakt après.
+- Tests existants rejoués, résultats identiques à l'ancienne version :
+  - billboard : Trakt, liste vide, addon retiré, deux listes ;
+  - Reprendre : en cours, fini, rien ;
+  - retours T-008 à T-013.
+- Dictionnaire FR : 0 clé manquante.
+
+### T-020 — Revue : performances
+
+- **Statut :** À valider (test sur l'appareil, surtout une clé TV)
+- **Priorité :** P2
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (même demande que T-018)
+
+**Notes techniques**
+- `updateAllArrows` :
+  - rien sur téléphone (les flèches y sont cachées) ;
+  - ailleurs, il ne mesure que les rangées nouvelles, changées ou mesurées il y a plus de 3 s, et toutes au redimensionnement (`measuredRows`).
+- Observateur `mo` : il ignore les mutations dont tous les nœuds ajoutés ou retirés sont des éléments du plugin (`ownNode`, classes `dx…`).
+- `profileDefaults.watch` avance `next` avant `pending()`, qui relisait `localStorage.profile` à chaque passage.
+- `langWatch` : toutes les 2 s dans Réglages, 15 s ailleurs.
+- `episodePlay` et `hideButton` comparent le libellé enregistré (`data-label`) au lieu d'`innerHTML`.
+- Kotlin :
+  - `Http.client` partagé (`newBuilder()`) ;
+  - `Lang.text` garde son contexte par langue ;
+  - les regex de `TorrentEngine` sont compilées une fois ;
+  - `PieceStream.read()` n'alloue plus rien.
+
+**Vérification**
+- Les tests Playwright de T-018 et T-019 donnent les mêmes résultats.
+- Non vérifié : le gain réel sur une clé TV.
+
+### T-021 — Organiser les rangées de l'Accueil
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Les features de Stremio supporters ne sont pas disponible sur Nathflix ? […] Je ne suis pas supporter, j'aimerais voir si cependant je peux porter ces features sur mon app quand même. […] Rangées de l'Accueil, Code et avatar par profil
+
+On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué.
+
+**Critères d'acceptation**
+- [x] Bouton « Organiser l'Accueil » au bas de l'Accueil (pas pour les profils enfants)
+- [x] Fenêtre : glisser-déposer (poignée ⠿ ou souris), flèches, œil pour masquer, « Ordre de Stremio », Enregistrer
+- [x] Ordre et rangées masquées par spectateur ; Continuer de regarder, la bannière et « À l'antenne » restent en haut
+- [x] La télécommande suit le nouvel ordre ; Bas depuis la dernière rangée mène au bouton
+- [ ] Vérifié sur l'appareil (avec la vraie page de Stremio)
+
+**Notes techniques**
+- `homeArrange` : préférences dans `store` sous `viewers.key("homeRows")` = `{ order, hidden }`.
+  - Clés `<id du manifest>|<type>|<id du catalogue>`, jamais l'adresse de l'addon.
+  - La rangée est identifiée sur la page par son lien « Voir tout » ; l'adresse est convertie en id de manifest (`ids`, rafraîchi toutes les 60 s).
+- Les éléments de Stremio ne sont jamais déplacés :
+  - le conteneur reçoit `dx-rows-arranged` (`display:flex; flex-direction:column`) ;
+  - chaque enfant reçoit `style.order` : puces −40, bannière −30, Continuer −20, À l'antenne −10, rangées classées 1…, inconnues 1000+, bouton 100000 ;
+  - masquées : `dx-row-hidden`.
+- `homeRows.preload(…, force)` charge toutes les rangées quand un ordre est actif (Stremio les charge selon leur place).
+- `keyNav.rows()` trie par position à l'écran quand l'ordre est actif.
+- `dragList(list, onMove)` est extrait de `addonTools.wireDrag`, et partagé par les deux fenêtres.
+
+**Vérification**
+- Playwright (`supporter-test.cjs`, faux core, 2 addons, 4 rangées + un catalogue à recherche exclu) :
+  - téléphone :
+    - la liste montre les 4 rangées ;
+    - flèches, œil et glisser à la souris donnent Beta New, Beta Hot, Alpha Top Movies à l'écran, Alpha Top Series masquée ;
+    - les éléments de Stremio restent dans leur ordre ;
+    - toutes les rangées sont demandées (`LoadRange`) ;
+  - TV : Bas depuis Beta New → Beta Hot → Alpha Top Movies → « Organiser l'Accueil ».
+- Non vérifié : sur la vraie page de Stremio (chargement des rangées, mise en page).
+
+### T-022 — Code et avatar par profil, verrouillage après inactivité
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (voir T-021) Code et avatar par profil
+
+**Critères d'acceptation**
+- [x] Un code à 4 chiffres par spectateur (Gérer les spectateurs → « Code »), demandé pour passer à ce profil
+- [x] Changer ou retirer un code : l'ancien, ou le code parental ; supprimer un profil à code aussi
+- [x] Clavier de code : chiffres masqués, au doigt, à la télécommande et au clavier ; le code parental l'utilise aussi
+- [x] Galerie de 24 avatars (emoji sur une couleur), ou les initiales
+- [x] Réglage « Verrouiller les profils après inactivité » (Jamais, 5, 15, 30 min, 1 h) ; jamais pendant un film
+- [x] Écran verrouillé : Back ne le ferme pas, pas de « Gérer » ; un profil à code le demande à chaque démarrage
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `viewers.setPin` et `viewers.setAvatar` ; champs `pin` (SHA-256 de `<id>:<code>`, via `parentPin.hash`) et `avatar` (`AVATARS`, `avatarHtml()`).
+- `viewerPin` : `check`, `authorize` (code du profil ou parental), `change` (nouveau code, confirmation, « Supprimer le code »).
+- `pinPad.open({ title, note, length, verify, remove, cancel })` : un code faux secoue les cases et affiche « Code incorrect ».
+- `parentPin.set` et `check` passent par `pinPad`. Changer le code parental demande l'actuel.
+- `idleLock` :
+  - activité : `pointerdown`, `keydown`, `wheel`, `touchstart` ;
+  - contrôle toutes les 30 s et au retour de l'app (`visibilitychange`) ;
+  - route `player` ou mini-lecteur : compte comme activité ;
+  - rien à verrouiller avec un seul profil sans code.
+- `whoIsWatching` :
+  - `locked` ;
+  - focus sur le profil courant ;
+  - badge cadenas ;
+  - boutons « Avatar » et « Code » ;
+  - `back()`.
+- `closePreview` (Back de la couche TV) ferme d'abord le clavier, puis recule dans « Qui regarde ? » (sauf s'il est verrouillé).
+
+**Vérification**
+- Playwright (`supporter-test.cjs pin`, 2 spectateurs, verrou à 5 min) :
+  - « Qui regarde ? » au démarrage, focus sur le profil courant ;
+  - code 1234 posé et confirmé pour Léo (hash enregistré) ;
+  - renard choisi pour Nath ; cadenas sur Léo ;
+  - code faux → « Code incorrect », le clavier reste ; le bon → profil Léo ;
+  - 6 min plus tard → écran verrouillé sans « Gérer », Back ne le ferme pas ;
+  - pendant un film (`#/player/…`), une heure plus tard : rien.
+- Tests précédents rejoués, résultats identiques (retours, billboard, Reprendre, revue).
+
+### T-023 — Téléchargements hors ligne
+
+- **Statut :** À faire (future mise à jour, à la demande de l'utilisateur)
+- **Priorité :** P3
+- **Cible :** tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+
+**Demande**
+> Pour le téléchargement hors-ligne ça sera dans une future mis à jour, ça m'intéresse mais je vais pas le faire pour le moment
+
+**Notes techniques** (pistes)
+- L'équivalent du « gestionnaire de téléchargements » des Supporters de Stremio : télécharger un film ou un épisode pour le lire sans réseau dans le lecteur natif.
+- Liens directs et debrid d'abord (Media3 `DownloadManager` / `DownloadService`). Les torrents viendraient ensuite.
+
+### T-024 — Bouton « Lecture » de la page d'une série absent ; croix de Continuer de regarder
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-016
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Enlève la croix pour effacer les séries/films dans "Continuer de regarder", vu que le menu contextuel permet déjà de le faire […] Sur les détails d'une série, j'ai toujours pas le bouton "Lecture" qui lance l'épisode en cours ou le prochain épisode non-lu en prenant la première source (mais en laissant le temps aux sources de charger, ça prend environ 5 secondes je crois.
+
+**Critères d'acceptation**
+- [x] Le bouton apparaît sur la page d'une série avec les vraies données de Stremio
+- [x] Plus de ✕ sur les cartes de Continuer de regarder ; « Effacer » reste dans le menu ⋮
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause :** dans `meta_details`, la fiche est `metaItem.content.content` (`metaItem` est la réponse de l'addon, `content` un `Loadable`), et non `metaItem.content` (vérifié dans `useMetaDetails.js` de stremio-web). `findEpisode` ne trouvait jamais les épisodes.
+- Le faux core des tests avait la même erreur : `series-real-test.cjs` reprend la vraie forme.
+- **L'attente des sources** ne change pas : jusqu'à ce que tous les addons aient répondu (12 s au plus), plus 700 ms.
+- **La croix :** `[class*="dismiss-icon-layer"]` est masquée (`EXTRAS_CSS`). Le bouton « Retirer » de la carte de survol (ordinateur) la clique toujours.
+
+**Vérification**
+- Playwright avec la vraie forme de `meta_details` :
+  - l'ancienne version n'affiche aucun bouton (comme sur l'appareil) ;
+  - la nouvelle affiche « Reprendre S1 É2 », « Lancer S1 É3 » ou « Lancer S1 É1 », attend l'addon lent et lance la première source.
+- Croix masquée : vérifié (`profiles-test.cjs`).
+
+### T-025 — Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-022
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Le menu en haut à droite du compte stremio est souvent par dessus d'autres éléments, comme le bouton de recherche, qui d'ailleurs est un peu petit et mal aligné. Je voudrais l'enlever carrément, pour le remplacer par un bouton de choix du profil (comme le fait "Qui regarde ?") qui doit fonctionner et être visuellement comme dans l'app Netflix […] pareil pour toute les fenêtres lié au profil, il faut toujours reprendre le design de Netflix. Pour le bouton menu stremio enlevé du coup, il faut le remettre dispo dans l'onglet réglage, là on a déjà le compte affiché.
+
+**Critères d'acceptation**
+- [x] Le menu du compte de Stremio n'est plus dans la barre du haut ; à sa place, l'image du profil courant, qui ouvre « Qui regarde ? »
+- [x] Bouton de recherche à la taille du bouton profil, centré et aligné
+- [x] « Qui regarde ? » façon Netflix :
+  - fond noir, logo, grandes vignettes carrées, noms en gris ;
+  - « Modifier » en haut à droite sur téléphone, « Gérer les profils » sous les profils sur TV et ordinateur.
+- [x] Pages Netflix :
+  - « Modifier le profil » / « Ajouter un profil » : icône, nom, Profil Enfants, Verrouillage du profil, Titres masqués, Supprimer le profil ;
+  - « Choisir une icône » ;
+  - « Supprimer le profil ? » ;
+  - écran « Le verrouillage de profil est activé. ».
+- [x] Réglages : sous le compte, Profils, Vos statistiques, Addons, Compte Stremio (et Signaler un problème quand il est actif)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `whoIsWatching` réécrit avec des vues `gate | manage | edit | avatars | hidden | delete` et un brouillon (`draft`) pour la page d'un profil. Le nom tapé est gardé en passant aux icônes (`keepName`).
+- Modifier un profil verrouillé demande son code ou le code parental (`viewerPin.authorize`).
+- `pinPad` : option `eager` (un code de 4 chiffres passe sans OK, un code parental plus long reste possible). Fond noir opaque.
+- `navAvatar` est ajouté à la fin de `buttons-container` de la barre du haut. Le menu de Stremio est masqué par CSS (`menu-button-container` dans la barre).
+- `settingsMenu` : un bloc `.dxe-set-menu` après la section du compte (`user-info-content`). « Lire une URL / un lien magnet » n'a pas été repris : il passe par une fonction interne de Stremio.
+- Thème (bloc téléphones) : la recherche fermée n'affiche que sa loupe (2,75 rem, icône 1,5 rem).
+
+**Vérification**
+- Playwright (`profiles-test.cjs`, téléphone et TV, faux Stremio avec la mise en page de base de sa barre) :
+  - le menu de Stremio est masqué, la croix aussi ;
+  - avatar 🦊 en haut à droite, aligné avec la loupe (même milieu, 28 px) ;
+  - « Qui regarde ? » avec le focus sur le profil courant ;
+  - Modifier → Gérer les profils → page de Léo :
+    - nom « Léonard », Enfants 12+ ;
+    - icône 🚀 ;
+    - verrouillage 2468 posé et confirmé ;
+    - enregistré ;
+  - rouvrir Léonard demande son code ; « Supprimer le profil ? » puis Annuler ;
+  - choisir Léonard affiche « Le verrouillage de profil est activé. », le code 2468 passe, et l'avatar du haut devient 🚀 ;
+  - Réglages : le bloc suit le compte (Profils, Vos statistiques, Addons, Compte Stremio).
+- Captures relues, téléphone et TV.
+- Non vérifié : la vraie barre de Stremio sur l'appareil.
+
+### T-026 — Release 0.3.0 et fichiers des releases
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`, puis `main`
+
+**Demande**
+> J'aimerais que tu me fasse une nouvelle release (sans l'apk signé du coup, pas grave). Mais par contre, pour les release je voudrais garder seulement les fichiers exe windows portable et setup, les deux images linux, les deux images mac, et l'apk. Le reste je voudrais l'enlever
+
+Réponses ensuite :
+- garder `latest*.yml` et `.blockmap` (mise à jour automatique de l'app desktop) ;
+- fusionner dans `main` puis faire la release ;
+- ne pas toucher à v0.2.0 ;
+- version 0.3.0.
+
+**Critères d'acceptation**
+- [x] La release ne joint plus `nathflix.plugin.js`, `install.sh` ni `install.ps1`
+- [x] La mise à jour du plugin sur Android lit `raw.githubusercontent.com/<dépôt>/<tag>/nathflix.plugin.js`
+- [x] Les installeurs, le README et la CI pointent vers les fichiers de `main`
+- [x] `@version 0.3.0`, section `## 0.3.0` du CHANGELOG
+- [ ] PR fusionnée dans `main`
+- [ ] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
+
+**Notes techniques**
+- `release.yml` : `gh release create` sans fichiers. Les notes renvoient vers le README pour le plugin.
+- `Updates.checkPlugin` : la dernière release (`RELEASES_URL`), puis le plugin au tag de cette release. Jamais le travail en cours.
+- `install.sh` / `install.ps1` : `BASE_URL` par défaut = `https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main`.
+- `cross-platform.yml` : les one-liners du README sont testés depuis `main` (ils l'étaient depuis la dernière release).
+
+**Vérification**
+- `node --check`, `bash -n install.sh`, section `## 0.3.0` lue comme `release.yml` (30 lignes).
+- `main/install.sh` répond (200).
+- **CI de la PR** : `mpv-windows.yml` échouait depuis T-009 (`744fe52`) sur « embedded subtitles ».
+  - Cause : l'app de test démarre maintenant Stremio en français, donc le bouton est « Sous-titres ». `tools/mpv-test.mjs` le cherchait par son nom anglais (`data-dx-label="Subtitles"`).
+  - Correctif : il le cherche par son icône (`data-dx-icon="subtitles"`), et la piste sous « Track 1 » ou « Piste 1 ».
+
 <!--
 ### T-000 — Titre court
 
@@ -648,6 +1344,7 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 | Date | Décision | Raison | Tâche |
 |---|---|---|---|
+| 2026-10-29 | Les releases ne portent que les apps : exe (installation, portable), dmg, AppImage, APK, plus `latest*.yml` et `.blockmap` (mise à jour automatique du desktop). Le plugin et les installeurs sont servis depuis le dépôt : `main` pour Stremio Enhanced, le tag de la release pour l'app Android. | Choix de l'utilisateur : des pages de release plus simples | T-026 |
 | 2026-10-29 | Téléphones et tablettes : une seule APK qui s'adapte. Marqueur `nathflix-mobile/` (User-Agent), `IN_MOBILE` / `IN_ANDROID` dans le plugin, `html.dx-mobile` dans le thème. Page à `device-width` ; la TV garde 1280 px. | Choix de l'utilisateur (une seule APK) ; un mode distinct évite de dégrader la TV | T-004 |
 | 2026-10-29 | Rotation libre pour la navigation, vidéo en paysage. | Choix de l'utilisateur | T-004 |
 | 2026-10-29 | APK de test « Nathflix Dev » construite par GitHub Actions (pré-release `dev`, suffixe `.dev`, clé de dev commitée). | L'utilisateur teste sur son téléphone sans Android Studio ; c'est aussi la vérification de compilation Kotlin en cloud | T-004 |
@@ -674,6 +1371,14 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-026 | Créée : release 0.3.0, releases réduites aux apps ; en cours (PR vers main, puis release) |
+| 2026-10-29 | T-024, T-025 | Bouton Lecture d'une série corrigé (forme de `meta_details`), croix de Continuer retirée, profils façon Netflix, bouton profil, menu du compte dans les Réglages. Testés (Playwright). APK de test publiée |
+| 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
+| 2026-10-29 | T-018 à T-020 | Revue complète (rapport), puis corrections à la demande de l'utilisateur ; testées (Playwright avant/après, CI). APK de test publiée |
+| 2026-10-29 | T-016, T-017 | Créées et implémentées : Reprendre sur la page d'une série, attente des sources ; rechargement à tout changement de langue. APK de test publiée |
+| 2026-10-29 | T-014, T-015 | Créées et implémentées : langue de Stremio en `fr-FR` ; billboard depuis les listes des addons (jusqu'à trois). APK de test publiée |
+| 2026-10-29 | T-008 à T-013 | Implémentées et testées (Playwright, CI) ; APK de test publiée ; à valider sur l'appareil |
+| 2026-10-29 | T-008 à T-013 | Créées : retours sur l'APK de test (réglages par défaut, traductions, accueil, addons, Lancer l'épisode, lecteur Netflix) ; en cours |
 | 2026-10-29 | T-007 | Release v0.2.0 publiée (desktop, plugin, installeurs) ; APK bloquée faute de clé de signature dans les secrets |
 | 2026-10-29 | T-007 | Créée : pas de son sur certains épisodes (pas de décodeur logiciel) ; FFmpeg ajouté ; release 0.2.0 en préparation |
 | 2026-10-29 | T-005, T-006 | Implémentées en autonome à la demande de l'utilisateur (feuille titre, pages mobiles, lecteur Netflix, PiP, arrière-plan, épisode suivant). À valider sur appareil |

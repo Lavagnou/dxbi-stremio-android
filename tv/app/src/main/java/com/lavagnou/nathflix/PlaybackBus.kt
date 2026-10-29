@@ -34,6 +34,7 @@ object PlaybackBus {
     }
 
     /** [playRoute]: where the page goes on to (the next episode, or one picked in the player) */
+    @Synchronized
     fun closed(positionMs: Long, durationMs: Long, ended: Boolean, error: String?, playRoute: String? = null) {
         val stream = try { JSONObject(activePlayback ?: "{}") } catch (_: Exception) { JSONObject() }
         pendingClose = JSONObject()

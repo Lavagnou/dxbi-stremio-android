@@ -1,9 +1,9 @@
 # Nathflix installer for Stremio Enhanced (Windows)
-#   irm https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.ps1 | iex
 $ErrorActionPreference = 'Stop'
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$baseUrl = if ($env:NATHFLIX_BASE_URL) { $env:NATHFLIX_BASE_URL } else { 'https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download' }
+$baseUrl = if ($env:NATHFLIX_BASE_URL) { $env:NATHFLIX_BASE_URL } else { 'https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main' }
 $data = Join-Path $env:APPDATA 'stremio-enhanced'
 
 Write-Host "NATHFLIX - installing into: $data" -ForegroundColor White

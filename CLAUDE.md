@@ -36,8 +36,11 @@ Le reste du dépôt :
   5. lancer `release.yml` : soit pousser le tag (`git tag vX.Y.Z && git push origin vX.Y.Z`), soit le lancer à la main avec la version (Actions → Release → Run workflow, ou l'API `run_workflow` avec `inputs.version`). Lancé à la main, il pose lui-même le tag sur le commit où il tourne. En session cloud, pousser un tag est refusé (403) : passer par le lancement manuel (outil GitHub `actions_run_trigger`). Le workflow fait le reste :
      - il vérifie que le tag correspond à `@version` et à une section `## X.Y.Z` du CHANGELOG ;
      - il publie la release avec ces notes et une liste de téléchargements ;
-     - il y joint `nathflix.plugin.js`, `install.sh` et `install.ps1` ;
-     - il appelle `tv.yml` (APK signée) et `app.yml` (apps desktop).
+     - il appelle `tv.yml` (APK signée) et `app.yml` (apps desktop, avec `latest*.yml` et `.blockmap` pour leur mise à jour automatique).
+
+     **Une release ne porte que les apps** (choix de l'utilisateur) : exe d'installation et portable, dmg Mac ×2, AppImage Linux ×2, APK, plus `latest*.yml` et `.blockmap`. Ni le plugin ni les installeurs ne sont joints :
+     - Stremio Enhanced et les installeurs (`install.sh`, `install.ps1`, README) prennent les fichiers de `main` (`raw.githubusercontent.com/…/main/`) ;
+     - l'app Android prend le plugin au tag de la dernière release (`Updates.checkPlugin`).
 
      Une release créée par le jeton du workflow ne déclenche pas l'événement `release` : d'où les appels `workflow_call`.
 - **Ne jamais modifier à la main** la chaîne du thème intégrée au plugin. Modifier `nathflix.theme.css`, puis relancer le script.
@@ -61,6 +64,12 @@ Le reste du dépôt :
   - `isMobile()` : ni mode télévision ni leanback.
   - `kind()` renvoie `tv`, `phone` ou `tablet` (tablette si `smallestScreenWidthDp >= 600`).
   - `noun()` donne le nom de l'appareil dans les messages.
+  - `thisOne()` et `theOne()` le donnent traduit (« ce téléphone », « la tablette »…).
+- **`Http.kt`** : le client OkHttp partagé (`Http.client.newBuilder()` pour changer les délais).
+- **`Lang.kt`** : langue des écrans de l'app (lecteur, messages, mises à jour), celle de l'interface de Stremio.
+  - La page la transmet (`Bridge.setLanguage`), gardée dans les SharedPreferences `nathflix-lang`. Avant cela, c'est la langue de l'appareil qui décide.
+  - `Lang.text(ctx, R.string.x, …)` donne un texte ; `Lang.context(ctx, theme)` un contexte pour gonfler des vues.
+  - **Tout texte visible de l'app** va dans `res/values/strings.xml`, avec sa traduction dans `res/values-fr/strings.xml`.
 - **`MainActivity.kt`** : la WebView sur `https://web.stremio.com/`.
   - User-Agent desktop suivi de `nathflix-tv/<version>` sur TV ou `nathflix-mobile/<version>` sur téléphone et tablette. Ces marqueurs activent `IN_TV` ou `IN_MOBILE` dans le plugin.
   - **Téléphone et tablette** :
@@ -77,6 +86,8 @@ Le reste du dépôt :
   - Ajoute les entrées « Nathflix settings », « Streaming server for torrents » et « Report a problem » dans Settings.
   - Le viewport fait 1280 px CSS sur TV, la largeur de l'écran (`device-width`) sur téléphone et tablette.
   - `KIND` et `NOUN` adaptent les libellés à l'appareil (« this phone »…).
+  - **Langue** : `LANG` est lu comme le fait le plugin (`nathflix.lang`, sinon le profil Stremio). `t()` cherche dans son petit dictionnaire `FR`. La langue est transmise à l'app (`native.setLanguage`).
+  - **Voile du relais de lecture** (`veil()`) : un `#dxtv-veil` noir couvre la page dès le toucher d'un flux (`a[href^="#/player/"]`) et pendant `startHandoff`, pour que le lecteur de Stremio ne se voie jamais. `onRoute` le retire hors de `#/player/`.
   - La classe `dxtv-touch` adapte les fenêtres au doigt.
   - Gère le bouton Back de la télécommande.
   - Champs texte verrouillés jusqu'à OK :
@@ -86,7 +97,7 @@ Le reste du dépôt :
   - Fait le **handoff de lecture** (`startHandoff`) : quand Stremio ouvre `#/player/…`, le flux est envoyé au lecteur natif.
 - **`nathflix-tv.js` → lecteur (téléphone et tablette)** :
   - `mobilePlayback()` ajoute au JSON de `native.play` :
-    - `episodes` : la saison, chaque épisode avec sa `route` ;
+    - `episodes` : la saison, chaque épisode avec sa `route` et sa `thumbnail` ; `season` ;
     - `next` : `label` et `route` (le lecteur du prochain épisode si Stremio connaît son flux, `nextVideo.deepLinks.player`, sinon sa liste de flux) ;
     - `mobile` : `{ pip, background, autoNext }`, tirés des réglages.
   - `closeHandoff(…, playRoute)` remplace la page du lecteur par cette route (`replaceRoute`), sinon fait `history.back()`.
@@ -106,17 +117,23 @@ Le reste du dépôt :
     - « Next episode » prend la place du bouton Skip pendant le générique ou les 30 dernières secondes ;
     - épisode suivant automatique à la fin.
   - **Routes rendues à la page** : `finishWith(playRoute = …)` renvoie à la page la route où aller (épisode suivant ou épisode choisi), via `PlaybackBus.closed`.
-  - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`).
-- **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`) : contrôles façon Netflix.
-  - Haut : retour, titre.
+  - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`), avec son torrent (sauf s'il lit le même).
+  - **Un lecteur remplacé se tait** : il garde `ownPlayback` (l'`activePlayback` du bus à sa création) et n'envoie progression et fermeture que tant qu'il est celui du bus (`ownsPlayback()`).
+  - **Session média** : id unique à chaque lecteur, et libérée dès `finishWith()`. Media3 refuse deux sessions de même id, et l'épisode suivant démarre souvent avant le `onDestroy` du précédent.
+- **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`, `mc_*.xml`) : contrôles, clone de ceux de Netflix, gonflés dans la langue de Nathflix (`Lang.context`).
+  - Haut : retour, titre sur une ligne, PiP.
   - Centre : −10 s, lecture, +10 s.
-  - Bas : barre de progression (`DefaultTimeBar`) et rangée Vitesse / Verrouiller / Épisodes / Audio et sous-titres / Épisode suivant.
+  - Bas : barre de progression (`DefaultTimeBar`) avec le temps restant, puis une rangée centrée de petits boutons (icône de 20 dp et libellé de 12 sp) : Vitesse (1x) / Verrouiller / Épisodes / Audio et sous-titres / Épisode suivant.
   - Gestes : tap, double tap ±10 s, glisser à gauche pour la luminosité et à droite pour le volume (pas près des bords haut et bas, réservés aux gestes d'Android).
-  - Panneaux Vitesse, Audio et sous-titres (pistes Media3 via `TrackSelectionOverride`), Épisodes.
+  - Panneaux faits en code dans `mc_panel_body` :
+    - Vitesse : cinq points sur une ligne ;
+    - Audio et sous-titres : deux colonnes ; le choix (`pickedAudio`, `pickedText`) n'est appliqué qu'à « Appliquer » (`TrackSelectionOverride`) ;
+    - Épisodes : cartes avec image (`Thumbs.kt` : OkHttp, cache mémoire) et résumé.
 - **`PlaybackService.kt`** : `MediaSessionService` (media3-session) qui garde le film en arrière-plan, avec la notification. La session appartient à `PlayerActivity`, qui la passe via `PlaybackService.session`.
 - **`PlaybackBus.kt`** : état de lecture partagé (`activePlayback`, `pendingClose`). Il survit au redémarrage de la page ou de `MainActivity` pendant une lecture.
-- **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>`.
-  - Un seul torrent à la fois, supprimé à l'arrêt.
+- **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>/<fichier>` (clé `hash/fichier` : deux épisodes d'un même pack sont deux téléchargements).
+  - Un seul torrent à la fois, supprimé à l'arrêt. `close(key)` ne ferme que si c'est encore ce torrent-là.
+  - Chaque ouverture a son thread (pool en cache) ; session en pause quand rien ne joue.
   - Désactivé par défaut (réglage `tvTorrents`).
 - **`ServerFinder.kt`** : scanne le /24 local sur le port 11470 pour trouver un serveur de streaming Stremio.
 - **`Updates.kt`** :
@@ -129,7 +146,7 @@ Le reste du dépôt :
 
 - **Page → app** : `native.xxx()` dans `nathflix-tv.js`, qui appelle `bridge.xxx(TOKEN, …)`.
 - **App → page** : `MainActivity.js("window.__nathflixTv && window.__nathflixTv.xxx(...)")`.
-- **Plugin ↔ couche TV** : `window.__nathflixTv` (exposé par `nathflix-tv.js`) et `window.__nathflix` (exposé par le plugin : `skipSegments`, `report`, `closePreview`, `settings`…).
+- **Plugin ↔ couche TV** : `window.__nathflixTv` (exposé par `nathflix-tv.js`) et `window.__nathflix` (exposé par le plugin : `skipSegments`, `report`, `closePreview`, `settings`, `lang`, `t`…).
 
 ### Invariants à respecter
 
@@ -177,7 +194,19 @@ adb logcat -s nathflix nathflix-torrent
   - `IN_MOBILE` (`nathflix-mobile/`) pour téléphone et tablette : tactile, classe `html.dx-mobile`, pas de cartes de survol ;
   - `IN_ANDROID` (`IN_TV || IN_MOBILE`) pour tout ce qui tient au lecteur natif et à la WebView : fonctions du lecteur in-page mises de côté, bouton Cast, intro native ;
   - sinon, le plugin dans Stremio Enhanced.
-- `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés.
+- `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés ; `THIS_DEVICE` / `THE_DEVICE` le donnent traduit.
+- **Langue (français ou anglais)** : elle suit la langue de l'interface de Stremio (`interfaceLanguage`).
+  - `LANG` (« fr » ou « en ») et `LOCALE` sont fixés au chargement : la langue vue en dernier dans le core (`localStorage` `nathflix.lang`), sinon le profil Stremio.
+  - `langWatch` (dans `sync()`, toutes les 2 s dans Réglages, 15 s ailleurs) recharge la page quand le code de langue de Stremio change (`LANG_CODE`), jamais pendant un film, seulement si `nathflix.lang` a pu être écrit, et au plus une fois par minute. Tout changement compte : certains textes de Stremio (le menu ⋮ des cartes, mémorisé par `LibItem`) gardent la langue de leur premier affichage.
+  - **Tout texte visible passe par `t("English text", { vars })`**, avec sa traduction dans `frDictionary()` (en fin de fichier, juste avant `anime4kShaders()`). La clé est le texte anglais exact, et `{nom}` est rempli par `t()`. Un texte absent du dictionnaire reste en anglais.
+  - Dates : `LOCALE`. Les libellés écrits en CSS par le thème ont leur variante `html.dx-lang-fr` (bloc « FRENCH » du thème).
+- **Réglages Stremio par défaut** (`profileDefaults`) : interface en français, audio en français, pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
+  - **Langue de l'interface : `"fr-FR"`, jamais `"fre"`.** Le menu de Stremio enregistre `codes[0]` de `interfaceLanguages.json` et `i18n.changeLanguage()` ne connaît que ce code. Avec `"fre"`, le menu affiche Français mais Stremio reste en anglais. Les langues audio et sous-titres, elles, sont en code à trois lettres (`"fre"`).
+  - Les comptes passés en `"fre"` par une version précédente sont corrigés une fois (drapeau `profileLangFixed:<id>`).
+- **Billboard** (`hero`) : jusqu'à trois listes mélangées (`billboardSource`, `billboardSource2`, `billboardSource3`), au choix parmi les listes Cinemeta et **tous les catalogues des addons du compte** (`catalogChoices`, `readCatalogs`, `catalogOptions`).
+  - Valeur `cat:<id du manifest>|<nom du catalogue>` : jamais l'adresse de l'addon (elle contient souvent une clé, et les réglages partent dans les rapports).
+  - Les choix sont gardés dans `localStorage` `nathflix.catalogs` (le schéma des réglages est enregistré avant que le core soit prêt), puis rafraîchis (`catalogChoices.watch` sur Addons et Settings), avec `registerSchema()` pour réenregistrer les réglages.
+  - Les titres sans image ni description sont complétés par Cinemeta. Si rien n'est utilisable, le billboard prend les titres populaires.
 - Organisé en sections délimitées par `// ----…` puis un titre. Pour s'y retrouver :
 
 ```bash
@@ -185,7 +214,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 ```
 
 - **Ajouter un réglage** :
-  - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS` ;
+  - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS`, libellés et description en `t("…")`, avec leur traduction dans `frDictionary()` ;
   - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
   - s'il ne concerne que téléphone et tablette, ajouter `mobileOnly: true` (exemples : `mobilePip`, `backgroundPlay`, `autoNext`) ;
   - s'il n'a pas de sens au doigt, ajouter sa clé au `Set` `NOT_ON_TOUCH` de `nathflix-tv.js` ;
@@ -203,8 +232,30 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - `titleSheet` : un tap sur un poster (Accueil, Recherche, Découvrir, Bibliothèque ; sauf Reprendre) ouvre une feuille en bas de l'écran, avec Play ou Resume, My List, Hide et « Episodes & info ». Back la ferme (`closePreview`).
   - `mobileChips` : puces Shows, Movies et My List en haut de l'accueil, qui mènent aux catalogues « top » de Cinemeta.
   - Leur CSS (`.dxm-*`) est dans `EXTRAS_CSS`, toujours chargé.
+- **Partout** :
+  - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`, replacé par le thème dans le coin de la miniature).
+  - **`meta_details`** : la fiche est `metaItem.content.content` (`metaItem` est la réponse de l'addon). Pour le lecteur (`getState("player")`), c'est `metaItem.content`.
+  - `episodePlay` : bouton « Lancer l'épisode » (« Lecture » pour un film) avant la bande-annonce, sur la page des flux. Il clique la première source affichée (sans `data-dx-hide`, plus petit `style.order`).
+    - **Attente des sources** (`playWhenReady`) : jusqu'à ce que plus aucun addon ne soit en `Loading` dans `meta_details.streams` (12 s au plus), plus 700 ms pour le tri, puis le clic.
+    - **Page d'une série** : « Reprendre S1 É3 » (épisode en cours, si moins de 90 % vus), sinon « Lancer » l'épisode suivant le dernier fini (Stremio remet `timeOffset` à 0 à la fin), sinon S1 É1 (spéciaux exclus), d'après `meta_details.libraryItem.state`. Le clic ouvre la page des flux de l'épisode (`pending`), qui lance ensuite comme ci-dessus.
+  - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris), avec `dragList(list, onMove)`, partagé.
+  - `homeArrange` (« Organiser l'Accueil », au bas de l'Accueil) : ordre et rangées masquées par spectateur (`store` `homeRows:<spectateur>`, clés `<manifest>|<type>|<catalogue>`).
+    - Les rangées de Stremio ne sont jamais déplacées : le conteneur passe en `flex` (`dx-rows-arranged`) avec un `style.order` par rangée.
+    - `keyNav.rows()` trie alors par position à l'écran, et `homeRows.preload(…, true)` charge toutes les rangées.
+  - **Barre du haut** : le menu du compte de Stremio est masqué (CSS `menu-button-container`) et remplacé par l'image du profil (`navAvatar`, qui ouvre « Qui regarde ? »). Ses entrées utiles sont dans Réglages, sous le compte (`settingsMenu`, `.dxe-set-menu`).
+  - **Croix de Continuer de regarder** masquée (`dismiss-icon-layer`) : « Effacer » reste dans le menu ⋮.
+  - **Spectateurs** (`viewers`, `whoIsWatching`) : écrans faits comme ceux de Netflix, et à garder ainsi (demande de l'utilisateur pour tout ce qui touche aux profils). Vues `gate | manage | edit | avatars | hidden | delete`, avec `draft` pour la page d'un profil ;
+    - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
+    - clavier de code `pinPad` (aussi pour le code parental) ;
+    - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
+    - Back de la couche TV : `closePreview` ferme le clavier, recule dans « Qui regarde ? », et ne ferme jamais l'écran verrouillé.
+    - Les codes sont une barrière familiale, pas une sécurité (tout est dans le stockage de l'appareil).
+  - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
+- **Requêtes** : `timeoutSignal(ms)`, jamais `AbortSignal.timeout()` (Chrome 103+, alors que l'app accepte une WebView 100).
+- **Images d'addons dans du CSS** : `cssUrl(adresse)` (et `esc(cssUrl(…))` dans un `style="…"` écrit en HTML), jamais `url('${adresse}')` : une adresse fournie par un addon peut contenir des guillemets.
+- **Observateur principal (`mo`)** : il ignore les changements dans les éléments du plugin et l'ajout ou le retrait d'éléments `dx…`. Un élément du plugin qui réécrit son contenu à chaque passage doit comparer avant d'écrire (sinon : boucle sans fin, l'app gèle, comme `.dxl-empty`).
 
 ## App desktop (`app/`)
 

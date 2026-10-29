@@ -281,12 +281,13 @@ $ex = [S]::GetWindowLongPtr($script:target, -20).ToInt64()
   else fail("Stremio's controls aren't showing");
 
   // The file's own subtitle track, drawn by mpv
-  // picked like a viewer does: Subtitles button (in "More" on a small window) → the file's "Track 1"
+  // picked like a viewer does: Subtitles button (in "More" on a small window) → the file's "Track 1".
+  // Found by its icon, not its name: Nathflix starts Stremio in French ("Sous-titres", "Piste 1")
   await evaluate(`window.__nathflixMpv.observe("sub-text"); true`);
   await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: 420, y: 320 });
   await sleep(400);
   const opened = await evaluate(`(() => {
-    const b = document.querySelector('[class*="control-bar-buttons-container"] [data-dx-label="Subtitles"], [class*="control-bar-buttons-menu-container"] [data-dx-label="Subtitles"]');
+    const b = document.querySelector('[class*="control-bar-buttons-container"] [data-dx-icon="subtitles"], [class*="control-bar-buttons-menu-container"] [data-dx-icon="subtitles"]');
     if (!b) return "no Subtitles button";
     b.click();
     return "opened";
@@ -295,7 +296,7 @@ $ex = [S]::GetWindowLongPtr($script:target, -20).ToInt64()
   const picked = await evaluate(`(() => {
     const m = document.querySelector('[class*="subtitles-menu"]');
     if (!m) return "no subtitles menu";
-    const el = [...m.querySelectorAll("*")].find((e) => e.childElementCount <= 1 && (e.textContent || "").trim() === "Track 1");
+    const el = [...m.querySelectorAll("*")].find((e) => e.childElementCount <= 1 && /^(Track|Piste) 1$/.test((e.textContent || "").trim()));
     if (!el) return "no embedded track listed: " + m.innerText.slice(0, 120);
     (el.closest('[class*="option"],[class*="language"],[role]') || el).click();
     return "picked";
@@ -307,7 +308,7 @@ $ex = [S]::GetWindowLongPtr($script:target, -20).ToInt64()
   else fail(`embedded subtitles: mpv shows "${subText}"`);
   screen("3c-subtitles", area);
   // close the menu with its button (Escape would leave the player)
-  await evaluate(`document.querySelector('[data-dx-label="Subtitles"]')?.click(); true`);
+  await evaluate(`document.querySelector('[data-dx-icon="subtitles"]')?.click(); true`);
 
   // Black bars are measured from mpv's frame (the test picture has none)
   const bars = await evaluate(`window.__nathflixMpv.measureBars().then((b) => JSON.stringify(b))`);

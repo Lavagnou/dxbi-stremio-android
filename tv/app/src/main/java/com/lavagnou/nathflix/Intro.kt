@@ -27,6 +27,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
     private var player: MediaPlayer? = null
     private var overlay: FrameLayout? = null
     private var video: TextureView? = null
+    private var surface: Surface? = null
     private var done = false
 
     val showing get() = overlay != null && !done
@@ -70,7 +71,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
                 try {
                     val mp = MediaPlayer.create(activity, R.raw.intro) ?: return finish()
                     player = mp
-                    mp.setSurface(Surface(texture))
+                    mp.setSurface(Surface(texture).also { surface = it })
                     mp.setVolume(volume, volume)
                     mp.setOnCompletionListener { finish() }
                     mp.setOnErrorListener { _, _, _ -> finish(); true }
@@ -94,6 +95,8 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         done = true
         player?.let { mp -> try { mp.stop() } catch (_: Exception) {}; mp.release() }
         player = null
+        surface?.release()
+        surface = null
         // A stopped TextureView keeps its last frame: skipping mid-film would freeze it on screen
         video?.visibility = android.view.View.INVISIBLE
         // Hold on black until the page has something to show (never more than 4 s), as on the desktop

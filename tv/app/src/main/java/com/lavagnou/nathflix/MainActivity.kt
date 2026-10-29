@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 // Older WebViews can't run a script before the page: run it as early as possible instead
-                if (!injectedAtStart && url != null && url.startsWith(STREMIO_ORIGIN)) view.evaluateJavascript(startScript, null)
+                if (!injectedAtStart && url != null && Uri.parse(url).let { it.scheme == "https" && it.host == STREMIO_HOST }) view.evaluateJavascript(startScript, null)
             }
 
             // The page's engine crashed, or Android took its memory back (TVs with 1.5–2 GB): without
@@ -170,6 +170,12 @@ class MainActivity : AppCompatActivity() {
         if (::web.isInitialized) web.requestFocus()
     }
 
+    // Home during the intro: its sound stops with it
+    override fun onStop() {
+        super.onStop()
+        intro?.takeIf { it.showing }?.skip()
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Any key skips the intro (and isn't passed on to the page underneath)
         intro?.takeIf { it.showing }?.let {
@@ -189,7 +195,7 @@ class MainActivity : AppCompatActivity() {
             if (now - lastBack < 2500) finish()
             else {
                 lastBack = now
-                Toast.makeText(this, "Press Back again to leave Nathflix", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, Lang.text(this, R.string.back_again), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -210,16 +216,18 @@ class MainActivity : AppCompatActivity() {
         nathflix.put("splash", false)
         settings.edit().putString("nathflix", nathflix.toString()).commit()
 
+        // the old page is gone: nothing more is sent to it
+        if (PlaybackBus.listener === playbackListener) PlaybackBus.listener = null
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
         if (again) {
             setContentView(View(this))
             AlertDialog.Builder(this)
-                .setTitle("Nathflix keeps stopping")
-                .setMessage("Nathflix's screen stopped twice in a row on this ${Device.noun(this)}, usually because it's short of memory. Closing other apps (or restarting the ${Device.noun(this)}) helps. Try again?")
+                .setTitle(Lang.text(this, R.string.crash_title))
+                .setMessage(Lang.text(this, R.string.crash_message, Device.thisOne(this), Device.theOne(this)))
                 .setCancelable(false)
-                .setPositiveButton("Try again") { _, _ -> recreate() }
-                .setNegativeButton("Close") { _, _ -> finish() }
+                .setPositiveButton(Lang.text(this, R.string.try_again)) { _, _ -> recreate() }
+                .setNegativeButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
                 .show()
         } else {
             recreate()
@@ -246,7 +254,7 @@ class MainActivity : AppCompatActivity() {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (_: Exception) {
-            Toast.makeText(this, "No app on this ${Device.noun(this)} can open that link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, Lang.text(this, R.string.no_app_for_link, Device.thisOne(this)), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -298,18 +306,18 @@ class MainActivity : AppCompatActivity() {
         val fireTv = Build.MANUFACTURER.equals("Amazon", ignoreCase = true)
         setContentView(View(this))
         val builder = AlertDialog.Builder(this)
-            .setTitle(if (fireTv) "Update your Fire TV" else "Update Android System WebView")
+            .setTitle(Lang.text(this, if (fireTv) R.string.update_fire_tv_title else R.string.update_webview_title))
             .setCancelable(false)
         if (fireTv) {
-            builder.setMessage("Nathflix needs a newer web engine than this Fire TV has ($major). Update it under Settings → My Fire TV → About → Check for Updates, then open Nathflix again.")
-                .setPositiveButton("Close") { _, _ -> finish() }
+            builder.setMessage(Lang.text(this, R.string.update_fire_tv_message, major))
+                .setPositiveButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
         } else {
-            builder.setMessage("Nathflix needs Android System WebView $MIN_WEBVIEW or newer (this ${Device.noun(this)} has $major). Update it from the Play Store (search \"Android System WebView\"), then open Nathflix again.")
-                .setPositiveButton("Open Play Store") { _, _ ->
+            builder.setMessage(Lang.text(this, R.string.update_webview_message, MIN_WEBVIEW, Device.thisOne(this), major))
+                .setPositiveButton(Lang.text(this, R.string.open_play_store)) { _, _ ->
                     openExternal("market://details?id=com.google.android.webview")
                     finish()
                 }
-                .setNegativeButton("Close") { _, _ -> finish() }
+                .setNegativeButton(Lang.text(this, R.string.close)) { _, _ -> finish() }
         }
         builder.show()
         return false
@@ -324,6 +332,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val STREMIO_ORIGIN = "https://web.stremio.com"
+        const val STREMIO_HOST = "web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
         // SPLASH_READY in nathflix.plugin.js (Home's rows, a details page, Settings…)

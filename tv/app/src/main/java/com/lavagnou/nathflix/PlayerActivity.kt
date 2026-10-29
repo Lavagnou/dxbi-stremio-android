@@ -53,9 +53,9 @@ import androidx.media3.session.SessionToken
 import androidx.media3.ui.SubtitleView
 import androidx.lifecycle.Lifecycle
 import com.google.common.util.concurrent.ListenableFuture
-import okhttp3.OkHttpClient
 import org.json.JSONObject
 import java.lang.ref.WeakReference
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /**
@@ -108,20 +108,37 @@ class PlayerActivity : AppCompatActivity() {
     private lateinit var skipButton: TextView
     // A torrent played on the TV itself: how it's going, while the picture waits for it
     private var torrent = false
+    // which torrent (and file) this player reads: a newer film's torrent is never closed by this one
+    private var torrentKey: String? = null
+    // libtorrent's status call can block: asked off the main thread
+    private val statusThread by lazy { Executors.newSingleThreadExecutor() }
     private val torrentStatus = object : Runnable {
         override fun run() {
             val exo = player
             val waiting = exo == null || exo.playbackState == Player.STATE_BUFFERING || exo.playbackState == Player.STATE_IDLE
-            val text = if (torrent && waiting) TorrentEngine.status() else null
-            if (text != null) {
-                seekFlash.text = text
-                seekFlash.visibility = View.VISIBLE
-            } else if (seekFlash.text.contains("peer") || seekFlash.text.startsWith("Finding")) {
-                seekFlash.visibility = View.GONE
+            val ctx = this@PlayerActivity
+            if (!torrent || !waiting) {
+                if (TorrentEngine.isStatus(ctx, seekFlash.text)) seekFlash.visibility = View.GONE
+                handler.postDelayed(this, 700)
+                return
             }
-            handler.postDelayed(this, 700)
+            statusThread.execute {
+                val text = TorrentEngine.status(ctx)
+                handler.post {
+                    if (closed) return@post
+                    if (text != null) {
+                        seekFlash.text = text
+                        seekFlash.visibility = View.VISIBLE
+                    } else if (TorrentEngine.isStatus(ctx, seekFlash.text)) {
+                        seekFlash.visibility = View.GONE
+                    }
+                    handler.postDelayed(this, 700)
+                }
+            }
         }
     }
+    // What the page handed to this player: a newer film's player takes over the reports to the page
+    private var ownPlayback: String? = null
     private val checkSkip = object : Runnable {
         override fun run() {
             updateSkip()
@@ -146,11 +163,21 @@ class PlayerActivity : AppCompatActivity() {
         skipButton = findViewById(R.id.skip_button)
         skipButton.setOnClickListener { if (nextShowing) playNext() else doSkip() }
 
-        // A film still playing in picture-in-picture gives way to the new one
-        current?.get()?.takeIf { it !== this }?.closeQuietly()
-        current = WeakReference(this)
+        // Opened from the notification after its player had gone: there's nothing to play
+        val extra = intent.getStringExtra(EXTRA_STREAM)
+        if (extra == null) {
+            closed = true
+            finish()
+            return
+        }
+        ownPlayback = PlaybackBus.activePlayback
+        val stream = JSONObject(extra)
+        torrent = stream.optBoolean("torrent", false)
+        if (torrent) torrentKey = Uri.parse(stream.optString("url")).path?.removePrefix("/t/")
 
-        val stream = JSONObject(intent.getStringExtra(EXTRA_STREAM) ?: "{}")
+        // A film still playing in picture-in-picture gives way to the new one
+        current?.get()?.takeIf { it !== this }?.closeQuietly(keepTorrent = torrentKey)
+        current = WeakReference(this)
         val options = stream.optJSONObject("mobile")
         pipWanted = mobile && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && (options?.optBoolean("pip", true) ?: true) &&
             packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
@@ -166,7 +193,6 @@ class PlayerActivity : AppCompatActivity() {
             }
         } ?: emptyList()
         autoSkip = stream.optString("autoSkip", "off")
-        torrent = stream.optBoolean("torrent", false)
         findViewById<TextView>(R.id.title).text = stream.optString("title")
         findViewById<TextView>(R.id.subtitle).apply {
             text = stream.optString("subtitle")
@@ -177,14 +203,14 @@ class PlayerActivity : AppCompatActivity() {
 
         val url = stream.optString("url")
         if (url.isEmpty()) {
-            finishWith(error = "no stream address")
+            finishWith(error = Lang.text(this, R.string.error_no_address))
             return
         }
 
         // Addons can ask for headers on their links (Stremio's proxyHeaders)
         val headers = mutableMapOf<String, String>()
         stream.optJSONObject("headers")?.let { h -> h.keys().forEach { k -> headers[k] = h.optString(k) } }
-        val http = OkHttpClient.Builder()
+        val http = Http.client.newBuilder()
             .connectTimeout(20, TimeUnit.SECONDS)
             // a torrent's first bytes wait for its details and first pieces to come from peers
             .readTimeout(if (torrent) 150L else 30L, TimeUnit.SECONDS)
@@ -208,6 +234,8 @@ class PlayerActivity : AppCompatActivity() {
             .setHandleAudioBecomingNoisy(true)
             .setSeekBackIncrementMs(SEEK_STEP_MS)
             .setSeekForwardIncrementMs(SEEK_STEP_MS)
+            // playing on with the screen off: Wi-Fi stays awake for the stream
+            .apply { if (background) setWakeMode(C.WAKE_MODE_NETWORK) }
             .build()
         player = exo
         playerView.player = exo
@@ -278,7 +306,7 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                lastError = (if (torrent) TorrentEngine.failed() else null) ?: describe(error)
+                lastError = (if (torrent) TorrentEngine.failed(this@PlayerActivity) else null) ?: describe(error)
                 finishWith(error = lastError)
             }
         })
@@ -355,7 +383,7 @@ class PlayerActivity : AppCompatActivity() {
             if (!nextShowing) {
                 nextShowing = true
                 showing = null
-                skipButton.text = "Next episode"
+                skipButton.text = Lang.text(this, R.string.player_next_short)
                 skipButton.visibility = View.VISIBLE
             }
             return
@@ -371,11 +399,11 @@ class PlayerActivity : AppCompatActivity() {
             skipButton.visibility = View.GONE
             return
         }
-        skipButton.text = when (seg.type) {
-            "intro" -> "Skip intro"
-            "recap" -> "Skip recap"
-            else -> "Skip credits"
-        }
+        skipButton.text = Lang.text(this, when (seg.type) {
+            "intro" -> R.string.player_skip_intro
+            "recap" -> R.string.player_skip_recap
+            else -> R.string.player_skip_credits
+        })
         skipButton.visibility = View.VISIBLE
         if (!playerView.isControllerFullyVisible) skipButton.requestFocus()
     }
@@ -400,6 +428,7 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun report() {
+        if (closed || !ownsPlayback()) return
         val exo = player ?: return
         val duration = exo.duration.takeIf { it != C.TIME_UNSET } ?: 0L
         PlaybackBus.listener?.onProgress(exo.currentPosition, duration, !exo.isPlaying)
@@ -413,13 +442,20 @@ class PlayerActivity : AppCompatActivity() {
         val exo = player
         val duration = exo?.duration?.takeIf { it != C.TIME_UNSET } ?: 0L
         val position = if (ended) duration else exo?.currentPosition ?: 0L
-        PlaybackBus.closed(position, duration, ended, error, playRoute)
-        if (torrent) TorrentEngine.close()
+        if (ownsPlayback()) PlaybackBus.closed(position, duration, ended, error, playRoute)
+        if (torrent) TorrentEngine.close(torrentKey)
+        // the session goes now, not when Android gets round to destroying this screen: the next
+        // episode's player may already be starting
+        controls?.release()
+        releaseSession()
         finish()
     }
 
+    // (false once another film has started: its player reports to the page, not this one)
+    private fun ownsPlayback() = PlaybackBus.activePlayback === ownPlayback
+
     /** Another film started while this one played in picture-in-picture: it just goes */
-    private fun closeQuietly() {
+    private fun closeQuietly(keepTorrent: String?) {
         if (closed) return
         closed = true
         handler.removeCallbacksAndMessages(null)
@@ -429,6 +465,8 @@ class PlayerActivity : AppCompatActivity() {
         releaseSession()
         player?.release()
         player = null
+        // its torrent stops downloading (unless the new film plays from the same one)
+        if (torrent && torrentKey != keepTorrent) TorrentEngine.close(torrentKey)
         finish()
     }
 
@@ -440,10 +478,10 @@ class PlayerActivity : AppCompatActivity() {
         val episodes = stream.optJSONArray("episodes")?.let { list ->
             (0 until list.length()).mapNotNull { i ->
                 val o = list.optJSONObject(i) ?: return@mapNotNull null
-                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optBoolean("current"))
+                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optString("thumbnail"), o.optBoolean("current"))
             }
         } ?: emptyList()
-        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes,
+        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes, stream.optInt("season", 0),
             stream.optJSONObject("next")?.optString("label")?.takeIf { nextRoute != null }, pipWanted)
         // over the picture, under the skip button and the torrent's status
         findViewById<FrameLayout>(R.id.player_root).addView(c.view, 1, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -453,7 +491,8 @@ class PlayerActivity : AppCompatActivity() {
         val open = PendingIntent.getActivity(this, 0,
             Intent(this, PlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val s = MediaSession.Builder(this, exo).setId("nathflix-player").setSessionActivity(open).build()
+        // (a name of its own: the previous episode's session may not be gone yet)
+        val s = MediaSession.Builder(this, exo).setId("nathflix-player-${System.nanoTime()}").setSessionActivity(open).build()
         session = s
         if (background) {
             PlaybackService.session = s
@@ -582,9 +621,11 @@ class PlayerActivity : AppCompatActivity() {
         if (!closed) finishWith()
         handler.removeCallbacksAndMessages(null)
         controls?.release()
+        controls = null
         releaseSession()
         player?.release()
         player = null
+        if (torrent) statusThread.shutdown()
         if (current?.get() === this) current = null
         super.onDestroy()
     }
@@ -641,15 +682,15 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun describe(error: PlaybackException): String = when (error.errorCode) {
-        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> "the server refused it"
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> Lang.text(this, R.string.error_refused)
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> "the connection failed"
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> Lang.text(this, R.string.error_connection)
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ->
             // Audio has a software decoder (FFmpeg) for whatever the hardware can't do; video doesn't
-            "this ${Device.noun(this)} can't decode its video format (pick a release in H.264 / x264, or without HDR or Dolby Vision)"
-        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "its file format isn't supported"
+            Lang.text(this, R.string.error_video_format, Device.thisOne(this))
+        PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> Lang.text(this, R.string.error_container)
         else -> error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
     }
 

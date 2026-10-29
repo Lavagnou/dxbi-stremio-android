@@ -8,7 +8,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
@@ -25,14 +24,15 @@ object Updates {
     // Nathflix's own releases, never dx.bi's (Nathflix is based on it): its plugin would replace this
     // one as soon as its version is higher, and its APK is signed with another key (Android won't install it)
     private const val REPO = "lavagnou/dxbi-stremio-android"
-    // The plugin from the latest release, not the main branch: unreleased work never reaches TVs
-    private const val PLUGIN_URL = "https://github.com/$REPO/releases/latest/download/nathflix.plugin.js"
+    // The plugin as it is in the latest release (its tag), not the main branch: unreleased work never
+    // reaches TVs. Releases don't carry the plugin as a file any more: it's read from the repository
+    private fun pluginUrl(tag: String) = "https://raw.githubusercontent.com/$REPO/$tag/nathflix.plugin.js"
     private const val RELEASES_URL = "https://api.github.com/repos/$REPO/releases/latest"
     private const val APK_ASSET = "nathflix-tv.apk"
     private const val UPDATED_PLUGIN = "nathflix.plugin.js"
 
     private val http by lazy {
-        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
+        Http.client.newBuilder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     }
 
     /** The plugin to run: the bundled one, or a newer one fetched earlier */
@@ -57,7 +57,8 @@ object Updates {
 
     fun checkPlugin(context: Context) = thread(name = "nathflix-plugin-update") {
         try {
-            val text = get(PLUGIN_URL) ?: return@thread
+            val tag = JSONObject(get(RELEASES_URL) ?: return@thread).optString("tag_name").ifEmpty { return@thread }
+            val text = get(pluginUrl(tag)) ?: return@thread
             if (!text.contains("@name Nathflix")) return@thread
             if (isNewer(version(text), version(pluginSource(context)))) {
                 // Written next to it and swapped in whole: a half-written copy (power cut, app closed)
@@ -75,6 +76,8 @@ object Updates {
             val latest = release.optString("tag_name").removePrefix("v")
             val current = BuildConfigVersion.name(activity)
             if (!isNewer(latest, current)) return@thread
+            // the APK an earlier update installed isn't needed any more
+            if (!downloading.get()) File(activity.cacheDir, "updates").deleteRecursively()
             val prefs = activity.getSharedPreferences("updates", Context.MODE_PRIVATE)
             if (prefs.getString("skipped", null) == latest) return@thread
             val assets = release.optJSONArray("assets") ?: return@thread
@@ -84,13 +87,13 @@ object Updates {
             val url = asset.optString("browser_download_url")
             val size = asset.optLong("size", -1)
             activity.runOnUiThread {
-                if (activity.isFinishing) return@runOnUiThread
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                 AlertDialog.Builder(activity)
-                    .setTitle("Nathflix $latest is out")
-                    .setMessage("You have $current. Update now? It downloads in the background, then Android asks you to install it.")
-                    .setPositiveButton("Update") { _, _ -> download(activity, url, size, latest) }
-                    .setNegativeButton("Not now", null)
-                    .setNeutralButton("Skip this version") { _, _ -> prefs.edit().putString("skipped", latest).apply() }
+                    .setTitle(Lang.text(activity, R.string.update_title, latest))
+                    .setMessage(Lang.text(activity, R.string.update_message, current))
+                    .setPositiveButton(Lang.text(activity, R.string.update_now)) { _, _ -> download(activity, url, size, latest) }
+                    .setNegativeButton(Lang.text(activity, R.string.not_now), null)
+                    .setNeutralButton(Lang.text(activity, R.string.skip_version)) { _, _ -> prefs.edit().putString("skipped", latest).apply() }
                     .show()
             }
         } catch (_: Exception) { /* offline: try again next launch */ }
@@ -103,33 +106,34 @@ object Updates {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !activity.packageManager.canRequestPackageInstalls()) {
             try {
                 activity.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${activity.packageName}")))
-                Toast.makeText(activity, "Allow Nathflix to install apps, then choose Update again", Toast.LENGTH_LONG).show()
+                Toast.makeText(activity, Lang.text(activity, R.string.allow_installs), Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
                 // Some TVs (Fire OS among them) have no such screen to open directly
-                val where = if (Device.isMobile(activity)) "the ${Device.noun(activity)}'s settings (Apps → Special app access → Install unknown apps)"
-                else "the TV's settings (on Fire TV: My Fire TV → Developer options → Install unknown apps)"
-                Toast.makeText(activity, "Allow Nathflix to install apps in $where, then choose Update again", Toast.LENGTH_LONG).show()
+                val where = if (Device.isMobile(activity)) Lang.text(activity, R.string.installs_where_mobile, Device.theOne(activity))
+                else Lang.text(activity, R.string.installs_where_tv)
+                Toast.makeText(activity, Lang.text(activity, R.string.allow_installs_where, where), Toast.LENGTH_LONG).show()
             }
             return
         }
         // One download at a time: pressing Update twice had two downloads writing the same file, and
         // Android then said "There was a problem parsing the package"
         if (!downloading.compareAndSet(false, true)) {
-            Toast.makeText(activity, "The update is already downloading…", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, Lang.text(activity, R.string.update_downloading_already), Toast.LENGTH_SHORT).show()
             return
         }
-        Toast.makeText(activity, "Downloading the update…", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, Lang.text(activity, R.string.update_downloading), Toast.LENGTH_SHORT).show()
         thread(name = "nathflix-apk-download") {
             try {
                 val dir = File(activity.cacheDir, "updates").apply { deleteRecursively(); mkdirs() }
                 val apk = File(dir, "nathflix-tv-$version.apk")
-                // A download cut short (slow Wi-Fi, the device sleeping) is tried again before giving up
-                var problem: String? = null
+                // A download cut short (slow Wi-Fi, the device sleeping) is tried again before giving up;
+                // a file that isn't the right one would be the same the next time
+                var problem: Problem? = null
                 for (attempt in 1..3) {
                     problem = fetchApk(url, apk, size, version, activity)
-                    if (problem == null) break
+                    if (problem == null || !problem.retry) break
                 }
-                if (problem != null) throw IllegalStateException(problem)
+                if (problem != null) throw IllegalStateException(problem.text)
                 val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.updates", apk)
                 activity.runOnUiThread {
                     activity.startActivity(Intent(Intent.ACTION_VIEW)
@@ -138,10 +142,12 @@ object Updates {
                 }
             } catch (e: Exception) {
                 activity.runOnUiThread {
-                    if (activity.isFinishing) return@runOnUiThread
+                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     AlertDialog.Builder(activity)
-                        .setTitle("The update didn't download")
-                        .setMessage("${e.message}\n\nTry again later, or install it ${if (Device.isMobile(activity)) "from your browser" else "with the Downloader app"} from:\ngithub.com/$REPO/releases/latest/download/nathflix-tv.apk")
+                        .setTitle(Lang.text(activity, R.string.update_failed_title))
+                        .setMessage(Lang.text(activity, R.string.update_failed_message, e.message ?: "",
+                            Lang.text(activity, if (Device.isMobile(activity)) R.string.update_failed_browser else R.string.update_failed_downloader),
+                            "github.com/$REPO/releases/latest/download/nathflix-tv.apk"))
                         .setPositiveButton("OK", null)
                         .show()
                 }
@@ -155,30 +161,33 @@ object Updates {
      * Downloads the APK and makes sure Android will be able to install it: every byte there, and a
      * readable Nathflix package of the version expected. Returns null when it's good, else what's wrong.
      */
-    private fun fetchApk(url: String, apk: File, size: Long, version: String, activity: MainActivity): String? {
+    /** What went wrong with a download, and whether trying again could help */
+    private class Problem(val text: String, val retry: Boolean)
+
+    private fun fetchApk(url: String, apk: File, size: Long, version: String, activity: MainActivity): Problem? {
         val partial = File(apk.parentFile, apk.name + ".part")
         try {
             http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                if (!response.isSuccessful) return "the server answered ${response.code}"
+                if (!response.isSuccessful) return Problem(Lang.text(activity, R.string.update_error_status, response.code), response.code >= 500)
                 partial.outputStream().use { out -> response.body!!.byteStream().copyTo(out) }
             }
         } catch (e: Exception) {
             partial.delete()
-            return "the download was interrupted (${e.message ?: e.javaClass.simpleName})"
+            return Problem(Lang.text(activity, R.string.update_error_interrupted, e.message ?: e.javaClass.simpleName), true)
         }
         if (size > 0 && partial.length() != size) {
             val got = partial.length()
             partial.delete()
-            return "the download was incomplete ($got of $size bytes)"
+            return Problem(Lang.text(activity, R.string.update_error_incomplete, got, size), true)
         }
         @Suppress("DEPRECATION")
         val info = activity.packageManager.getPackageArchiveInfo(partial.path, 0)
         if (info == null || info.packageName != activity.packageName || info.versionName != version) {
             partial.delete()
-            return "the downloaded file isn't a Nathflix $version app"
+            return Problem(Lang.text(activity, R.string.update_error_not_ours, version), false)
         }
         apk.delete()
-        if (!partial.renameTo(apk)) return "the update couldn't be saved"
+        if (!partial.renameTo(apk)) return Problem(Lang.text(activity, R.string.update_error_save), false)
         return null
     }
 

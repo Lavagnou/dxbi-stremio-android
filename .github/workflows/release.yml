@@ -5,10 +5,12 @@ name: Release
 #   - or run it by hand (Actions → Release → Run workflow, or the API) with the version: it tags the
 #     commit it runs on
 # The version must match @version in nathflix.plugin.js and a "## 0.2.0" section of CHANGELOG.md,
-# which becomes the release notes. The plugin and its installers are attached, then the Android app
-# (tv.yml: signed with the release key in the repository's secrets) and the desktop apps (app.yml)
-# are built and added to it. (A release made with the workflow's own token starts no "release"
-# event, hence the calls.)
+# which becomes the release notes. The Android app (tv.yml: signed with the release key in the
+# repository's secrets) and the desktop apps (app.yml, with the files their self-updater reads) are
+# built and attached to it, and nothing else: the Stremio Enhanced plugin and its installers are
+# served from the repository itself (README), and the Android app reads the plugin at the release's
+# tag (Updates.kt). (A release made with the workflow's own token starts no "release" event, hence
+# the calls.)
 on:
   push:
     tags: ["v*"]
@@ -59,7 +61,7 @@ jobs:
             echo "- **Windows**: [installer]($base/nathflix-Setup-x64.exe) · [portable]($base/nathflix-portable-x64.exe)"
             echo "- **Mac**: [Apple chip]($base/nathflix-mac-arm64.dmg) · [Intel]($base/nathflix-mac-x64.dmg)"
             echo "- **Linux**: [x86_64]($base/nathflix-linux-x86_64.AppImage) · [ARM]($base/nathflix-linux-arm64.AppImage)"
-            echo "- **Stremio Enhanced plugin**: [nathflix.plugin.js]($base/nathflix.plugin.js)"
+            echo "- **Stremio Enhanced plugin**: see [Already using Stremio Enhanced?](https://github.com/$GITHUB_REPOSITORY#already-using-stremio-enhanced-use-the-plugin)"
           } >> notes.md
           cat notes.md
 
@@ -70,7 +72,7 @@ jobs:
         run: |
           # a pushed tag is used as it is; run by hand, the release tags this commit
           if [ "$GITHUB_EVENT_NAME" = "push" ]; then where="--verify-tag"; else where="--target $GITHUB_SHA"; fi
-          gh release create "$TAG" nathflix.plugin.js install.sh install.ps1 $where --title "Nathflix ${TAG#v}" --notes-file notes.md
+          gh release create "$TAG" $where --title "Nathflix ${TAG#v}" --notes-file notes.md
 
   android:
     needs: publish

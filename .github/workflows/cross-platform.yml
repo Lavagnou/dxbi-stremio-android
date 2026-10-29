@@ -42,27 +42,15 @@ jobs:
         with:
           node-version: 22
 
-      # The one-liners from the README, exactly as users run them (downloads the latest release).
-      # Skipped until the repository has a release with the installers attached
-      - name: Published release
-        id: published
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view -R "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' 2>/dev/null | grep -qx install.sh; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::No published release with the installers yet: the published installer steps are skipped."
-          fi
+      # The one-liners from the README, exactly as users run them (the installers and the plugin on the
+      # main branch: releases only carry the apps)
       - name: Published installer (Windows PowerShell 5.1)
-        if: runner.os == 'Windows' && steps.published.outputs.exists == 'true'
+        if: runner.os == 'Windows'
         shell: powershell
-        run: irm https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.ps1 | iex
+        run: irm https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.ps1 | iex
       - name: Published installer (bash)
-        if: runner.os != 'Windows' && steps.published.outputs.exists == 'true'
-        run: curl -fsSL https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.sh | bash
+        if: runner.os != 'Windows'
+        run: curl -fsSL https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.sh | bash
 
       # Then this commit's installers and plugin, served locally
       - name: Serve this commit
