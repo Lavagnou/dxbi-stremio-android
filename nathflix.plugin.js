@@ -7360,7 +7360,7 @@
       ? [updateRoute, brandTitle, () => addonTools.ensure(), communitySync]
       : [updateRoute, brandTitle, () => player.ensure(), () => { convert.ensure().catch(() => { /* player state not ready */ }); }, () => convert.confirmHevc(), () => externalDefault.ensure(), () => placeholder.ensure(), () => playbackHelp.ensure(), () => scrub.ensure(), () => enhance.ensure(), () => watchParty.ensure(), () => skip.ensure(), () => tune.ensure(), () => streamInfo.ensure(), () => addonTools.ensure(), communitySync];
     if (currentRoute() === "detail") steps.push(() => streamTools.ensure());
-    steps.push(() => langWatch.check(), () => profileDefaults.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
+    steps.push(() => signInGate.check(), () => langWatch.check(), () => profileDefaults.watch(), () => cloudSync.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
     if (currentRoute() !== "player") {
       steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, () => homeArrange.apply(), updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
     }
@@ -7401,7 +7401,7 @@
   // ---------------------------------------------------------------------------
 
   // What's synced: the profiles and their choices, never caches or this device's settings
-  const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|(homeRows|hidden|cwDismissed|stats):[\w-]{1,40})$/;
+  const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|(homeRows|hidden|cwDismissed|stats|played):[\w-]{1,40})$/;
   const SYNC_MAX_VALUE = 100 * 1024;
 
   const cloudSync = {
@@ -7601,6 +7601,21 @@
           changed.add(e.k);
           continue;
         }
+        // What a viewer played: on either device, so it's in their Continue Watching on both
+        if (/^played:/.test(e.k) && mine && mine.v && e.v && typeof e.v === "object") {
+          const merged = { ...e.v };
+          for (const [id, at] of Object.entries(mine.v)) merged[id] = Math.max(Number(merged[id]) || 0, Number(at) || 0);
+          const same = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((id) => a[id] === b[id]);
+          if (same(merged, mine.v)) {
+            if (!same(merged, e.v)) this.dirty.add(e.k);
+            continue;
+          }
+          const ours = !same(merged, e.v);
+          store.put(e.k, { t: ours ? Date.now() : Math.max(e.t, mine.t), v: merged });
+          if (ours) this.dirty.add(e.k);
+          changed.add(e.k);
+          continue;
+        }
         if (mine && mine.t >= e.t) continue;
         let v = e.v;
         // the profile picked on this device stays picked (if it's still there)
@@ -7616,7 +7631,7 @@
       const any = (re) => [...changed].some((k) => re.test(k));
       stats.load();
       restrict.apply();
-      if (any(/^(viewers|libraryOwners)$/)) viewerLibrary.switched();
+      if (any(/^(viewers$|libraryOwners$|played:)/)) viewerLibrary.switched();
       if (any(/^(viewers|kidsAllow|hidden:)/)) hero.reset();
       navAvatar.ensure();
       if (whoIsWatching.el) whoIsWatching.render();
@@ -7635,8 +7650,29 @@
       return t("Profiles synced with your Stremio account · {when}", { when });
     },
 
+    // Signing in (or to another account) doesn't reload the page: without this, the account's profiles
+    // only came at the next start or return to the front. Looked at now and then by the main loop
+    // (auth() reads the whole saved profile: not on every sync), or right away by signInGate.
+    // Resolves once that sync is over (at once when there's nothing to do)
+    seenKey: "",
+    nextLook: 0,
+    watch(now = false) {
+      if (!this.on() || this.busy || (!now && Date.now() < this.nextLook)) return Promise.resolve();
+      this.nextLook = Date.now() + 5000;
+      const auth = this.auth();
+      const key = auth ? auth.key : "";
+      if (key === this.seenKey) return Promise.resolve();
+      this.seenKey = key;
+      if (!auth) return Promise.resolve();
+      // a new session: no waiting on an earlier failure's delay
+      this.retryAt = 0;
+      return this.run();
+    },
+
     start() {
       if (!SYNC_ENDPOINT) return;
+      const auth = this.auth();
+      this.seenKey = auth ? auth.key : "";
       // back in front: what other devices did (once a minute at most); going to the back: send now
       this.onVisible = () => {
         if (!this.on()) return;
@@ -7651,6 +7687,54 @@
     stop() {
       clearTimeout(this.timer);
       if (this.onVisible) document.removeEventListener("visibilitychange", this.onVisible);
+    },
+  };
+
+  // ---------------------------------------------------------------------------
+  // Sign-in first: without a Stremio account Nathflix has nothing to show (no library, no profiles to
+  // sync), so a signed-out page only has Stremio's sign-in and sign-up, without its "Guest login"
+  // (hidden by EXTRAS_CSS). Once signed in: the account's profiles, then "Who's watching?"
+  // ---------------------------------------------------------------------------
+
+  const signInGate = {
+    busy: false,
+    // what this page last knew (null: not looked yet)
+    was: null,
+    next: 0,
+
+    // From the saved profile: quick, but Stremio only writes it a moment after signing in
+    signedIn() {
+      try {
+        const profile = JSON.parse(localStorage.getItem("profile") || "null");
+        return !!(profile && profile.auth && profile.auth.key);
+      } catch (_) { return false; }
+    },
+
+    check() {
+      // (signedIn() reads the whole saved profile: signed in, only now and then)
+      if (this.busy || (this.was && Date.now() < this.next)) return;
+      this.next = Date.now() + 5000;
+      if (this.signedIn()) {
+        if (this.was === false) this.welcome();
+        this.was = true;
+        return;
+      }
+      // Stremio's core is the one that knows: never send someone back to the sign-in as they sign in
+      const { getState } = core();
+      if (!getState) return;
+      this.busy = true;
+      getState("ctx").catch(() => null).then((ctx) => {
+        if (!ctx || !ctx.profile || ctx.profile.auth) return;
+        this.was = false;
+        if (currentRoute() !== "intro") location.replace("#/intro");
+      }).finally(() => { this.busy = false; });
+    },
+
+    // Just signed in on this page: the account's profiles first, then who's watching
+    welcome() {
+      cloudSync.watch(true)
+        .catch(() => { /* offline: the profiles on this device */ })
+        .finally(() => { whoIsWatching.maybeShow().catch(() => { /* nothing to show */ }); });
     },
   };
   const onOver = (e) => preview.onOver(e);
@@ -7673,6 +7757,7 @@
   // ---------------------------------------------------------------------------
 
   const EXTRAS_CSS = `
+  [class*="intro-container"] [class*="guest-login-button"] { display: none !important; }
   html.dx-mini [class*="control-bar-container"], html.dx-mini [class*="nav-bar-layer"], html.dx-mini .dx-player-flash, html.dx-mini .dxe-skip, html.dx-mini .dx-player-toast { display: none !important; }
   .dx-mini-ui { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .2s; background: linear-gradient(rgba(0,0,0,.55), transparent 35%, transparent 70%, rgba(0,0,0,.55)); cursor: grab; user-select: none; touch-action: none; }
   html.dx-mini body:hover .dx-mini-ui, .dx-mini-ui.is-held { opacity: 1; }
@@ -9898,6 +9983,33 @@
       store.set(key, { ...(store.get(key, null) || {}), [id]: Date.now() });
     },
 
+    // What each viewer started in Nathflix ("played:<viewer>": id → when). Continue Watching only has
+    // what this viewer played themselves: watching on another profile never puts a title in yours,
+    // even one the account had watched before. Titles nobody has played since keep the library's rule
+    markPlayed(id) {
+      const key = viewers.key("played");
+      const list = { ...(store.get(key, null) || {}), [id]: Date.now() };
+      // the 400 most recent are plenty for a Continue Watching row
+      const ids = Object.keys(list);
+      if (ids.length > 400) for (const x of ids.sort((a, b) => list[a] - list[b]).slice(0, ids.length - 400)) delete list[x];
+      store.set(key, list);
+    },
+    inProgress() {
+      const who = new Map();
+      for (const v of viewers.list().list) {
+        for (const id of Object.keys(store.get(`played:${v.id}`, null) || {})) who.set(id, [...(who.get(id) || []), v.id]);
+      }
+      const me = viewers.current().id;
+      return (id) => this.mine(id) && !this.dismissed(id) && (!who.has(id) || who.get(id).includes(me));
+    },
+    // The title a Load of Stremio's player starts
+    launched(a) {
+      if (!a || a.action !== "Load" || !a.args || a.args.model !== "Player") return null;
+      const req = a.args.args && a.args.args.metaRequest;
+      const id = req && req.path && req.path.id;
+      return typeof id === "string" ? id : null;
+    },
+
     // A viewer is removed: titles only they had leave the account library
     forget(id) {
       const owners = this.owners();
@@ -9929,7 +10041,12 @@
         return state;
       };
       live.dispatch = (action, ...rest) => {
-        try { if (this.on() && this.intercept(action) === false) return Promise.resolve(); } catch (err) { log("viewer library action failed", err); }
+        try {
+          // kept with a single viewer too: a profile added later then doesn't get their titles
+          const played = this.launched(action);
+          if (played) this.markPlayed(played);
+          if (this.on() && this.intercept(action) === false) return Promise.resolve();
+        } catch (err) { log("viewer library action failed", err); }
         return dispatch(action, ...rest);
       };
       setTimeout(() => this.refresh(), 0);
@@ -9947,9 +10064,9 @@
           this.refresh();
           return false;
         }
-      } else if (a.action === "Load" && a.args.model === "Player") {
-        const id = a.args.args && a.args.args.metaRequest && a.args.args.metaRequest.path && a.args.args.metaRequest.path.id;
-        if (typeof id === "string") this.claim(id);
+      } else {
+        const id = this.launched(a);
+        if (id) this.claim(id);
       }
     },
 
@@ -9957,17 +10074,16 @@
       const mine = (id) => this.mine(id);
       if ((model === "library" || model === "continue_watching") && Array.isArray(s.catalog)) {
         const all = s.catalog.length;
-        s.catalog = s.catalog.filter((i) => mine(i._id) && (model === "library" || !this.dismissed(i._id)));
+        const keep = model === "library" ? mine : this.inProgress();
+        s.catalog = s.catalog.filter((i) => keep(i._id));
         // Stremio pages its library 100 at a time: fetch on while this viewer's page is thin
         if (all && all % 100 === 0 && s.catalog.length < 40 && this.paged[model] !== all) {
           this.paged[model] = all;
           setTimeout(() => { try { this.dispatchRaw({ action: "LibraryWithFilters", args: { action: "LoadNextPage" } }, model); } catch (_) { /* scroll still loads */ } }, 0);
         }
       } else if (model === "continue_watching_preview" && Array.isArray(s.items)) {
-        s.items = s.items.filter((i) => {
-          const id = (i.libraryItem && i.libraryItem._id) || i._id || i.id;
-          return mine(id) && !this.dismissed(id);
-        });
+        const keep = this.inProgress();
+        s.items = s.items.filter((i) => keep((i.libraryItem && i.libraryItem._id) || i._id || i.id));
       } else if (model === "meta_details") {
         if (s.libraryItem && !mine(s.libraryItem._id)) {
           s.libraryItem = null;
@@ -10055,7 +10171,8 @@
     // viewer has a PIN: it's asked for at every start)
     async maybeShow() {
       await store.ready;
-      if (currentRoute() === "player") return;
+      // (never over the sign-in: signInGate shows it once signed in)
+      if (currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return;
       const pinned = !!viewers.current().pin;
       if (!pinned && (!settings.whoIsWatching || viewers.list().list.length < 2)) return;
       const { getState } = core();
@@ -10298,7 +10415,7 @@
       if (at("[data-deleteyes]")) {
         const id = this.draft.id;
         viewers.remove(id);
-        for (const section of ["stats", "playback", "hidden", "homeRows", "cwDismissed"]) store.set(`${section}:${id}`, null);
+        for (const section of ["stats", "playback", "hidden", "homeRows", "cwDismissed", "played"]) store.set(`${section}:${id}`, null);
         this.draft = null;
         return this.show("manage");
       }
@@ -11210,6 +11327,8 @@
       if (!limit) return;
       // a film playing (Nathflix's own player on Android is on the player screen too) is activity
       if (currentRoute() === "player" || miniPlayer.info) return this.touch();
+      // nothing to lock on the sign-in
+      if (currentRoute() === "intro") return this.touch();
       if (whoIsWatching.el || Date.now() - this.last < limit * 60000) return;
       // nothing to lock: one viewer, without a PIN
       if (viewers.list().list.length < 2 && !viewers.current().pin) return;

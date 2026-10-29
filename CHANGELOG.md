@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+- **Sign in first.** Without a Stremio account Nathflix has nothing to show, so it now opens on Stremio's sign-in (or sign-up) and stays there until you're signed in; "Guest login" is gone. Once signed in, your profiles arrive, then "Who's watching?" when there are several.
+- **Your profiles right after signing in.** Signing in to Stremio now brings your synced profiles straight away: before, they only appeared after restarting the app.
+- **Continue Watching is each profile's own.** A profile's Continue Watching only has what that profile started: watching something on another profile no longer puts it in yours, even a title your account had watched before. A show two profiles both watch is in both rows. Progress itself is still shared, as Stremio keeps one per title.
+
 ## 0.4.0
 - **Profiles on every device.** Your Nathflix profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account: no other account to make. Changes go a few seconds after you make them; what other devices changed arrives when Nathflix starts or comes back to the front; offline, everything carries on and is sent later. Each device keeps its own profile picked, and stats from two devices are merged without losing time watched. It can be switched off in Nathflix settings → Home. Settings show whether the profiles are synced, and when they last were.
 

@@ -86,6 +86,10 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | Fait | P1 | release | — | 2026-10-29 |
 | T-027 | Profils synchronisés entre appareils via le compte Stremio (Worker + D1) | À valider | P1 | plugin, tools | T-022 | 2026-10-29 |
 | T-028 | Release 0.4.0 (synchro des profils, première APK signée) | Terminé | P1 | release, tv, plugin | T-027 | 2026-10-29 |
+| T-029 | Profils absents jusqu'au redémarrage après la connexion | À valider | P1 | plugin | T-027 | 2026-10-30 |
+| T-030 | Connexion obligatoire : sans compte, seulement la page de connexion | À valider | P1 | plugin | — | 2026-10-30 |
+| T-031 | Continuer à regarder propre à chaque profil | À valider | P1 | plugin, tools | T-022, T-027 | 2026-10-30 |
+| T-032 | Progression séparée pour chaque profil | À faire | P2 | plugin, tv | T-031 | 2026-10-30 |
 
 ---
 
@@ -1323,7 +1327,7 @@ Choix de l'utilisateur :
   - la clé n'est jamais stockée.
 - [x] Clés acceptées :
   - `viewers`, `libraryOwners`, `kidsAllow`, `parentPin` ;
-  - `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`.
+  - `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*` ; `played:*` depuis T-031.
 
   Pas les caches.
 - [x] Limites :
@@ -1435,6 +1439,138 @@ Réponses ensuite :
 - Version / CHANGELOG : 0.4.0
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.4.0
 
+### T-029 — Profils absents jusqu'au redémarrage après la connexion
+
+- **Statut :** À valider (sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-027
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Ca fonctionne, mais sur Android, j'ai du redémarrer l'app pour que mes profils apparaissent.
+
+**Critères d'acceptation**
+- [x] Se connecter à Stremio fait arriver les profils du compte sans redémarrer
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause** : `cloudSync` ne synchronisait qu'au démarrage (`start()`, 3 s après) et au retour au premier plan. Sur une installation neuve, on n'est pas connecté au démarrage (`run()` s'arrête en `state = "signin"`). Ensuite, la connexion à Stremio ne recharge pas la page et ne déclenche pas `visibilitychange`.
+- **Correctif** : `cloudSync.watch()`, dans `sync()`, au plus toutes les 5 s (`auth()` lit tout le profil enregistré). Il garde la clé de session vue (`seenKey`) et lance `run()` dès qu'elle change, en oubliant le délai d'un échec précédent. `signInGate` l'appelle tout de suite à la connexion (`watch(true)`).
+
+**Vérification**
+- Banc d'essai (scratchpad, `viewer-cw-test.mjs`, qui exécute le vrai `cloudSync` avec des doublures) : pas de requête sans session, une requête dès la connexion, profils du compte reçus, pas de deuxième requête pour la même session.
+- Playwright (web.stremio.com, plugin injecté) : juste après une fausse connexion, une requête part vers le Worker (401, puisque la clé était fausse).
+
+### T-030 — Connexion obligatoire : sans compte, seulement la page de connexion
+
+- **Statut :** À valider (sur l'appareil, avec une vraie connexion)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> tant qu'on est pas connecté a notre compte stremio il faudrait que l'app affiche seulement la page de connexion a son compte stremio, car sans compte tout façon l'app est inutilisable.
+
+Réponse ensuite : partout (Android, desktop, Stremio Enhanced).
+
+**Critères d'acceptation**
+- [x] Sans compte, toute route renvoie vers `#/intro`
+- [x] « Guest login » masqué ; Inscription, Facebook, Apple et Connexion restent
+- [x] « Qui regarde ? » et le verrou d'inactivité ne passent jamais devant la connexion
+- [x] Après la connexion : synchro, puis « Qui regarde ? » s'il y a plusieurs profils
+- [ ] Vérifié avec une vraie connexion sur l'appareil
+
+**Notes techniques**
+- Stremio n'y redirige pas lui-même : sans compte, il ouvre l'Accueil en invité.
+- `signInGate.check()` (dans `sync()`) :
+  - lecture rapide du profil enregistré, au plus toutes les 5 s une fois connecté ;
+  - sinon, confirmation par le core (`getState("ctx")`, `profile.auth` nul) avant `location.replace("#/intro")`. Le profil enregistré n'arrive qu'un moment après la connexion : sans cette confirmation, on renverrait l'utilisateur à la connexion juste après qu'il s'est connecté.
+- Bouton invité : `[class*="intro-container"] [class*="guest-login-button"]` dans `EXTRAS_CSS` (toujours chargé, même sans le thème).
+
+**Vérification**
+- Playwright, web.stremio.com sans compte, plugin injecté :
+  - l'Accueil passe à `#/intro` en moins d'une demi-seconde ;
+  - `#/discover` et `#/settings` y reviennent ;
+  - bouton invité invisible, les quatre autres visibles (en français) ;
+  - pas de « Qui regarde ? » ; aucune erreur du plugin.
+- Avec une session dans le profil enregistré : plus de renvoi (Découvrir, Réglages). Pas vérifié : la confirmation par le core avec une vraie session. Ma fausse session était refusée par le core (« missing field email »).
+
+### T-031 — Continuer à regarder propre à chaque profil
+
+- **Statut :** À valider (sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin, tools
+- **Dépend de :** T-022, T-027
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Si je regarde une série/film sur un deuxième profil, il apparait des mes "Continuer a regarder" sur mon profil à moi(le principal). Il faut pas que ça soit le cas
+
+Réponses ensuite :
+- c'est arrivé sur un seul appareil ;
+- on ne sait pas si le titre était nouveau ;
+- règle choisie : « Ce que j'ai lancé » ;
+- l'utilisateur aimerait aussi une progression séparée (T-032).
+
+**Critères d'acceptation**
+- [x] Un profil ne voit dans Continuer à regarder que ce qu'il a lancé lui-même
+- [x] Un titre lancé par deux profils est chez les deux
+- [x] Rien ne disparaît le jour de la mise à jour : un titre que personne n'a relancé depuis garde la règle d'avant
+- [x] `played:<spectateur>` synchronisé ; le Worker accepte la clé (redéployé avant le plugin)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause probable** : `viewerLibrary.claim()` partage un titre avec le premier profil dès que le compte l'a déjà dans sa bibliothèque, y compris en « temp » (toute lecture passée, même dans l'app Stremio officielle). Sur un compte avec de l'historique, presque tout ce que lance le profil 2 restait donc aussi chez le principal. Le chemin d'un titre neuf (réclamé pour le profil 2 seul) n'a pas montré de faille.
+- **Règle** (`viewerLibrary.inProgress()`) : la bibliothèque et Ma liste gardent `libraryOwners`. Continuer à regarder (`continue_watching`, `continue_watching_preview`) suit `played:<spectateur>` (id → date, `markPlayed()` sur `Load` `Player`, 400 titres au plus). Si quelqu'un a lancé le titre : seulement ceux qui l'ont lancé ; sinon : règle de la bibliothèque.
+- Enregistré même avec un seul spectateur : un profil ajouté plus tard ne prend pas les titres du premier.
+- Fusion à la synchro : la date la plus récente par titre, comparée par contenu (pas par ordre des clés).
+- Suppression d'un profil : `played:<id>` effacé.
+- Worker : `played` ajouté à `KEY`, test ajouté dans `test.mjs`, redéployé (version `cc0325fc`).
+
+**Vérification**
+- `node tools/profile-sync/test.mjs` : le nouveau test échouait avant la modification du Worker, tout passe après.
+- Banc d'essai `viewer-cw-test.mjs` (vrai `viewerLibrary`, core simulé) :
+  - avant toute lecture, le principal voit tout ;
+  - le profil 2 commence vide, puis voit ce qu'il a lancé (titre connu du compte et titre neuf) ;
+  - le principal ne voit plus ce que le profil 2 a lancé ; après l'avoir lancé lui aussi, il est chez les deux ;
+  - avec un seul profil, les lancements sont enregistrés ;
+  - fusion : les titres des deux appareils sont gardés, rien n'est renvoyé si le contenu est identique.
+- Worker en ligne après redéploiement : 204, 401, 401.
+
+### T-032 — Progression séparée pour chaque profil
+
+- **Statut :** À faire
+- **Priorité :** P2
+- **Cible :** plugin, tv
+- **Dépend de :** T-031
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** —
+
+**Demande**
+> j'aurais aimé avoir une progression séparé aussi sur les deux comptes, à voir si c'est possible, sinon tant pis.
+
+**Besoin**
+Stremio ne garde qu'une progression par titre pour tout le compte (`libraryItem.state` : `timeOffset`, `video_id`, épisodes vus). Chaque profil devrait reprendre là où lui s'est arrêté.
+
+**Pistes**
+- Retenir la position par profil (`progress:<spectateur>` : id → `{ video, t, d, at }`), synchronisée, à ajouter au Worker.
+- Écrire :
+  - Android : les positions renvoyées toutes les 5 s par le lecteur natif (`nathflix-tv.js`) ;
+  - desktop : l'état du lecteur.
+- Relire :
+  - remplacer `libraryItem.state` dans `getState` (`player`, `meta_details`, `continue_watching*`) par celui du profil ;
+  - sur Android, la position de départ passée au lecteur natif. Attention, l'APK est plus vieille que le plugin : détecter avant usage.
+- À trancher : les épisodes « vus » (champ `watched` du compte), le bouton « Reprendre S1 É3 », le floutage des épisodes non vus.
+
 <!--
 ### T-000 — Titre court
 
@@ -1514,6 +1650,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-029 à T-032 | Créées : retours sur la 0.4.0. T-029 (synchro à la connexion), T-030 (connexion obligatoire) et T-031 (Continuer à regarder par profil, Worker redéployé avec `played:*`) implémentées et testées (banc d'essai, Playwright) ; T-032 (progression séparée) à faire |
 | 2026-10-29 | T-028 | Fait : release v0.4.0 publiée avec la première APK signée (certificat vérifié) ; T-007 débloquée (reste le son à vérifier sur l'appareil) |
 | 2026-10-29 | T-028 | Créée : release 0.4.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-29 | T-027 | Worker déployé (`nathflix-profiles.profile-sync.workers.dev`), `SYNC_ENDPOINT` rempli ; CORS et 401 vérifiés en ligne. À valider sur deux appareils |

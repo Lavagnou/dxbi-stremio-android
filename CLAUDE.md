@@ -250,10 +250,20 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
     - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
     - Back de la couche TV : `closePreview` ferme le clavier, recule dans « Qui regarde ? », et ne ferme jamais l'écran verrouillé.
     - Les codes sont une barrière familiale, pas une sécurité (tout est dans le stockage de l'appareil).
+  - **Bibliothèque par spectateur** (`viewerLibrary`, qui enveloppe `getState` / `dispatch` du core) :
+    - `libraryOwners` (id → spectateurs) pour Ma liste, la bibliothèque, le calendrier et les notifications. Un titre que personne n'a réclamé est au premier spectateur ;
+    - **Continuer à regarder** (`inProgress()`) : `played:<spectateur>` (id → date) retient ce que chacun a lancé (`launched()` sur `Load` `Player`, même avec un seul spectateur). Dès qu'au moins un spectateur a lancé un titre, seuls ceux qui l'ont lancé le voient ; sinon, règle de la bibliothèque ;
+    - la progression reste celle du compte Stremio (une seule par titre).
+  - **Connexion d'abord** (`signInGate`, après `cloudSync`) : sans compte Stremio, toute route renvoie vers `#/intro` (`location.replace`).
+    - On ne redirige qu'après confirmation du core (`ctx.profile.auth` nul), car Stremio n'écrit le profil qu'un moment après la connexion.
+    - « Guest login » est masqué (`guest-login-button`, dans `EXTRAS_CSS`).
+    - Après une connexion, `welcome()` lance la synchro, puis « Qui regarde ? ». `whoIsWatching.maybeShow()` et `idleLock` ne s'affichent jamais sur `#/intro`.
   - **Synchronisation des profils** (`cloudSync`, juste après `store` ; Worker `tools/profile-sync`, adresse `SYNC_ENDPOINT`) :
-    - clés `SYNCED` : `viewers`, `libraryOwners`, `kidsAllow`, `parentPin`, `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`. Jamais les caches ni les réglages de l'appareil ;
+    - clés `SYNCED` : `viewers`, `libraryOwners`, `kidsAllow`, `parentPin`, `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`, `played:*`. Jamais les caches ni les réglages de l'appareil ;
+    - **une nouvelle clé se déclare à deux endroits** : `SYNCED` (plugin) et `KEY` (`tools/profile-sync/worker.js`). Il faut redéployer le Worker **avant** de publier le plugin : le Worker refuse toute la requête (400) pour une seule clé inconnue ;
     - `store.set` → `cloudSync.changed()` ; `store.put()` écrit une entrée reçue sans la renvoyer ;
-    - fusion : la plus récente gagne. Pour `viewers`, le profil courant reste celui de l'appareil. Pour `stats:*`, le maximum de chaque compteur ;
+    - fusion : la plus récente gagne. Pour `viewers`, le profil courant reste celui de l'appareil. Pour `stats:*`, le maximum de chaque compteur. Pour `played:*`, la date la plus récente de chaque titre ;
+    - quand synchroniser : au démarrage, au retour au premier plan, et à la connexion (`cloudSync.watch()`, dans `sync()`, au plus toutes les 5 s, ou tout de suite par `signInGate`) ;
     - identité : `profile.auth.key` envoyée au Worker (`Authorization: Stremio <clé>`). Le Worker la vérifie avec `getUser` de l'API Stremio et ne la garde jamais ;
     - un autre compte sur l'appareil : ses profils remplacent ceux du précédent (`nathflix.syncAccount`).
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
