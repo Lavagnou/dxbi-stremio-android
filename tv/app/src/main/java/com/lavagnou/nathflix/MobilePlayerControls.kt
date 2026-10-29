@@ -22,6 +22,7 @@ import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
@@ -347,16 +348,17 @@ class MobilePlayerControls(
         return list
     }
 
-    private fun option(list: LinearLayout, label: String, selected: Boolean, detail: String? = null, onPick: () -> Unit) {
+    /** A choice in a panel; [enabled] false: shown greyed (a track this device can't play), not pickable */
+    private fun option(list: LinearLayout, label: String, selected: Boolean, detail: String? = null, enabled: Boolean = true, onPick: () -> Unit) {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundResource(R.drawable.mc_option)
             setPadding(dp(6), dp(10), dp(10), dp(10))
-            setOnClickListener {
+            if (enabled) setOnClickListener {
                 onPick()
                 closePanel()
-            }
+            } else alpha = 0.45f
         }
         row.addView(ImageView(activity).apply {
             setImageResource(R.drawable.ic_check)
@@ -395,17 +397,19 @@ class MobilePlayerControls(
         val groups = player.currentTracks.groups
         val params = player.trackSelectionParameters
         val audioGroups = groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+        // (a track the device can't decode is still listed, greyed, so it's clear why there's no sound)
+        val cant = "Can't play on this ${Device.noun(activity)}"
         for (g in audioGroups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            option(audioList, trackName(g.getTrackFormat(i), audio = true), g.isTrackSelected(i)) { select(C.TRACK_TYPE_AUDIO, g, i) }
+            val ok = g.isTrackSupported(i)
+            option(audioList, trackName(g.getTrackFormat(i), audio = true), ok && g.isTrackSelected(i), if (ok) null else cant, ok) { select(C.TRACK_TYPE_AUDIO, g, i) }
         }
         if (audioGroups.isEmpty()) option(audioList, "Default", true) {}
         val textGroups = groups.filter { it.type == C.TRACK_TYPE_TEXT }
         val textOff = params.disabledTrackTypes.contains(C.TRACK_TYPE_TEXT) || textGroups.none { it.isSelected }
         option(textList, "Off", textOff) { select(C.TRACK_TYPE_TEXT, null, 0) }
         for (g in textGroups) for (i in 0 until g.length) {
-            if (!g.isTrackSupported(i)) continue
-            option(textList, trackName(g.getTrackFormat(i), audio = false), !textOff && g.isTrackSelected(i)) { select(C.TRACK_TYPE_TEXT, g, i) }
+            val ok = g.isTrackSupported(i)
+            option(textList, trackName(g.getTrackFormat(i), audio = false), ok && !textOff && g.isTrackSelected(i), if (ok) null else cant, ok) { select(C.TRACK_TYPE_TEXT, g, i) }
         }
     }
 
@@ -420,7 +424,17 @@ class MobilePlayerControls(
         val language = f.language?.takeIf { it.isNotEmpty() && it != "und" }?.let { Locale.forLanguageTag(it).displayLanguage.replaceFirstChar { c -> c.titlecase() } }
         val name = f.label?.takeIf { it.isNotEmpty() } ?: language ?: if (audio) "Audio" else "Subtitles"
         val channels = if (audio) when (f.channelCount) { 1 -> " · Mono"; 2 -> " · Stereo"; 6 -> " · 5.1"; 8 -> " · 7.1"; else -> "" } else ""
-        return name + channels
+        val format = if (audio) when (f.sampleMimeType) {
+            MimeTypes.AUDIO_AC3 -> " · Dolby Digital"
+            MimeTypes.AUDIO_E_AC3, MimeTypes.AUDIO_E_AC3_JOC -> " · Dolby Digital+"
+            MimeTypes.AUDIO_TRUEHD -> " · TrueHD"
+            MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS_EXPRESS -> " · DTS"
+            MimeTypes.AUDIO_AAC -> " · AAC"
+            MimeTypes.AUDIO_OPUS -> " · Opus"
+            MimeTypes.AUDIO_FLAC -> " · FLAC"
+            else -> ""
+        } else ""
+        return name + channels + format
     }
 
     private fun openEpisodes() = openPanel { body ->

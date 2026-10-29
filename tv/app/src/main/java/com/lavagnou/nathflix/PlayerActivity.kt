@@ -196,7 +196,8 @@ class PlayerActivity : AppCompatActivity() {
             .setUserAgent(if (ownAgent) null else "nathflix-tv/${BuildConfigVersion.name(this)}")
             .setDefaultRequestProperties(headers)
 
-        // The TV's own decoders first, falling back to software ones when a format isn't supported
+        // The device's own decoders first, falling back to software ones when a format isn't supported
+        // (audio: FFmpeg, for Dolby, DTS and TrueHD tracks the hardware can't decode)
         val renderers = DefaultRenderersFactory(this)
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
@@ -646,9 +647,8 @@ class PlayerActivity : AppCompatActivity() {
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ->
-            // No software decoders are bundled: DTS and TrueHD audio (common in BluRay rips) only play
-            // on TVs that decode them
-            "this ${Device.noun(this)} can't decode its video or audio format (DTS and TrueHD audio often can't play: pick a release with AAC, AC3 or DD+ audio)"
+            // Audio has a software decoder (FFmpeg) for whatever the hardware can't do; video doesn't
+            "this ${Device.noun(this)} can't decode its video format (pick a release in H.264 / x264, or without HDR or Dolby Vision)"
         PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "its file format isn't supported"
         else -> error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
     }

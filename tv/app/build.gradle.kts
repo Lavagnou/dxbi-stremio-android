@@ -101,6 +101,10 @@ dependencies {
     implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
     // phones and tablets: playing in the background, with controls in the notification
     implementation("androidx.media3:media3-session:1.5.1")
+    // Audio the device can't decode itself (Dolby AC3 and E-AC3, DTS, TrueHD: most phones have none of
+    // them, and a film then played without sound) decoded in software by FFmpeg. Jellyfin's build of
+    // Media3's FFmpeg extension, matching Media3 1.5
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Torrents played on the TV itself (no streaming server needed): libtorrent, and a small local
     // web server that hands the downloading file to the player
