@@ -113,7 +113,8 @@ async function main() {
   };
   await send("Runtime.enable");
   await waitFor("Stremio", () => evaluate("document.readyState === 'complete' && !!document.querySelector('#app')"));
-  await evaluate(`localStorage.setItem("nathflix.packOffered","1"); localStorage.setItem("checkForUpdatesOnStartup","false"); true`);
+  // (no Stremio account here: allowGuest keeps Nathflix off the sign-in)
+  await evaluate(`localStorage.setItem("nathflix.packOffered","1"); localStorage.setItem("nathflix.allowGuest","1"); localStorage.setItem("checkForUpdatesOnStartup","false"); if (location.hash.startsWith("#/intro")) location.hash = "#/"; true`);
 
   // First launch opens maximized, and the state is remembered
   try {

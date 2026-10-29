@@ -7713,6 +7713,8 @@
     check() {
       // (signedIn() reads the whole saved profile: signed in, only now and then)
       if (this.busy || (this.was && Date.now() < this.next)) return;
+      // the CI tests (tools/smoke-test.mjs, mpv-test.mjs) run Stremio without an account
+      if (cloudSync.local("nathflix.allowGuest") === "1") return;
       this.next = Date.now() + 5000;
       if (this.signedIn()) {
         if (this.was === false) this.welcome();

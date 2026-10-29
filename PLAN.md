@@ -1492,6 +1492,9 @@ Réponse ensuite : partout (Android, desktop, Stremio Enhanced).
   - lecture rapide du profil enregistré, au plus toutes les 5 s une fois connecté ;
   - sinon, confirmation par le core (`getState("ctx")`, `profile.auth` nul) avant `location.replace("#/intro")`. Le profil enregistré n'arrive qu'un moment après la connexion : sans cette confirmation, on renverrait l'utilisateur à la connexion juste après qu'il s'est connecté.
 - Bouton invité : `[class*="intro-container"] [class*="guest-login-button"]` dans `EXTRAS_CSS` (toujours chargé, même sans le thème).
+- **CI** : `cross-platform.yml` et `mpv-windows.yml` ont échoué sur `728507a`. Les tests lancent Stremio sans compte : la page restait sur `#/intro` (pas de billboard, mpv jamais lancé).
+  - Correctif : `localStorage` `nathflix.allowGuest = "1"`, posé par `smoke-test.mjs` et `mpv-test.mjs`, laisse le mode invité.
+  - `smoke-test.mjs` vérifie en plus, sans le drapeau, la redirection vers la connexion et le bouton invité masqué.
 
 **Vérification**
 - Playwright, web.stremio.com sans compte, plugin injecté :

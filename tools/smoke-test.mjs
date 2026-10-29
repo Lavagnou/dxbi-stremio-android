@@ -133,6 +133,7 @@ async function main() {
   await waitFor("the plugin to be switched on", () => evaluate(`localStorage.setItem("enabledPlugins", ${JSON.stringify(JSON.stringify([PLUGIN]))});
     localStorage.setItem("checkForUpdatesOnStartup", "false");
     localStorage.setItem("nathflix.packOffered", "1"); // the one-time Home rows offer is a native dialog on macOS and blocks the page
+    localStorage.setItem("nathflix.allowGuest", "1"); // no Stremio account here: keep Nathflix off the sign-in
     localStorage.getItem("enabledPlugins").includes(${JSON.stringify(PLUGIN)})`), 30000);
   await send("Page.reload", { ignoreCache: true });
   await sleep(2000);
@@ -177,6 +178,20 @@ async function main() {
   await evaluate("location.hash = '#/settings'; true");
   await sleep(4000);
   await screenshot("settings");
+
+  // Without an account (and without the tests' allowGuest), Nathflix only shows Stremio's sign-in
+  await evaluate("localStorage.removeItem('nathflix.allowGuest'); location.hash = '#/discover'; true");
+  try {
+    await waitFor("the sign-in", () => evaluate("location.hash.startsWith('#/intro') && !!document.querySelector('[class*=\"intro-container\"]')"), 30000);
+    pass("signed out: Nathflix opens Stremio's sign-in");
+    const guest = await evaluate("(() => { const b = document.querySelector('[class*=\"intro-container\"] [class*=\"guest-login-button\"]'); return b ? (b.offsetWidth > 0 ? 'shown' : 'hidden') : 'missing'; })()");
+    if (guest === "hidden") pass("Guest login is hidden");
+    else fail(`Guest login is ${guest}`);
+  } catch (e) {
+    fail(`signed out, but not sent to the sign-in: ${e.message}`);
+  }
+  await screenshot("sign-in");
+  await evaluate("localStorage.setItem('nathflix.allowGuest', '1'); true");
 
   // macOS CI runs a real streaming server: Nathflix should switch on the hardware converter it tested
   const hwProfile = process.env.NATHFLIX_EXPECT_HW_PROFILE;

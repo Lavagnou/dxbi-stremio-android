@@ -257,6 +257,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - **Connexion d'abord** (`signInGate`, après `cloudSync`) : sans compte Stremio, toute route renvoie vers `#/intro` (`location.replace`).
     - On ne redirige qu'après confirmation du core (`ctx.profile.auth` nul), car Stremio n'écrit le profil qu'un moment après la connexion.
     - « Guest login » est masqué (`guest-login-button`, dans `EXTRAS_CSS`).
+    - Les tests de la CI tournent sans compte : ils posent `localStorage` `nathflix.allowGuest = "1"`, qui laisse le mode invité. `smoke-test.mjs` vérifie aussi la redirection sans ce drapeau.
     - Après une connexion, `welcome()` lance la synchro, puis « Qui regarde ? ». `whoIsWatching.maybeShow()` et `idleLock` ne s'affichent jamais sur `#/intro`.
   - **Synchronisation des profils** (`cloudSync`, juste après `store` ; Worker `tools/profile-sync`, adresse `SYNC_ENDPOINT`) :
     - clés `SYNCED` : `viewers`, `libraryOwners`, `kidsAllow`, `parentPin`, `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`, `played:*`. Jamais les caches ni les réglages de l'appareil ;
