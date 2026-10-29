@@ -213,6 +213,7 @@
     watchStats: true,
     whoIsWatching: true,
     profileLock: "off",
+    profileSync: true,
     enhance: "off",
     streamTools: true,
     splash: true,
@@ -457,6 +458,7 @@
     { key: "watchStats", type: "toggle", label: t("Watch stats"), description: t("Counts how long you watch (on this PC only). See them under your profile menu → Your stats."), defaultValue: DEFAULTS.watchStats },
     { key: "whoIsWatching", type: "toggle", label: t("Who's watching?"), description: t("With more than one viewer, choose who's watching at start. Each viewer has their own library, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
     { key: "profileLock", type: "select", label: t("Lock profiles after inactivity"), description: t("After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security."), defaultValue: DEFAULTS.profileLock, options: [{ label: t("Never"), value: "off" }, { label: t("After {n} minutes", { n: 5 }), value: "5" }, { label: t("After {n} minutes", { n: 15 }), value: "15" }, { label: t("After {n} minutes", { n: 30 }), value: "30" }, { label: t("After 1 hour"), value: "60" }] },
+    { key: "profileSync", type: "toggle", label: t("Sync profiles with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account. They're kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
     { key: "backgroundPlay", type: "toggle", label: t("Keep playing in the background"), description: t("The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification."), defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
     { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true },
@@ -490,7 +492,7 @@
   // option carries its group's name, and they're listed group by group.
   const SETTING_GROUPS = [
     [t("Look"), ["accent", "focusColour", "builtInTheme", "ratings", "animeTitles", "wideContinue"]],
-    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching", "profileLock"]],
+    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching", "profileLock", "profileSync"]],
     [t("Hover cards & trailers"), ["previews", "trailers", "trailerDelay"]],
     [t("Browsing & library"), ["watchedTitles", "librarySort", "streamTools", "addonTools", "watchStats", "reviews", "tmdbKey", "mdblistKey"]],
     [t("Player"), ["tvTorrents", "mobilePip", "backgroundPlay", "playerExtras", "remainingTime", "seekPreviews", "enhance", "pictureSound", "streamStats", "rememberPlayback", "playerKeys", "pip", "externalPlayer", "convertVideo"]],
@@ -555,7 +557,8 @@
 
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
   function registerSchema() {
-    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly)))).catch(() => { /* already registered */ });
+    // (profile sync only shows once Nathflix has a sync server)
+    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
   }
 
   // Clears what's registered and registers the schema again, one at a time: two at once (start-up and
@@ -7387,6 +7390,269 @@
     preview.close(true);
     updateAllArrows(true);
   };
+
+  // ---------------------------------------------------------------------------
+  // Profile sync: the profiles and their choices follow each person on every device, filed under their
+  // Stremio account by Nathflix's sync Worker (tools/profile-sync, SYNC_ENDPOINT). Built on store: its
+  // entries are { t, v } and the most recent wins. Changes go in groups a little after they're made;
+  // what other devices changed comes at start-up and when the app comes back to the front. Offline,
+  // everything goes on locally and is sent at the next sync. The Stremio session key goes to the
+  // Worker only, which checks it with Stremio and never keeps it
+  // ---------------------------------------------------------------------------
+
+  // What's synced: the profiles and their choices, never caches or this device's settings
+  const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|(homeRows|hidden|cwDismissed|stats):[\w-]{1,40})$/;
+  const SYNC_MAX_VALUE = 100 * 1024;
+
+  const cloudSync = {
+    dirty: new Set(),
+    timer: 0,
+    firstDirty: 0,
+    busy: false,
+    lastTry: 0,
+    lastOk: 0,
+    retryAt: 0,
+    failures: 0,
+    // ok | waiting | signin | rejected | toobig
+    state: "waiting",
+    rejectedKey: "",
+
+    on() {
+      return !!SYNC_ENDPOINT && settings.profileSync !== false;
+    },
+
+    // The Stremio session this page is signed in with (null: not signed in)
+    auth() {
+      try {
+        const profile = JSON.parse(localStorage.getItem("profile") || "null");
+        const a = profile && profile.auth;
+        return a && a.key && a.user && a.user._id ? { key: a.key, id: a.user._id } : null;
+      } catch (_) { return null; }
+    },
+
+    local(name, value) {
+      try {
+        if (value === undefined) return localStorage.getItem(name);
+        if (value === null) localStorage.removeItem(name);
+        else localStorage.setItem(name, value);
+      } catch (_) { /* storage full or blocked */ }
+      return null;
+    },
+
+    // store.set calls this: a synced key changed here, to send in a moment
+    changed(key) {
+      if (!SYNCED.test(key) || !this.on()) return;
+      this.dirty.add(key);
+      this.schedule();
+    },
+
+    // 20 s after the last change, and never more than a minute after the first one
+    schedule() {
+      const now = Date.now();
+      if (!this.firstDirty) this.firstDirty = now;
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.run(), Math.max(0, Math.min(20000, this.firstDirty + 60000 - now)));
+    },
+
+    // A synced entry as sent: stats too big lose their posters first (the other device keeps its own),
+    // and stay on this device if that's still too big
+    outgoing(k) {
+      const entry = store.data[k];
+      if (!entry) return null;
+      let v = entry.v === undefined ? null : entry.v;
+      if (JSON.stringify(v).length > SYNC_MAX_VALUE && /^stats:/.test(k) && v && v.titles) {
+        v = { ...v, titles: Object.fromEntries(Object.entries(v.titles).map(([id, x]) => [id, { ...x, p: "" }])) };
+      }
+      if (JSON.stringify(v).length > SYNC_MAX_VALUE) return null;
+      return { k, t: entry.t, v };
+    },
+
+    // Another account signed in on this device: its profiles replace the last one's (never the other
+    // way round). The old entries are marked as the oldest possible, so anything the account has wins
+    switchAccount() {
+      for (const k of Object.keys(store.data)) {
+        if (!SYNCED.test(k)) continue;
+        store.data[k] = { t: 1 };
+        store.dirty.add(k);
+      }
+      store.saveLocal();
+      store.schedule();
+      this.dirty.clear();
+    },
+
+    async run({ keepalive = false } = {}) {
+      clearTimeout(this.timer);
+      if (!this.on() || this.busy) return;
+      const auth = this.auth();
+      if (!auth) {
+        this.state = "signin";
+        return;
+      }
+      if (this.rejectedKey === auth.key) return;
+      if (Date.now() < this.retryAt && !keepalive) return;
+      this.busy = true;
+      this.lastTry = Date.now();
+      try {
+        const previous = this.local("nathflix.syncAccount");
+        if (previous && previous !== auth.id) {
+          this.switchAccount();
+          this.local("nathflix.syncSince:" + auth.id, null);
+        }
+        this.local("nathflix.syncAccount", auth.id);
+        const sinceKey = "nathflix.syncSince:" + auth.id;
+        const first = !this.local(sinceKey);
+        const since = Number(this.local(sinceKey)) || 0;
+        // what to send (200 at most a time: the rest goes right after)
+        const keys = [...this.dirty].filter((k) => store.data[k]);
+        const entries = [];
+        for (const k of keys) {
+          if (entries.length >= 200) break;
+          const e = this.outgoing(k);
+          this.dirty.delete(k);
+          if (e) entries.push(e);
+        }
+        let r;
+        try {
+          r = await fetch(SYNC_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Stremio ${auth.key}` },
+            body: JSON.stringify({ since, entries }),
+            signal: timeoutSignal(15000),
+            keepalive: keepalive && JSON.stringify(entries).length < 60000,
+          });
+        } catch (_) {
+          r = null;
+        }
+        if (!r || !r.ok) {
+          // nothing is lost: what was being sent goes again next time
+          for (const e of entries) this.dirty.add(e.k);
+          const status = r ? r.status : 0;
+          if (status === 401) {
+            this.state = "rejected";
+            this.rejectedKey = auth.key;
+          } else if (status === 413) {
+            this.state = "toobig";
+            this.retryAt = Date.now() + 60 * 60000;
+          } else {
+            this.state = this.lastOk ? "ok" : "waiting";
+            this.failures++;
+            this.retryAt = Date.now() + (status === 429 ? 5 : [1, 5, 15][Math.min(2, this.failures - 1)]) * 60000;
+          }
+          return;
+        }
+        const answer = await r.json().catch(() => ({}));
+        this.failures = 0;
+        this.retryAt = 0;
+        this.lastOk = Date.now();
+        this.state = "ok";
+        const received = Array.isArray(answer.entries) ? answer.entries : [];
+        this.merge(received);
+        if (Number(answer.now)) this.local(sinceKey, String(answer.now));
+        // this device's first sync with this account: what it already has goes up too
+        if (first) {
+          const came = new Set(received.map((e) => e && e.k));
+          for (const k of Object.keys(store.data)) if (SYNCED.test(k) && store.data[k].v !== undefined && !came.has(k)) this.dirty.add(k);
+        }
+      } catch (err) {
+        log("profile sync failed", err);
+      } finally {
+        this.busy = false;
+        this.firstDirty = 0;
+        if (this.dirty.size && this.state === "ok") this.schedule();
+      }
+    },
+
+    // Stats from two devices: the highest of each count, so time watched on either is never lost
+    mergeStats(a, b) {
+      if (!a || a.v !== 1) return b;
+      if (!b || b.v !== 1) return a;
+      const most = (x = {}, y = {}) => {
+        const out = { ...x };
+        for (const [k, n] of Object.entries(y)) out[k] = Math.max(Number(out[k]) || 0, Number(n) || 0);
+        return out;
+      };
+      const titles = { ...b.titles };
+      for (const [id, x] of Object.entries(a.titles || {})) {
+        const y = titles[id];
+        titles[id] = y ? { ...y, ...x, p: x.p || y.p, s: Math.max(x.s || 0, y.s || 0), y: most(x.y, y.y) } : x;
+      }
+      return { v: 1, since: Math.min(a.since || Date.now(), b.since || Date.now()), days: most(a.days, b.days), hours: most(a.hours, b.hours), titles, genres: most(a.genres, b.genres) };
+    },
+
+    // What other devices changed
+    merge(list) {
+      if (!list.length) return;
+      // this device's latest viewing first, so a stats merge has it
+      if (list.some((e) => /^stats:/.test(e.k))) stats.flush();
+      const changed = new Set();
+      for (const e of list) {
+        if (!e || !SYNCED.test(e.k) || !Number(e.t)) continue;
+        const mine = store.data[e.k];
+        if (/^stats:/.test(e.k) && mine && mine.v && e.v) {
+          const merged = this.mergeStats(mine.v, e.v);
+          if (JSON.stringify(merged) === JSON.stringify(mine.v)) {
+            // already had all of it: what came is behind, send ours
+            if (JSON.stringify(merged) !== JSON.stringify(e.v)) this.dirty.add(e.k);
+            continue;
+          }
+          const ours = JSON.stringify(merged) !== JSON.stringify(e.v);
+          store.put(e.k, { t: ours ? Date.now() : Math.max(e.t, mine.t), v: merged });
+          if (ours) this.dirty.add(e.k);
+          changed.add(e.k);
+          continue;
+        }
+        if (mine && mine.t >= e.t) continue;
+        let v = e.v;
+        // the profile picked on this device stays picked (if it's still there)
+        if (e.k === "viewers" && v && Array.isArray(v.list)) {
+          const here = mine && mine.v && mine.v.current;
+          v = { ...v, current: here && v.list.some((x) => x.id === here) ? here : (v.list[0] && v.list[0].id) || v.current };
+        }
+        store.put(e.k, { t: e.t, v });
+        this.dirty.delete(e.k);
+        changed.add(e.k);
+      }
+      if (!changed.size) return;
+      const any = (re) => [...changed].some((k) => re.test(k));
+      stats.load();
+      restrict.apply();
+      if (any(/^(viewers|libraryOwners)$/)) viewerLibrary.switched();
+      if (any(/^(viewers|kidsAllow|hidden:)/)) hero.reset();
+      navAvatar.ensure();
+      if (whoIsWatching.el) whoIsWatching.render();
+      scheduleSync();
+    },
+
+    // For Settings: how it's going
+    status() {
+      if (!SYNC_ENDPOINT || settings.profileSync === false) return "";
+      if (!this.auth() || this.state === "signin") return t("Sign in to Stremio to sync your profiles");
+      if (this.state === "rejected") return t("Sign in to Stremio again to sync your profiles");
+      if (this.state === "toobig") return t("Your profiles are too big to sync");
+      if (!this.lastOk) return t("Waiting for a connection to sync your profiles…");
+      const min = Math.floor((Date.now() - this.lastOk) / 60000);
+      const when = min < 1 ? t("just now") : min < 60 ? t("{n} min ago", { n: min }) : t("{n} h ago", { n: Math.floor(min / 60) });
+      return t("Profiles synced with your Stremio account · {when}", { when });
+    },
+
+    start() {
+      if (!SYNC_ENDPOINT) return;
+      // back in front: what other devices did (once a minute at most); going to the back: send now
+      this.onVisible = () => {
+        if (!this.on()) return;
+        if (document.hidden) {
+          if (this.dirty.size) this.run({ keepalive: true });
+        } else if (Date.now() - this.lastTry > 60000) this.run();
+      };
+      document.addEventListener("visibilitychange", this.onVisible);
+      setTimeout(() => this.run(), 3000);
+    },
+
+    stop() {
+      clearTimeout(this.timer);
+      if (this.onVisible) document.removeEventListener("visibilitychange", this.onVisible);
+    },
+  };
   const onOver = (e) => preview.onOver(e);
   const onSheetClick = (e) => titleSheet.onClick(e);
   const onOut = (e) => preview.onOut(e);
@@ -7673,6 +7939,7 @@
   .dxe-set-item b { display: block; font: 600 .98rem Inter, system-ui, sans-serif !important; }
   .dxe-set-item small { display: block; margin-top: .15rem; color: rgba(255,255,255,.5); font: 400 .82rem/1.35 Inter, system-ui, sans-serif !important; }
   .dxe-set-item:is(:hover, :focus-visible), .dx-tv .dxe-set-item:focus { background: rgba(255,255,255,.08); outline: none; }
+  .dxe-set-item small.dxe-sync-status { margin-top: .3rem; color: rgba(255,255,255,.4); font-size: .76rem !important; }
   /* Continue Watching: no ✕ on the cards (their ⋮ menu has Dismiss): it was too easy to hit */
   #app [class*="meta-item-container"] [class*="dismiss-icon-layer"] { display: none !important; }
   .dxe-pin { position: fixed; inset: 0; z-index: 100005; display: flex; align-items: center; justify-content: center; background: #000; font-family: Inter, system-ui, sans-serif; }
@@ -9408,6 +9675,15 @@
       this.saveLocal();
       this.dirty.add(key);
       this.schedule();
+      cloudSync.changed(key);
+    },
+
+    // An entry from another device (profile sync), kept as it came: its own time, not sent back
+    put(key, entry) {
+      this.data[key] = entry;
+      this.saveLocal();
+      this.dirty.add(key);
+      this.schedule();
     },
 
     saveLocal() {
@@ -10124,7 +10400,11 @@
       const user = document.querySelector('#app [class*="settings-content"] [class*="user-info-content"]');
       if (!user) return;
       const section = user.closest('[class*="section"]') || user.parentElement;
-      if (!section || (section.nextElementSibling && section.nextElementSibling.classList.contains("dxe-set-menu"))) return;
+      if (section && section.nextElementSibling && section.nextElementSibling.classList.contains("dxe-set-menu")) {
+        this.syncStatus(section.nextElementSibling);
+        return;
+      }
+      if (!section) return;
       document.querySelectorAll(".dxe-set-menu").forEach((n) => n.remove());
       ensureExtrasStyle();
       const signedIn = (() => { try { return !!JSON.parse(localStorage.getItem("profile") || "null")?.auth; } catch (_) { return false; } })();
@@ -10147,6 +10427,25 @@
         else if (act === "report") report.open();
       });
       section.after(box);
+      this.syncStatus(box);
+    },
+
+    // Under Profiles, small: whether the profiles are synced with the Stremio account (when there's
+    // a sync server), written only when it changes
+    syncStatus(box) {
+      const text = cloudSync.status();
+      let line = box.querySelector(".dxe-sync-status");
+      if (!text) {
+        if (line) line.remove();
+        return;
+      }
+      if (!line) {
+        line = document.createElement("small");
+        line.className = "dxe-sync-status";
+        const profiles = box.querySelector('[data-act="profiles"] span');
+        (profiles || box).append(line);
+      }
+      if (line.textContent !== text) line.textContent = text;
     },
   };
 
@@ -10946,6 +11245,10 @@
   // Empty for now: dx.bi's relay (which Nathflix is based on) would send its reports to dx.bi's developer.
   // Deploy tools/report-relay and put its /report address here to bring "Report a problem" back.
   const REPORT_ENDPOINT = "";
+
+  // Profile sync (tools/profile-sync, a Cloudflare Worker with a D1 database): its /sync address.
+  // Empty: profiles stay on each device, as before
+  const SYNC_ENDPOINT = "";
 
   function redact(text) {
     return String(text == null ? "" : text)
@@ -14511,6 +14814,7 @@
       }, 3000);
       if (!miniPlayer.info) whoIsWatching.maybeShow().catch(() => { /* nothing to show */ });
       idleLock.start();
+      cloudSync.start();
       store.ready.then(() => restrict.apply()).catch(() => { /* next sync */ });
       scheduleSync();
     });
@@ -14569,6 +14873,7 @@
     },
     destroy() {
       idleLock.stop();
+      cloudSync.stop();
       pinPad.cancel();
       mo.disconnect();
       io.disconnect();
@@ -15216,6 +15521,16 @@ vec4 hook() {
       "Undo": "Annuler",
       "Set a parental PIN": "Définir un code parental",
       "Parental PIN": "Code parental",
+      "Sync profiles with my Stremio account": "Synchroniser les profils avec mon compte Stremio",
+      "Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account. They're kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back.": "Vos profils (avec leurs avatars, codes, rangées de l'Accueil, titres masqués et statistiques) vous suivent sur tous les appareils connectés au même compte Stremio. Ils sont gardés sur le serveur de synchronisation de Nathflix, sous votre compte ; les codes ne partent que sous une forme illisible.",
+      "Sign in to Stremio to sync your profiles": "Connectez-vous à Stremio pour synchroniser vos profils",
+      "Sign in to Stremio again to sync your profiles": "Reconnectez-vous à Stremio pour synchroniser vos profils",
+      "Your profiles are too big to sync": "Vos profils sont trop volumineux pour être synchronisés",
+      "Waiting for a connection to sync your profiles…": "En attente de connexion pour synchroniser vos profils…",
+      "just now": "à l'instant",
+      "{n} min ago": "il y a {n} min",
+      "{n} h ago": "il y a {n} h",
+      "Profiles synced with your Stremio account · {when}": "Profils synchronisés avec votre compte Stremio · {when}",
       "Add profile": "Ajouter un profil",
       "Edit": "Modifier",
       "Manage profiles": "Gérer les profils",

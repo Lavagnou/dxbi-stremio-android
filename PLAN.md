@@ -83,7 +83,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
 | T-024 | Bouton « Lecture » absent de la page d'une série ; croix de Continuer de regarder retirée | À valider | P1 | plugin | T-016 | 2026-10-29 |
 | T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
-| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | En cours | P1 | release | — | 2026-10-29 |
+| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | Fait | P1 | release | — | 2026-10-29 |
+| T-027 | Profils synchronisés entre appareils via le compte Stremio (Worker + D1) | À valider | P1 | plugin, tools | T-022 | 2026-10-29 |
 
 ---
 
@@ -1255,7 +1256,7 @@ On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué
 
 ### T-026 — Release 0.3.0 et fichiers des releases
 
-- **Statut :** En cours
+- **Statut :** Fait
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** —
@@ -1277,8 +1278,8 @@ Réponses ensuite :
 - [x] La mise à jour du plugin sur Android lit `raw.githubusercontent.com/<dépôt>/<tag>/nathflix.plugin.js`
 - [x] Les installeurs, le README et la CI pointent vers les fichiers de `main`
 - [x] `@version 0.3.0`, section `## 0.3.0` du CHANGELOG
-- [ ] PR fusionnée dans `main`
-- [ ] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
+- [x] PR fusionnée dans `main` (lavagnou/dxbi-stremio-android#2)
+- [x] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
 
 **Notes techniques**
 - `release.yml` : `gh release create` sans fichiers. Les notes renvoient vers le README pour le plugin.
@@ -1292,6 +1293,94 @@ Réponses ensuite :
 - **CI de la PR** : `mpv-windows.yml` échouait depuis T-009 (`744fe52`) sur « embedded subtitles ».
   - Cause : l'app de test démarre maintenant Stremio en français, donc le bouton est « Sous-titres ». `tools/mpv-test.mjs` le cherchait par son nom anglais (`data-dx-label="Subtitles"`).
   - Correctif : il le cherche par son icône (`data-dx-icon="subtitles"`), et la piste sous « Track 1 » ou « Piste 1 ».
+  - Résultat : Windows, Linux, macOS et mpv verts.
+- **Release** : PR fusionnée (`1d4a04b`), puis `release.yml` lancé à la main avec 0.3.0 (run 40947636619, vert).
+- **Fichiers de la release** (lus par l'API GitHub) : les 2 exe, le `.blockmap`, les 2 dmg, les 2 AppImage et les 3 `latest*.yml`. Pas de plugin ni d'installeurs.
+- **Nouvelles adresses** : `main/install.sh`, `main/nathflix.plugin.js` et `v0.3.0/nathflix.plugin.js` (`@version 0.3.0`) répondent tous en 200.
+
+### T-027 — Synchroniser les profils entre appareils (compte Stremio, Worker + D1)
+
+- **Statut :** À valider (déploiement du Worker, puis test sur les appareils)
+- **Priorité :** P1
+- **Cible :** plugin, tools
+- **Dépend de :** T-022, T-025
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Je veux que les profils Nathflix se synchronisent entre tous mes appareils (et ceux des gens à qui je partage l'app), via le compte Stremio de chacun. […] un Cloudflare Worker gratuit avec une base D1 (pas KV) […] La clé ne doit jamais être stockée par le Worker.
+
+Choix de l'utilisateur :
+- **Stats** synchronisées et **fusionnées** : le plus haut compteur l'emporte.
+- **Interrupteur** `profileSync`, activé d'office.
+
+**Critères d'acceptation**
+- [x] Worker `tools/profile-sync/` :
+  - D1 (`entries` : `account`, `k`, `t`, `v`, `s`) ;
+  - identification par `POST https://api.strem.io/api/getUser` `{"type":"GetUser","authKey"}` → `result._id` (vérifié dans stremio-core) ;
+  - la clé n'est jamais stockée.
+- [x] Clés acceptées :
+  - `viewers`, `libraryOwners`, `kidsAllow`, `parentPin` ;
+  - `homeRows:*`, `hidden:*`, `cwDismissed:*`, `stats:*`.
+
+  Pas les caches.
+- [x] Limites :
+  - 1 Mo par compte, 100 Ko par valeur, 200 entrées par requête ;
+  - 60 requêtes par minute et par adresse, 30 par minute et par compte.
+- [x] CORS : `https://web.stremio.com` seulement.
+- [x] Plugin :
+  - `SYNC_ENDPOINT` (vide = rien ne change) ;
+  - envoi groupé (20 s, 60 s au plus) ;
+  - réception au démarrage et au retour au premier plan ;
+  - hors ligne : tout continue en local, puis l'envoi suit.
+- [x] Indicateur dans Réglages, sous Profils.
+- [x] Guide Cloudflare (`tools/profile-sync/README.md`).
+- [ ] Worker déployé et `SYNC_ENDPOINT` rempli (l'utilisateur)
+- [ ] Vérifié sur les appareils
+
+**Notes techniques**
+- **Worker** :
+  - une seule route, `POST /sync` `{ since, entries }` → `{ now, entries }` ;
+  - la plus récente gagne (`ON CONFLICT … WHERE excluded.t > entries.t`) ;
+  - `s` est l'heure du serveur, avec une minute de recouvrement sur `since` ;
+  - un cache en mémoire relie l'empreinte SHA-256 de la clé à l'identifiant du compte (10 min).
+- **Plugin** (`cloudSync`, juste après `store`) :
+  - `store.set` appelle `cloudSync.changed()` ; `store.put()` écrit une entrée reçue avec son propre `t`, sans la renvoyer.
+  - **Fusion** :
+    - cas général : la plus récente gagne ;
+    - `viewers` : le profil courant reste celui de l'appareil ;
+    - `stats:*` : `mergeStats` garde le maximum par jour, heure, titre et genre. Si la fusion apporte quelque chose de local, elle repart avec un `t` neuf.
+  - **Stats > 100 Ko** : envoyées sans les affiches (`p`) ; si c'est encore trop, elles restent locales.
+  - **Compte** :
+    - premier appareil : réception, puis envoi de tout le local ;
+    - autre compte connecté sur l'appareil (`nathflix.syncAccount`) : les entrées synchronisées locales passent à `t: 1`, et celles du compte arrivent.
+    - `nathflix.syncSince:<compte>` dans `localStorage`.
+  - **Erreurs** :
+    - 401 : arrêt jusqu'à un changement de clé ;
+    - 413 : pause d'une heure ;
+    - 429 : 5 min ;
+    - réseau : 1, 5, puis 15 min.
+
+    Ce qui n'a pas pu partir reste à envoyer. À la mise en arrière-plan, l'envoi part avec `keepalive`.
+  - Réglage `profileSync` : n'apparaît que si `SYNC_ENDPOINT` est rempli (filtre de `registerSchema`).
+
+**Vérification**
+- `node tools/profile-sync/test.mjs` (vrai `worker.js`, `node:sqlite` à la place de D1, Stremio simulé) : 16 vérifications passées.
+  - CORS, 401 ;
+  - envoi et réception, la plus récente gagne, `since` ;
+  - clé refusée hors liste, 413 sur 100 Ko et sur 1 Mo, date future refusée ;
+  - Stremio pas redemandé ;
+  - clé jamais stockée, rangement par compte.
+- Playwright (`profile-sync-test.cjs`, deux appareils, vrai Worker) :
+  - **A → B** : profils, avatars, code, titres masqués, rangées. Les caches ne partent pas. B garde son profil courant.
+  - **B → A** : l'avatar de Léo ; A garde son profil courant.
+  - **Stats fusionnées** des deux côtés : aujourd'hui 600, la veille 100, Drama et Comedy.
+  - **Hors ligne** : le changement reste local, puis part au retour du serveur, et B le reçoit.
+  - **Indicateur** : « Profils synchronisés avec votre compte Stremio · à l'instant ».
+  - **Interrupteur coupé** : 0 requête.
+  - **Changement de compte** : profils par défaut, et les 4 lignes de `u1` intactes.
+- Tests précédents rejoués : profils, rangées, revue, Reprendre, billboard. Dictionnaire FR : 0 clé manquante.
 
 <!--
 ### T-000 — Titre court
@@ -1344,6 +1433,7 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 | Date | Décision | Raison | Tâche |
 |---|---|---|---|
+| 2026-10-29 | Profils synchronisés par un Cloudflare Worker + D1 (`tools/profile-sync`) à l'utilisateur, rangés sous l'identifiant du compte Stremio (`getUser`). La clé de session n'est jamais stockée. Les codes ne partent que hachés. Les caches et les réglages de l'appareil ne sont pas synchronisés. | Pas de compte en plus ; D1 plutôt que KV (limite d'écritures) ; offre gratuite | T-027 |
 | 2026-10-29 | Les releases ne portent que les apps : exe (installation, portable), dmg, AppImage, APK, plus `latest*.yml` et `.blockmap` (mise à jour automatique du desktop). Le plugin et les installeurs sont servis depuis le dépôt : `main` pour Stremio Enhanced, le tag de la release pour l'app Android. | Choix de l'utilisateur : des pages de release plus simples | T-026 |
 | 2026-10-29 | Téléphones et tablettes : une seule APK qui s'adapte. Marqueur `nathflix-mobile/` (User-Agent), `IN_MOBILE` / `IN_ANDROID` dans le plugin, `html.dx-mobile` dans le thème. Page à `device-width` ; la TV garde 1280 px. | Choix de l'utilisateur (une seule APK) ; un mode distinct évite de dégrader la TV | T-004 |
 | 2026-10-29 | Rotation libre pour la navigation, vidéo en paysage. | Choix de l'utilisateur | T-004 |
@@ -1371,6 +1461,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-027 | Créée et implémentée : Worker `tools/profile-sync` (D1), `cloudSync` dans le plugin, guide Cloudflare ; testée (Worker seul, deux appareils Playwright). En attente du déploiement |
+| 2026-10-29 | T-026 | Fait : PR #2 fusionnée, release v0.3.0 publiée (apps desktop, `latest*.yml`, `.blockmap` ; sans APK faute de clé) |
 | 2026-10-29 | T-026 | Créée : release 0.3.0, releases réduites aux apps ; en cours (PR vers main, puis release) |
 | 2026-10-29 | T-024, T-025 | Bouton Lecture d'une série corrigé (forme de `meta_details`), croix de Continuer retirée, profils façon Netflix, bouton profil, menu du compte dans les Réglages. Testés (Playwright). APK de test publiée |
 | 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
