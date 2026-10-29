@@ -212,6 +212,7 @@
     playerKeys: true,
     watchStats: true,
     whoIsWatching: true,
+    profileLock: "off",
     enhance: "off",
     streamTools: true,
     splash: true,
@@ -455,6 +456,7 @@
     { key: "playerKeys", type: "toggle", label: t("Extra keyboard shortcuts"), description: t("0–9 jump to 0–90% of the video, and ? shows every shortcut."), defaultValue: DEFAULTS.playerKeys },
     { key: "watchStats", type: "toggle", label: t("Watch stats"), description: t("Counts how long you watch (on this PC only). See them under your profile menu → Your stats."), defaultValue: DEFAULTS.watchStats },
     { key: "whoIsWatching", type: "toggle", label: t("Who's watching?"), description: t("With more than one viewer, choose who's watching at start. Each viewer has their own library, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
+    { key: "profileLock", type: "select", label: t("Lock profiles after inactivity"), description: t("After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security."), defaultValue: DEFAULTS.profileLock, options: [{ label: t("Never"), value: "off" }, { label: t("After {n} minutes", { n: 5 }), value: "5" }, { label: t("After {n} minutes", { n: 15 }), value: "15" }, { label: t("After {n} minutes", { n: 30 }), value: "30" }, { label: t("After 1 hour"), value: "60" }] },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
     { key: "backgroundPlay", type: "toggle", label: t("Keep playing in the background"), description: t("The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification."), defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
     { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true },
@@ -488,7 +490,7 @@
   // option carries its group's name, and they're listed group by group.
   const SETTING_GROUPS = [
     [t("Look"), ["accent", "focusColour", "builtInTheme", "ratings", "animeTitles", "wideContinue"]],
-    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching"]],
+    [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching", "profileLock"]],
     [t("Hover cards & trailers"), ["previews", "trailers", "trailerDelay"]],
     [t("Browsing & library"), ["watchedTitles", "librarySort", "streamTools", "addonTools", "watchStats", "reviews", "tmdbKey", "mdblistKey"]],
     [t("Player"), ["tvTorrents", "mobilePip", "backgroundPlay", "playerExtras", "remainingTime", "seekPreviews", "enhance", "pictureSound", "streamStats", "rememberPlayback", "playerKeys", "pip", "externalPlayer", "convertVideo"]],
@@ -584,6 +586,8 @@
 
   const ICONS = {
     bug: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 8v12M9 5l1.5 2M15 5l-1.5 2M3 13h4M17 13h4M4 8l3 2M20 8l-3 2M4 19l3-2M20 19l-3-2"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c0-1.5 3.5-7 9-7s9 5.5 9 7-3.5 7-9 7-9-5.5-9-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
     eyeOff: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c5.5 0 9 5.5 9 7 0 .7-.8 2.2-2.2 3.7M6.6 6.6C4.4 8 3 10.4 3 12c0 1.5 3.5 7 9 7 1.9 0 3.6-.6 5-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>',
     reviews: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/></svg>',
     play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15a1 1 0 0 0 1.53.85l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>',
@@ -915,7 +919,10 @@
       preview.close(true);
       if (route === "player") keyNav.exit();
       miniPlayer.onRoute(route);
-      if (route === "board") homeRows.preload();
+      if (route === "board") {
+        homeArrange.preloaded = false;
+        homeRows.preload();
+      }
     }
   }
 
@@ -924,8 +931,9 @@
   const homeRows = {
     timer: null,
 
-    preload(tries = 4) {
-      if (!IN_TV) return;
+    // (force: elsewhere than a TV, when Home's rows are in another order than Stremio's)
+    preload(tries = 4, force = false) {
+      if (!IN_TV && !force) return;
       clearTimeout(this.timer);
       this.timer = setTimeout(async () => {
         const { getState, dispatch } = core();
@@ -934,7 +942,7 @@
         try { board = await getState("board"); } catch (_) { /* not loaded yet */ }
         const count = board && Array.isArray(board.catalogs) ? board.catalogs.length : 0;
         if (!count) {
-          if (tries > 1) this.preload(tries - 1);
+          if (tries > 1) this.preload(tries - 1, force);
           return;
         }
         if (board.catalogs.every((c) => c && c.content)) return;
@@ -1559,6 +1567,258 @@
       if (row.classList.contains("dx-row-off") !== hide) row.classList.toggle("dx-row-off", hide);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Home rows in your own order, some of them hidden (each viewer their own): Organise Home, at the
+  // bottom of Home. Stremio's rows are never moved (React owns them): Home becomes a flex column and
+  // each row gets a CSS order. A row is known by its addon's manifest id, type and catalog id, never
+  // by the addon's address (Trakt and debrid addons put a key in it)
+  // ---------------------------------------------------------------------------
+
+  const decodePart = (s) => { try { return decodeURIComponent(s || ""); } catch (_) { return s || ""; } };
+
+  const homeArrange = {
+    ids: new Map(), // addon address → manifest id
+    idsAt: 0,
+    idsBusy: false,
+    preloaded: false,
+    btn: null,
+    modal: null,
+    opening: false,
+
+    prefs() {
+      const p = store.get(viewers.key("homeRows"), null);
+      return p && Array.isArray(p.order) ? { order: p.order, hidden: Array.isArray(p.hidden) ? p.hidden : [] } : null;
+    },
+
+    // The addons' addresses → their manifest ids (looked at again now and then: addons come and go)
+    refreshIds() {
+      if (this.idsBusy) return;
+      this.idsBusy = true;
+      addonTools.profile().then((profile) => {
+        const next = new Map();
+        for (const a of (profile && profile.addons) || []) if (a && a.transportUrl && a.manifest && a.manifest.id) next.set(a.transportUrl, a.manifest.id);
+        const changed = next.size !== this.ids.size || [...next].some(([u, id]) => this.ids.get(u) !== id);
+        this.ids = next;
+        this.idsAt = Date.now();
+        if (changed) scheduleSync();
+      }).catch(() => { /* core busy: next sync */ }).finally(() => { this.idsBusy = false; });
+    },
+
+    // A row's key from its See all link (#/discover/<address>/<type>/<catalog>), or null
+    keyOf(row) {
+      const href = row.querySelector('[class*="header-container"] a[href^="#/discover/"]')?.getAttribute("href");
+      if (!href) return null;
+      const parts = href.split("/");
+      const id = this.ids.get(decodePart(parts[2]));
+      const type = decodePart(parts[3]);
+      const catalog = decodePart((parts[4] || "").split("?")[0]);
+      return id && type && catalog ? `${id}|${type}|${catalog}` : null;
+    },
+
+    // Every row Home can show: each addon's catalogs that need nothing typed in, in Stremio's order
+    catalogs(addons) {
+      const out = [];
+      for (const a of addons || []) {
+        const m = a && a.manifest;
+        if (!m || !m.id || !Array.isArray(m.catalogs)) continue;
+        for (const c of m.catalogs) {
+          if (!c || !c.id || !c.type) continue;
+          const required = (c.extraRequired && c.extraRequired.length) || (Array.isArray(c.extra) && c.extra.some((e) => e && e.isRequired));
+          if (required) continue;
+          out.push({ key: `${m.id}|${c.type}|${c.id}`, addon: String(m.name || m.id), name: String(c.name || c.id), type: c.type });
+        }
+      }
+      return out;
+    },
+
+    typeLabel(type) {
+      return type === "movie" ? t("Movies") : type === "series" ? t("Shows") : type === "anime" ? t("Anime") : type === "tv" ? t("TV channels") : type;
+    },
+
+    apply() {
+      const host = currentRoute() === "board" ? document.querySelector('[class*="board-content-"]:not([class*="board-content-container"])') : null;
+      if (!host) return;
+      this.ensureButton(host);
+      const p = this.prefs();
+      const on = !!p && (p.order.length > 0 || p.hidden.length > 0);
+      if (host.classList.contains("dx-rows-arranged") !== on) host.classList.toggle("dx-rows-arranged", on);
+      if (!on) {
+        for (const child of host.children) {
+          if (child.style.order) child.style.order = "";
+          if (child.classList.contains("dx-row-hidden")) child.classList.remove("dx-row-hidden");
+        }
+        return;
+      }
+      if (!this.idsAt || Date.now() - this.idsAt > 60000) this.refreshIds();
+      const rank = new Map(p.order.map((k, i) => [k, i]));
+      const hidden = new Set(p.hidden);
+      let n = 0;
+      for (const child of host.children) {
+        n++;
+        let order;
+        let hide = false;
+        const cls = typeof child.className === "string" ? child.className : "";
+        // what Nathflix keeps at the top stays there, in this order
+        if (child.classList.contains("dxm-chips")) order = -40;
+        else if (child.classList.contains("dx-hero")) order = -30;
+        else if (/continue-watching/.test(cls) || child.querySelector('[class*="continue-watching-row"]')) order = -20;
+        else if (child.classList.contains("dxe-airing")) order = -10;
+        else if (child.classList.contains("dxe-arrange-btn")) order = 100000;
+        else {
+          const key = /board-row/.test(cls) ? this.keyOf(child) : null;
+          // a row not in the saved order (a new addon's) comes after the others, as Stremio has it
+          order = key && rank.has(key) ? rank.get(key) + 1 : 1000 + n;
+          hide = !!key && hidden.has(key);
+        }
+        const v = String(order);
+        if (child.style.order !== v) child.style.order = v;
+        if (child.classList.contains("dx-row-hidden") !== hide) child.classList.toggle("dx-row-hidden", hide);
+      }
+      // Stremio loads a row as it scrolls into view, by its place among the others: with the rows in
+      // another order, every row is asked for as Home opens instead
+      if (!this.preloaded) {
+        this.preloaded = true;
+        homeRows.preload(4, true);
+      }
+    },
+
+    // Organise Home, after the last row (not for kids profiles, which can't change Home)
+    ensureButton(host) {
+      if (restrict.kidsAge()) {
+        if (this.btn) this.btn.remove();
+        return;
+      }
+      if (!this.btn) {
+        const b = document.createElement("div");
+        b.className = "dxe-arrange-btn";
+        b.setAttribute("role", "button");
+        b.tabIndex = 0;
+        b.innerHTML = `${ICONS.sort}<span>${esc(t("Organise Home"))}</span>`;
+        b.addEventListener("click", () => this.open());
+        b.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            this.open();
+          } else if (e.key === "ArrowUp") {
+            // back to the last row with the remote
+            const rows = keyNav.rows();
+            if (rows.length) {
+              e.preventDefault();
+              e.stopPropagation();
+              keyNav.toRow(rows[rows.length - 1], null, e);
+            }
+          }
+        });
+        this.btn = b;
+      }
+      if (host.lastElementChild !== this.btn) host.append(this.btn);
+    },
+
+    async open() {
+      if ((this.modal && this.modal.isConnected) || this.opening) return;
+      this.opening = true;
+      const profile = await addonTools.profile().catch(() => null).finally(() => { this.opening = false; });
+      const all = this.catalogs(profile && profile.addons);
+      if (!all.length) return;
+      const p = this.prefs() || { order: [], hidden: [] };
+      const byKey = new Map(all.map((c) => [c.key, c]));
+      // the saved order first, then the rest (new addons) as Stremio has them
+      this.list = [...p.order.filter((k) => byKey.has(k)).map((k) => byKey.get(k)), ...all.filter((c) => !p.order.includes(c.key))];
+      this.hidden = new Set(p.hidden.filter((k) => byKey.has(k)));
+      this.stremioOrder = all.map((c) => c.key);
+      this.saved = this.state();
+      const several = viewers.list().list.length > 1;
+      const modal = document.createElement("div");
+      modal.className = "dxe-modal dxe-arrange";
+      modal.innerHTML = `
+        <div class="dxe-sheet" role="dialog" aria-label="${esc(t("Organise Home"))}">
+          <div class="dxe-head"><b>${esc(t("Organise Home"))}<small>${esc(t("Drag rows by ⠿ (or use the arrows) to set their order on Home, and hide the ones you don't want with the eye. Continue Watching and the billboard stay at the top."))}${several ? " " + esc(t("Only for {name}: each viewer has their own.", { name: viewers.current().name })) : ""}</small></b></div>
+          <div class="dxe-list"></div>
+          <div class="dxe-foot">
+            <button class="dxe-btn" data-act="reset">${esc(t("Stremio's order"))}</button>
+            <span class="dxe-spacer"></span>
+            <button class="dxe-btn" data-act="close">${esc(t("Close"))}</button>
+            <button class="dxe-btn is-primary" data-act="save" disabled>${esc(t("Save"))}</button>
+          </div>
+        </div>`;
+      for (const type of ["keydown", "keyup", "keypress"]) modal.addEventListener(type, (e) => e.stopPropagation());
+      modal.addEventListener("click", (e) => {
+        if (e.target === modal) return this.close();
+        const act = e.target.closest("[data-act]");
+        if (!act) return;
+        const row = act.closest(".dxe-row");
+        const i = row ? Number(row.dataset.i) : -1;
+        if (act.dataset.act === "up") this.move(i, i - 1);
+        else if (act.dataset.act === "down") this.move(i, i + 1);
+        else if (act.dataset.act === "eye") this.toggle(i);
+        else if (act.dataset.act === "reset") {
+          this.list.sort((a, b) => this.stremioOrder.indexOf(a.key) - this.stremioOrder.indexOf(b.key));
+          this.hidden.clear();
+          this.render();
+        } else if (act.dataset.act === "save") this.save();
+        else if (act.dataset.act === "close") this.close();
+      });
+      ensureExtrasStyle();
+      document.body.append(modal);
+      this.modal = modal;
+      this.render();
+      modal.querySelector(".dxe-row, .dxe-btn")?.focus({ preventScroll: true });
+    },
+
+    state() {
+      return JSON.stringify([this.list.map((c) => c.key), [...this.hidden].sort()]);
+    },
+
+    render() {
+      const list = this.modal && this.modal.querySelector(".dxe-list");
+      if (!list) return;
+      list.innerHTML = this.list.map((c, i) => {
+        const off = this.hidden.has(c.key);
+        return `<div class="dxe-row${off ? " is-off" : ""}" data-i="${i}" tabindex="-1">
+          <span class="dxe-grip" title="${esc(t("Drag to move"))}">${ICONS.grip}</span><span class="dxe-num">${i + 1}</span>
+          <div class="dxe-name">${esc(c.name)}<span>${esc(c.addon)} · ${esc(this.typeLabel(c.type))}</span></div>
+          <div class="dxe-move dxe-eye" data-act="eye" role="button" tabindex="0" title="${esc(off ? t("Show on Home") : t("Hide from Home"))}">${off ? ICONS.eyeOff : ICONS.eye}</div>
+          <div class="dxe-move" data-act="up" role="button" tabindex="0" title="${esc(t("Move up"))}">${ICONS.chevronUp}</div>
+          <div class="dxe-move" data-act="down" role="button" tabindex="0" title="${esc(t("Move down"))}">${ICONS.chevronDown}</div>
+        </div>`;
+      }).join("");
+      dragList(list, (from, to) => this.move(from, to));
+      this.modal.querySelector('[data-act="save"]').disabled = this.state() === this.saved;
+    },
+
+    move(from, to) {
+      if (from < 0 || to < 0 || to >= this.list.length) return;
+      const [item] = this.list.splice(from, 1);
+      this.list.splice(to, 0, item);
+      this.render();
+      // the remote stays on the same button of the row that moved
+      this.modal.querySelector(`.dxe-row[data-i="${to}"] [data-act="${to < from ? "up" : "down"}"]`)?.focus({ preventScroll: true });
+    },
+
+    toggle(i) {
+      const c = this.list[i];
+      if (!c) return;
+      if (this.hidden.has(c.key)) this.hidden.delete(c.key);
+      else this.hidden.add(c.key);
+      this.render();
+      this.modal.querySelector(`.dxe-row[data-i="${i}"] [data-act="eye"]`)?.focus({ preventScroll: true });
+    },
+
+    save() {
+      const order = this.list.map((c) => c.key);
+      const untouched = order.every((k, i) => k === this.stremioOrder[i]) && !this.hidden.size;
+      store.set(viewers.key("homeRows"), untouched ? null : { order, hidden: [...this.hidden] });
+      this.close();
+      this.refreshIds();
+      scheduleSync();
+    },
+
+    close() {
+      if (this.modal) this.modal.remove();
+      this.modal = null;
+    },
+  };
 
   function allCards() {
     return document.querySelectorAll('#app [class*="meta-item-container"]');
@@ -2683,7 +2943,10 @@
     },
 
     rows() {
-      return [...carouselRows()].filter((row) => row.offsetParent && row.querySelector(':scope > [class*="meta-items-container"] > [class*="meta-item-container"]'));
+      const rows = [...carouselRows()].filter((row) => row.offsetParent && row.querySelector(':scope > [class*="meta-items-container"] > [class*="meta-item-container"]'));
+      // Home's rows in your own order (homeArrange) are placed by CSS: up and down follow the screen
+      if (document.querySelector(".dx-rows-arranged")) rows.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+      return rows;
     },
 
     // The hover card's buttons (play, My List, more info, trailer sound and full screen)
@@ -2857,6 +3120,15 @@
             btn.closest(".dx-hero").scrollIntoView({ block: "start", behavior: SCROLL });
             return;
           }
+        }
+        // Down from Home's last row: Organise Home
+        const arrange = dy > 0 && rows.indexOf(row) === rows.length - 1 && document.querySelector(".dxe-arrange-btn");
+        if (arrange && arrange.offsetParent) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          arrange.focus({ preventScroll: true });
+          arrange.scrollIntoView({ block: "center", behavior: SCROLL });
+          return;
         }
         // TV: past the first or last row, whatever else is that way (the search box, See All…)
         return IN_TV ? false : undefined;
@@ -7086,7 +7358,7 @@
     if (currentRoute() === "detail") steps.push(() => streamTools.ensure());
     steps.push(() => langWatch.check(), () => profileDefaults.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
     if (currentRoute() !== "player") {
-      steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
+      steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, () => homeArrange.apply(), updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
     }
     // One failing step must never stop the others
     for (const step of steps) {
@@ -7155,6 +7427,14 @@
   .dxe-addon-btn { display: inline-flex; align-items: center; gap: .5rem; height: 2.9rem; padding: 0 1.2rem; margin-left: .8rem; border-radius: .5rem; background: rgba(255,255,255,.1); color: #fff; font: 700 .92rem Inter, system-ui, sans-serif !important; cursor: pointer; white-space: nowrap; transition: background-color .15s; }
   .dxe-addon-btn:hover, .dxe-addon-btn:focus-visible { background: rgba(255,255,255,.18); }
   .dxe-addon-btn svg { width: 1.15rem; height: 1.15rem; }
+  .dxe-arrange-btn { display: flex; align-items: center; gap: .5rem; width: max-content; height: 2.9rem; margin: 1.5rem auto 1rem; padding: 0 1.3rem; border-radius: .5rem; background: rgba(255,255,255,.08); color: rgba(255,255,255,.8); font: 700 .92rem Inter, system-ui, sans-serif !important; cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s; }
+  .dxe-arrange-btn:hover, .dxe-arrange-btn:focus-visible, .dx-tv .dxe-arrange-btn:focus { background: rgba(255,255,255,.18); color: #fff; outline: none; }
+  .dxe-arrange-btn svg { width: 1.15rem; height: 1.15rem; }
+  /* Organise Home: the rows in the viewer's order (CSS order, set by homeArrange), some hidden */
+  #app .dx-rows-arranged { display: flex !important; flex-direction: column; }
+  #app .dx-rows-arranged > .dx-row-hidden { display: none !important; }
+  .dxe-row.is-off .dxe-name { opacity: .4; }
+  .dxe-eye.is-off, .dxe-row.is-off .dxe-eye { color: #fff; }
   .dxe-modal { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); font-family: Inter, system-ui, sans-serif; }
   .dxe-sheet { width: 34rem; max-width: calc(100vw - 2rem); max-height: calc(100vh - 4rem); display: flex; flex-direction: column; border-radius: 1rem; background: rgba(20,20,22,.97); border: 1px solid rgba(255,255,255,.09); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: #fff; }
   .dxe-sheet * { box-sizing: border-box; }
@@ -7287,6 +7567,37 @@
   .dxe-who-avatar i svg { width: 2.4rem; height: 2.4rem; }
   .dxe-who-tile:hover .dxe-who-avatar, .dxe-who-tile:focus-visible .dxe-who-avatar { border-color: #fff; transform: scale(1.03); }
   .dxe-who-tile:hover, .dxe-who-tile.is-current, .dxe-who-tile:focus-visible { color: #fff; }
+  .dxe-who-avatar.is-emoji em { font-style: normal; font-size: 4.6rem; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif !important; }
+  .dxe-who-lock { position: absolute; z-index: 2; top: .45rem; right: .45rem; width: 1.7rem; height: 1.7rem; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: rgba(0,0,0,.6); }
+  .dxe-who-lock svg { width: 1rem; height: 1rem; }
+  .dxe-avatar-grid { display: grid; grid-template-columns: repeat(5, 6.5rem); gap: 1.1rem; max-height: 60vh; overflow-y: auto; padding: .4rem; }
+  .dxe-avatar-pick { padding: 0; border: 0; border-radius: .6rem; background: none; cursor: pointer; }
+  .dxe-avatar-pick .dxe-who-avatar { width: 6.5rem; height: 6.5rem; font-size: 2rem !important; }
+  .dxe-avatar-pick .dxe-who-avatar.is-emoji em { font-size: 3.3rem; }
+  .dxe-avatar-pick:hover .dxe-who-avatar, .dxe-avatar-pick:focus-visible .dxe-who-avatar, .dx-tv .dxe-avatar-pick:focus .dxe-who-avatar, .dxe-avatar-pick.is-current .dxe-who-avatar { border-color: #fff; }
+  .dxe-avatar-pick:focus { outline: none; }
+  .dxe-pin { position: fixed; inset: 0; z-index: 100005; display: flex; align-items: center; justify-content: center; background: rgba(8,8,10,.94); font-family: Inter, system-ui, sans-serif; }
+  .dxe-pin-box { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 2rem; max-width: 26rem; text-align: center; color: #fff; }
+  .dxe-pin-box h2 { margin: 0; font: 600 1.8rem/1.2 Inter, system-ui, sans-serif !important; }
+  .dxe-pin-box p { margin: 0; color: rgba(255,255,255,.6); font: 500 .95rem/1.45 Inter, system-ui, sans-serif !important; }
+  .dxe-pin-dots { display: flex; gap: .9rem; margin: .6rem 0 0; }
+  .dxe-pin-dots i { width: 3.2rem; height: 3.8rem; border: 2px solid rgba(255,255,255,.45); border-radius: .3rem; display: flex; align-items: center; justify-content: center; }
+  .dxe-pin-dots i.is-on::after { content: ""; width: .9rem; height: .9rem; border-radius: 50%; background: #fff; }
+  .dxe-pin-error { min-height: 1.2rem; color: #ff6b6b; font: 600 .9rem Inter, system-ui, sans-serif !important; }
+  .dxe-pin.is-wrong .dxe-pin-dots { animation: dxe-pin-shake .4s ease; }
+  @keyframes dxe-pin-shake { 20%, 60% { transform: translateX(-.6rem); } 40%, 80% { transform: translateX(.6rem); } }
+  .dxe-pin-keys { display: grid; grid-template-columns: repeat(3, 4.4rem); gap: .7rem; }
+  .dxe-pin-key { height: 4rem; border: 0; border-radius: .6rem; background: rgba(255,255,255,.1); color: #fff; font: 600 1.5rem Inter, system-ui, sans-serif !important; cursor: pointer; transition: background-color .12s, transform .12s; }
+  .dxe-pin-key.is-ok { font-size: 1.05rem !important; background: var(--dx-accent, #e50914); }
+  .dxe-pin-key:hover, .dxe-pin-key:focus-visible, .dx-tv .dxe-pin-key:focus { background: rgba(255,255,255,.28); outline: none; transform: scale(1.05); }
+  .dxe-pin-key:active { transform: scale(.96); }
+  .dxe-pin-foot { display: flex; gap: .8rem; margin-top: .4rem; }
+  html.dx-mobile .dxe-avatar-grid { grid-template-columns: repeat(4, 4.6rem); gap: .8rem; }
+  html.dx-mobile .dxe-avatar-pick .dxe-who-avatar { width: 4.6rem; height: 4.6rem; }
+  html.dx-mobile .dxe-avatar-pick .dxe-who-avatar.is-emoji em { font-size: 2.4rem; }
+  html.dx-mobile .dxe-who-avatar.is-emoji em { font-size: 3.4rem; }
+  html.dx-mobile .dxe-pin-keys { grid-template-columns: repeat(3, 5rem); }
+  html.dx-mobile .dxe-pin-key { height: 3.8rem; }
   .dxe-who-name { font: 500 1.05rem/1.2 Inter, system-ui, sans-serif !important; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dxe-who-del { color: #ff6b6b; font: 700 .8rem Inter, system-ui, sans-serif !important; }
   .dxe-who-btn { height: 2.8rem; padding: 0 1.6rem; border: 1px solid rgba(255,255,255,.4); background: transparent; color: rgba(255,255,255,.75); font: 600 .95rem Inter, system-ui, sans-serif !important; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
@@ -8653,6 +8964,88 @@
     { name: "TMDB Collections", what: "popular and top rated film series and collections", url: "https://61ab9c85a149-tmdb-collections.baby-beamup.club/%7B%22enableAdultContent%22%3Afalse%2C%22enableSearch%22%3Atrue%2C%22enableCollectionFromMovie%22%3Atrue%2C%22language%22%3A%22en%22%2C%22catalogList%22%3A%5B%22popular%22%2C%22topRated%22%2C%22topRatedByCountry%22%2C%22topRatedByCompany%22%5D%2C%22discoverOnly%22%3A%7B%22popular%22%3Afalse%2C%22newReleases%22%3Afalse%2C%22topRated%22%3Afalse%2C%22topRatedByCountry%22%3Atrue%2C%22topRatedByCompany%22%3Atrue%7D%7D/manifest.json" },
   ];
 
+  // Drag to reorder, with a finger or the mouse (Pointer Events: HTML5 drag and drop doesn't work
+  // with touch). A finger drags by the grip, so the list still scrolls; the mouse by the whole row.
+  // Wired once: render() rebuilds the rows on every change. Used by the addon and Home row managers
+  function dragList(list, onMove) {
+    if (list.dataset.wired) return;
+    list.dataset.wired = "1";
+    list.addEventListener("pointerdown", (e) => {
+      if (e.button > 0 || !e.isPrimary) return;
+      const row = e.target.closest(".dxe-row");
+      if (!row || e.target.closest(".dxe-move, [data-act]")) return;
+      const byGrip = !!e.target.closest(".dxe-grip");
+      if (e.pointerType !== "mouse" && !byGrip) return;
+      if (byGrip) e.preventDefault();
+      const rows = [...list.querySelectorAll(".dxe-row")];
+      const from = rows.indexOf(row);
+      if (from < 0) return;
+      const scroll0 = list.scrollTop;
+      // positions inside the list's content, so scrolling while dragging doesn't throw them off
+      const spots = rows.map((r) => {
+        const box = r.getBoundingClientRect();
+        return { top: box.top + scroll0, h: box.height };
+      });
+      const step = rows.length > 1 ? spots[1].top - spots[0].top : spots[0].h;
+      const startY = e.clientY;
+      let lastY = e.clientY;
+      let to = from;
+      let dragging = false;
+      let frame = 0;
+
+      const place = () => {
+        const dy = lastY + list.scrollTop - (startY + scroll0);
+        row.style.transform = `translateY(${dy}px)`;
+        const middle = spots[from].top + spots[from].h / 2 + dy;
+        to = spots.filter((p, i) => i !== from && p.top + p.h / 2 < middle).length;
+        rows.forEach((r, i) => {
+          if (i === from) return;
+          const shift = from < to && i > from && i <= to ? -step : to < from && i >= to && i < from ? step : 0;
+          r.style.transform = shift ? `translateY(${shift}px)` : "";
+        });
+      };
+      // Near the list's top or bottom edge, it scrolls on its own
+      const edge = () => {
+        const box = list.getBoundingClientRect();
+        const speed = lastY < box.top + 48 ? -10 : lastY > box.bottom - 48 ? 10 : 0;
+        if (speed) {
+          list.scrollTop += speed;
+          place();
+        }
+        frame = requestAnimationFrame(edge);
+      };
+      const onPointerMove = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        lastY = ev.clientY;
+        if (!dragging) {
+          if (Math.abs(lastY - startY) < 4) return;
+          dragging = true;
+          try { row.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
+          row.classList.add("is-dragging");
+          list.classList.add("is-sorting");
+          frame = requestAnimationFrame(edge);
+        }
+        ev.preventDefault();
+        place();
+      };
+      const onUp = (ev) => {
+        if (ev.pointerId !== e.pointerId) return;
+        window.removeEventListener("pointermove", onPointerMove, true);
+        window.removeEventListener("pointerup", onUp, true);
+        window.removeEventListener("pointercancel", onUp, true);
+        cancelAnimationFrame(frame);
+        if (!dragging) return;
+        list.classList.remove("is-sorting");
+        rows.forEach((r) => { r.style.transform = ""; });
+        row.classList.remove("is-dragging");
+        if (ev.type === "pointerup" && to !== from) onMove(from, to);
+      };
+      window.addEventListener("pointermove", onPointerMove, { capture: true, passive: false });
+      window.addEventListener("pointerup", onUp, true);
+      window.addEventListener("pointercancel", onUp, true);
+    });
+  }
+
   const addonTools = {
     ensure() {
       const want = settings.addonTools && currentRoute() === "addons";
@@ -8747,86 +9140,8 @@
       this.modal.querySelector('[data-act="save"]').disabled = !changed || !this.signedIn;
     },
 
-    // Drag to reorder, with a finger or the mouse (Pointer Events: HTML5 drag and drop doesn't work
-    // with touch). A finger drags by the grip, so the list still scrolls; the mouse by the whole row.
-    // Wired once: render() rebuilds the rows on every change
     wireDrag(list) {
-      if (list.dataset.wired) return;
-      list.dataset.wired = "1";
-      list.addEventListener("pointerdown", (e) => {
-        if (e.button > 0 || !e.isPrimary) return;
-        const row = e.target.closest(".dxe-row");
-        if (!row || e.target.closest(".dxe-move")) return;
-        const byGrip = !!e.target.closest(".dxe-grip");
-        if (e.pointerType !== "mouse" && !byGrip) return;
-        if (byGrip) e.preventDefault();
-        const rows = [...list.querySelectorAll(".dxe-row")];
-        const from = rows.indexOf(row);
-        if (from < 0) return;
-        const scroll0 = list.scrollTop;
-        // positions inside the list's content, so scrolling while dragging doesn't throw them off
-        const spots = rows.map((r) => {
-          const box = r.getBoundingClientRect();
-          return { top: box.top + scroll0, h: box.height };
-        });
-        const step = rows.length > 1 ? spots[1].top - spots[0].top : spots[0].h;
-        const startY = e.clientY;
-        let lastY = e.clientY;
-        let to = from;
-        let dragging = false;
-        let frame = 0;
-
-        const place = () => {
-          const dy = lastY + list.scrollTop - (startY + scroll0);
-          row.style.transform = `translateY(${dy}px)`;
-          const middle = spots[from].top + spots[from].h / 2 + dy;
-          to = spots.filter((p, i) => i !== from && p.top + p.h / 2 < middle).length;
-          rows.forEach((r, i) => {
-            if (i === from) return;
-            const shift = from < to && i > from && i <= to ? -step : to < from && i >= to && i < from ? step : 0;
-            r.style.transform = shift ? `translateY(${shift}px)` : "";
-          });
-        };
-        // Near the list's top or bottom edge, it scrolls on its own
-        const edge = () => {
-          const box = list.getBoundingClientRect();
-          const speed = lastY < box.top + 48 ? -10 : lastY > box.bottom - 48 ? 10 : 0;
-          if (speed) {
-            list.scrollTop += speed;
-            place();
-          }
-          frame = requestAnimationFrame(edge);
-        };
-        const onMove = (ev) => {
-          if (ev.pointerId !== e.pointerId) return;
-          lastY = ev.clientY;
-          if (!dragging) {
-            if (Math.abs(lastY - startY) < 4) return;
-            dragging = true;
-            try { row.setPointerCapture(e.pointerId); } catch (_) { /* pointer already gone */ }
-            row.classList.add("is-dragging");
-            list.classList.add("is-sorting");
-            frame = requestAnimationFrame(edge);
-          }
-          ev.preventDefault();
-          place();
-        };
-        const onUp = (ev) => {
-          if (ev.pointerId !== e.pointerId) return;
-          window.removeEventListener("pointermove", onMove, true);
-          window.removeEventListener("pointerup", onUp, true);
-          window.removeEventListener("pointercancel", onUp, true);
-          cancelAnimationFrame(frame);
-          if (!dragging) return;
-          list.classList.remove("is-sorting");
-          rows.forEach((r) => { r.style.transform = ""; });
-          row.classList.remove("is-dragging");
-          if (ev.type === "pointerup" && to !== from) this.move(from, to);
-        };
-        window.addEventListener("pointermove", onMove, { capture: true, passive: false });
-        window.addEventListener("pointerup", onUp, true);
-        window.addEventListener("pointercancel", onUp, true);
-      });
+      dragList(list, (from, to) => this.move(from, to));
     },
 
     move(from, to) {
@@ -9105,7 +9420,43 @@
     anyKids() {
       return this.list().list.some((x) => x.kids);
     },
+    // avatar: one of AVATARS (null: initials on the viewer's colour)
+    setAvatar(id, avatar) {
+      const v = this.list();
+      const viewer = v.list.find((x) => x.id === id);
+      if (!viewer) return;
+      if (avatar) viewer.avatar = avatar;
+      else delete viewer.avatar;
+      this.save(v);
+    },
+    // pin: the hash of the viewer's own PIN (viewerPin), null to remove it
+    setPin(id, pin) {
+      const v = this.list();
+      const viewer = v.list.find((x) => x.id === id);
+      if (!viewer) return;
+      if (pin) viewer.pin = pin;
+      else delete viewer.pin;
+      this.save(v);
+    },
   };
+
+  // Avatars to pick for a viewer (Manage viewers → Avatar): an emoji on a colour, nothing to download
+  const AVATARS = [
+    ["fox", "🦊", "#e8590c"], ["panda", "🐼", "#2b2d42"], ["tiger", "🐯", "#f59f00"], ["lion", "🦁", "#b7791f"],
+    ["frog", "🐸", "#2f9e44"], ["monkey", "🐵", "#8d5524"], ["penguin", "🐧", "#1c7ed6"], ["owl", "🦉", "#6741d9"],
+    ["octopus", "🐙", "#c2255c"], ["unicorn", "🦄", "#cc5de8"], ["dragon", "🐲", "#0ca678"], ["dog", "🐶", "#d9480f"],
+    ["cat", "🐱", "#e67700"], ["rabbit", "🐰", "#f06595"], ["bear", "🐻", "#7f4f24"], ["koala", "🐨", "#495057"],
+    ["rocket", "🚀", "#364fc7"], ["star", "⭐", "#e50914"], ["game", "🎮", "#5f3dc4"], ["music", "🎧", "#0b7285"],
+    ["pizza", "🍕", "#c92a2a"], ["ball", "⚽", "#2b8a3e"], ["rainbow", "🌈", "#1971c2"], ["alien", "👽", "#087f5b"],
+  ].map(([id, emoji, bg]) => ({ id, emoji, bg }));
+
+  // A viewer's picture: their avatar, else their initials on their colour
+  function avatarHtml(x, extra = "") {
+    const a = x.avatar && AVATARS.find((v) => v.id === x.avatar);
+    return a
+      ? `<span class="dxe-who-avatar is-emoji" style="background:${esc(a.bg)}"><em>${a.emoji}</em>${extra}</span>`
+      : `<span class="dxe-who-avatar" style="background:${esc(x.colour)}">${esc(initials(x.name))}${extra}</span>`;
+  }
 
   // ---------------------------------------------------------------------------
   // A library for each viewer. The Stremio account has one library, so Nathflix remembers who added
@@ -9328,11 +9679,17 @@
     el: null,
     managing: false,
     confirming: null,
+    // locked: shown after a while unused (idleLock), or for a viewer with a PIN: it only goes once a
+    // viewer is picked (Back doesn't close it)
+    locked: false,
 
-    // Once per app start, after the intro, when more than one person uses this Nathflix
+    // Once per app start, after the intro, when more than one person uses this Nathflix (or the
+    // viewer has a PIN: it's asked for at every start)
     async maybeShow() {
       await store.ready;
-      if (!settings.whoIsWatching || viewers.list().list.length < 2 || currentRoute() === "player") return;
+      if (currentRoute() === "player") return;
+      const pinned = !!viewers.current().pin;
+      if (!pinned && (!settings.whoIsWatching || viewers.list().list.length < 2)) return;
       const { getState } = core();
       try {
         // Accounts with Stremio's own profiles get Stremio's profile lock screen instead
@@ -9340,12 +9697,13 @@
         if (ctx && Array.isArray(ctx.userProfiles) && ctx.userProfiles.length > 1) return;
       } catch (_) { /* fine: show ours */ }
       for (let i = 0; i < 40 && document.querySelector(".dx-splash"); i++) await new Promise((r) => setTimeout(r, 250));
-      this.open();
+      this.open({ locked: pinned });
     },
 
-    open() {
+    open({ locked = false } = {}) {
       ensureExtrasStyle();
       this.close();
+      this.locked = locked;
       const el = document.createElement("div");
       el.className = "dxe-who";
       for (const type of ["keydown", "keyup", "keypress"]) el.addEventListener(type, (e) => e.stopPropagation());
@@ -9354,6 +9712,8 @@
       this.el = el;
       this.render();
       requestAnimationFrame(() => el.classList.add("is-in"));
+      // the remote starts on whoever was watching
+      (el.querySelector(".dxe-who-tile.is-current") || el.querySelector(".dxe-who-tile"))?.focus({ preventScroll: true });
     },
 
     render() {
@@ -9362,17 +9722,23 @@
         this.renderHidden();
         return;
       }
+      if (this.avatarOf) {
+        this.renderAvatars();
+        return;
+      }
       const v = viewers.list();
       const level = (x) => KID_LEVELS.find((l) => l.age === Number(x.kids));
       const tiles = v.list.map((x) => `
         <div class="dxe-who-opts">
         <button class="dxe-who-tile${x.id === v.current ? " is-current" : ""}" data-viewer="${esc(x.id)}">
-          <span class="dxe-who-avatar" style="background:${esc(x.colour)}">${esc(initials(x.name))}${this.managing ? `<i data-edit="${esc(x.id)}" title="${t("Rename")}">${ICONS.pencil}</i>` : ""}${level(x) ? `<b class="dxe-who-kids">${t("Kids")}</b>` : ""}</span>
+          ${avatarHtml(x, `${this.managing ? `<i data-edit="${esc(x.id)}" title="${t("Rename")}">${ICONS.pencil}</i>` : ""}${level(x) ? `<b class="dxe-who-kids">${t("Kids")}</b>` : ""}${x.pin && !this.managing ? `<b class="dxe-who-lock" title="${esc(t("Has a PIN"))}">${ICONS.lock}</b>` : ""}`)}
           <span class="dxe-who-name">${esc(x.name)}</span>
           ${this.managing && v.list.length > 1 ? `<span class="dxe-who-del" data-del="${esc(x.id)}">${this.confirming === x.id ? t("Click again to remove") : t("Remove")}</span>` : ""}
         </button>
         ${this.managing ? `<button class="dxe-who-opt" data-kids="${esc(x.id)}" title="${esc(level(x) ? level(x).note : t("Everything shows"))}">${esc(t("Kids: {level}", { level: level(x) ? level(x).label : t("Off") }))}</button>
-          <button class="dxe-who-opt" data-hiddenlist="${esc(x.id)}">${t("Hidden titles ({n})", { n: (store.get(`hidden:${x.id}`, null) || []).length })}</button>` : ""}
+          <button class="dxe-who-opt" data-hiddenlist="${esc(x.id)}">${t("Hidden titles ({n})", { n: (store.get(`hidden:${x.id}`, null) || []).length })}</button>
+          <button class="dxe-who-opt" data-avatar="${esc(x.id)}">${t("Avatar")}</button>
+          <button class="dxe-who-opt" data-viewerpin="${esc(x.id)}">${esc(t("PIN: {state}", { state: x.pin ? t("On") : t("Off") }))}</button>` : ""}
         </div>`).join("");
       this.el.innerHTML = `
         <div class="dxe-who-inner">
@@ -9382,11 +9748,31 @@
             ${v.list.length < 8 ? `<button class="dxe-who-tile" data-add><span class="dxe-who-avatar is-add">${ICONS.plus}</span><span class="dxe-who-name">${t("Add viewer")}</span></button>` : ""}
           </div>
           <div class="dxe-who-actions">
-            <button class="dxe-who-btn" data-manage>${this.managing ? t("Done") : t("Manage viewers")}</button>
+            ${this.locked ? "" : `<button class="dxe-who-btn" data-manage>${this.managing ? t("Done") : t("Manage viewers")}</button>`}
             ${this.managing ? `<button class="dxe-who-btn" data-pin>${parentPin.isSet() ? t("Change parental PIN") : t("Set parental PIN")}</button>` : ""}
           </div>
           <p class="dxe-who-note">${t("Each viewer has their own watch stats, volume, hidden titles and watch-party name. A kids profile only shows titles rated for its age, without Settings or Addons. Each viewer also has their own library and Continue Watching (a new viewer starts empty); addons are shared. Set a parental PIN so kids can't switch profiles.")}</p>
         </div>`;
+    },
+
+    // Manage viewers → Avatar: the gallery (and the initials, as before)
+    renderAvatars() {
+      const viewer = viewers.list().list.find((x) => x.id === this.avatarOf);
+      if (!viewer) {
+        this.avatarOf = null;
+        this.render();
+        return;
+      }
+      this.el.innerHTML = `
+        <div class="dxe-who-inner">
+          <h1>${t("Choose an avatar for {name}", { name: esc(viewer.name) })}</h1>
+          <div class="dxe-avatar-grid">
+            <button class="dxe-avatar-pick${viewer.avatar ? "" : " is-current"}" data-pick="" title="${esc(t("Initials"))}">${avatarHtml({ ...viewer, avatar: null })}</button>
+            ${AVATARS.map((a) => `<button class="dxe-avatar-pick${viewer.avatar === a.id ? " is-current" : ""}" data-pick="${a.id}">${avatarHtml({ ...viewer, avatar: a.id })}</button>`).join("")}
+          </div>
+          <div class="dxe-who-actions"><button class="dxe-who-btn" data-avatarback>${t("Back")}</button></div>
+        </div>`;
+      (this.el.querySelector(".dxe-avatar-pick.is-current") || this.el.querySelector(".dxe-avatar-pick"))?.focus({ preventScroll: true });
     },
 
     renderHidden() {
@@ -9417,6 +9803,29 @@
         this.render();
         return;
       }
+      if (this.avatarOf) {
+        const pick = e.target.closest("[data-pick]");
+        if (pick) viewers.setAvatar(this.avatarOf, pick.dataset.pick || null);
+        else if (!e.target.closest("[data-avatarback]")) return;
+        const id = this.avatarOf;
+        this.avatarOf = null;
+        this.render();
+        this.el.querySelector(`[data-avatar="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+        return;
+      }
+      if (e.target.closest("[data-avatar]")) {
+        this.avatarOf = e.target.closest("[data-avatar]").dataset.avatar;
+        this.render();
+        return;
+      }
+      const pinBtn = e.target.closest("[data-viewerpin]");
+      if (pinBtn) {
+        const viewer = viewers.list().list.find((x) => x.id === pinBtn.dataset.viewerpin);
+        if (viewer) await viewerPin.change(viewer);
+        this.render();
+        this.el.querySelector(`[data-viewerpin="${CSS.escape(pinBtn.dataset.viewerpin)}"]`)?.focus({ preventScroll: true });
+        return;
+      }
       const kidsBtn = e.target.closest("[data-kids]");
       if (kidsBtn) {
         const viewer = viewers.list().list.find((x) => x.id === kidsBtn.dataset.kids);
@@ -9445,8 +9854,14 @@
         const viewer = viewers.list().list.find((x) => x.id === id);
         if (!viewer) return;
         if (del) {
-          // two clicks, so a viewer (and their stats) is never removed by accident
+          // two clicks, so a viewer (and their stats) is never removed by accident; a viewer with a
+          // PIN only with that PIN (or the parental one)
           if (this.confirming === id) {
+            if (viewer.pin && !(await viewerPin.authorize(viewer, t("Removing {name} needs their PIN (or the parental PIN).", { name: viewer.name })))) {
+              this.confirming = null;
+              this.render();
+              return;
+            }
             viewers.remove(id);
             store.set(`stats:${id}`, null);
             store.set(`playback:${id}`, null);
@@ -9481,7 +9896,14 @@
         // leaving a kids profile for another needs the PIN
         const from = viewers.current();
         if (from.kids && tile.dataset.viewer !== from.id && !(await parentPin.check(t("Switching away from {name} needs the parental PIN.", { name: from.name })))) return;
-        viewers.select(tile.dataset.viewer);
+        // a viewer with a PIN only with it
+        const to = viewers.list().list.find((x) => x.id === tile.dataset.viewer);
+        if (to && to.pin && !(await viewerPin.check(to))) {
+          tile.focus({ preventScroll: true });
+          return;
+        }
+        if (to && to.id !== from.id) viewers.select(to.id);
+        idleLock.touch();
         this.close();
       }
     },
@@ -9498,6 +9920,22 @@
       this.el = null;
       this.managing = false;
       this.hiddenOf = null;
+      this.avatarOf = null;
+      this.locked = false;
+    },
+
+    // Back (Nathflix TV): a step back inside the screen, else it closes, unless it's locked
+    back() {
+      if (!this.el) return false;
+      if (this.avatarOf || this.hiddenOf) {
+        this.avatarOf = null;
+        this.hiddenOf = null;
+        this.render();
+      } else if (this.managing) {
+        this.managing = false;
+        this.render();
+      } else if (!this.locked) this.close();
+      return true;
     },
   };
 
@@ -10079,30 +10517,201 @@
       return !!store.get("parentPin", null);
     },
     async set() {
-      const prompt = window.StremioEnhancedAPI && window.StremioEnhancedAPI.showPrompt;
-      if (typeof prompt !== "function") return false;
-      const pin = await prompt("nathflix-viewer", this.isSet() ? t("Change parental PIN") : t("Set a parental PIN"), t("4 to 8 digits. Leave empty to remove the PIN."), "");
+      // (changing it needs the one there is: the keypad is open to anyone in Manage viewers)
+      if (this.isSet() && !(await this.check(t("Enter the parental PIN to change it.")))) return false;
+      const pin = await pinPad.open({ title: this.isSet() ? t("Change parental PIN") : t("Set a parental PIN"), note: t("4 to 8 digits."), remove: this.isSet() ? t("Remove the PIN") : "" });
       if (pin == null) return false;
-      const clean = String(pin).replace(/\s/g, "");
-      if (!clean) { store.set("parentPin", null); return true; }
-      if (!/^\d{4,8}$/.test(clean)) {
-        await window.StremioEnhancedAPI.showAlert?.("warning", t("PIN not set"), t("Use 4 to 8 digits."), ["OK"]);
-        return false;
-      }
-      store.set("parentPin", await this.hash(clean));
+      if (!pin) { store.set("parentPin", null); return true; }
+      const again = await pinPad.open({ title: t("Type it again"), note: t("4 to 8 digits."), verify: async (x) => x === pin });
+      if (again == null) return false;
+      store.set("parentPin", await this.hash(pin));
       return true;
     },
     // true when there's no PIN, or the right one is given
     async check(why) {
       const saved = store.get("parentPin", null);
       if (!saved) return true;
-      const prompt = window.StremioEnhancedAPI && window.StremioEnhancedAPI.showPrompt;
-      if (typeof prompt !== "function") return false;
-      const pin = await prompt("nathflix-viewer", t("Parental PIN"), why || t("Enter the parental PIN."), "");
+      const pin = await pinPad.open({ title: t("Parental PIN"), note: why || t("Enter the parental PIN."), verify: async (x) => (await this.hash(x)) === saved });
+      return pin != null;
+    },
+  };
+
+  // A viewer's own PIN (4 digits, like Netflix's profile lock), asked for to switch to that viewer.
+  // Kept as a hash, salted with the viewer's id. A lock for the family, not real security: everything
+  // is in this device's storage
+  const viewerPin = {
+    hash(viewer, pin) {
+      return parentPin.hash(`${viewer.id}:${pin}`);
+    },
+    async check(viewer) {
+      if (!viewer.pin) return true;
+      const pin = await pinPad.open({ title: t("{name}'s PIN", { name: viewer.name }), note: t("Enter your PIN to watch."), length: 4, verify: async (x) => (await this.hash(viewer, x)) === viewer.pin });
+      return pin != null;
+    },
+    // Changing or removing one: the viewer's PIN, or the parental PIN (a forgotten PIN)
+    async authorize(viewer, why) {
+      if (!viewer.pin) return true;
+      const parent = store.get("parentPin", null);
+      const pin = await pinPad.open({
+        title: t("{name}'s PIN", { name: viewer.name }),
+        note: why,
+        verify: async (x) => (await this.hash(viewer, x)) === viewer.pin || (!!parent && (await parentPin.hash(x)) === parent),
+      });
+      return pin != null;
+    },
+    async change(viewer) {
+      if (!(await this.authorize(viewer, parentPin.isSet() ? t("Enter {name}'s current PIN, or the parental PIN.", { name: viewer.name }) : t("Enter {name}'s current PIN.", { name: viewer.name })))) return false;
+      const pin = await pinPad.open({ title: viewer.pin ? t("New PIN for {name}", { name: viewer.name }) : t("A PIN for {name}", { name: viewer.name }), note: t("4 digits, asked for to watch as {name}.", { name: viewer.name }), length: 4, remove: viewer.pin ? t("Remove the PIN") : "" });
       if (pin == null) return false;
-      if ((await this.hash(String(pin).replace(/\s/g, ""))) === saved) return true;
-      await window.StremioEnhancedAPI.showAlert?.("warning", t("Wrong PIN"), t("That isn't the parental PIN."), ["OK"]);
-      return false;
+      if (!pin) {
+        viewers.setPin(viewer.id, null);
+        return true;
+      }
+      const again = await pinPad.open({ title: t("Type it again"), length: 4, verify: async (x) => x === pin });
+      if (again == null) return false;
+      viewers.setPin(viewer.id, await this.hash(viewer, pin));
+      return true;
+    },
+  };
+
+  // The PIN keypad: hidden digits, 0–9, ⌫ and OK, by touch, the remote (arrows and OK, or its digit
+  // keys) or a keyboard. Resolves with the digits, "" for Remove, or null when cancelled. verify(pin):
+  // false shakes it and asks again. length: that many digits are sent at once (else 4 to 8, then OK)
+  const pinPad = {
+    el: null,
+    done: null,
+
+    open({ title, note = "", length = 0, verify = null, remove = "", cancel = true }) {
+      this.cancel();
+      ensureExtrasStyle();
+      return new Promise((resolve) => {
+        let digits = "";
+        const max = length || 8;
+        const el = document.createElement("div");
+        el.className = "dxe-pin";
+        const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "back", "0", "ok"];
+        el.innerHTML = `
+          <div class="dxe-pin-box" role="dialog" aria-label="${esc(title)}">
+            <h2>${esc(title)}</h2>
+            ${note ? `<p>${esc(note)}</p>` : ""}
+            <div class="dxe-pin-dots" aria-live="polite"></div>
+            <div class="dxe-pin-error" aria-live="assertive"></div>
+            <div class="dxe-pin-keys">${keys.map((k) => k === "ok" && length ? "<span></span>"
+              : `<button class="dxe-pin-key${k === "ok" ? " is-ok" : ""}" data-key="${k}" aria-label="${k === "back" ? esc(t("Delete")) : k === "ok" ? "OK" : k}">${k === "back" ? "⌫" : k === "ok" ? "OK" : k}</button>`).join("")}</div>
+            <div class="dxe-pin-foot">
+              ${remove ? `<button class="dxe-who-btn" data-pinremove>${esc(remove)}</button>` : ""}
+              ${cancel ? `<button class="dxe-who-btn" data-pincancel>${esc(t("Cancel"))}</button>` : ""}
+            </div>
+          </div>`;
+        const dots = el.querySelector(".dxe-pin-dots");
+        const error = el.querySelector(".dxe-pin-error");
+        const draw = () => {
+          const shown = Math.max(length || 4, digits.length);
+          dots.innerHTML = Array.from({ length: shown }, (_, i) => `<i class="${i < digits.length ? "is-on" : ""}"></i>`).join("");
+        };
+        const finish = (value) => {
+          if (this.el !== el) return;
+          el.remove();
+          this.el = null;
+          this.done = null;
+          resolve(value);
+        };
+        let checking = false;
+        const submit = async () => {
+          if (checking || digits.length < (length || 4)) return;
+          checking = true;
+          const ok = verify ? await verify(digits).catch(() => false) : true;
+          checking = false;
+          if (ok) return finish(digits);
+          digits = "";
+          draw();
+          error.textContent = t("Wrong PIN");
+          el.classList.remove("is-wrong");
+          void el.offsetWidth;
+          el.classList.add("is-wrong");
+        };
+        const press = (k) => {
+          error.textContent = "";
+          if (k === "back") digits = digits.slice(0, -1);
+          else if (k === "ok") return submit();
+          else if (/^\d$/.test(k) && digits.length < max) digits += k;
+          draw();
+          if (length && digits.length === length) submit();
+        };
+        el.addEventListener("click", (e) => {
+          const key = e.target.closest("[data-key]");
+          if (key) return press(key.dataset.key);
+          if (e.target.closest("[data-pinremove]")) return finish("");
+          if (e.target.closest("[data-pincancel]")) return finish(null);
+        });
+        // digits, Backspace and Enter from a keyboard or the remote's number keys; arrows move between
+        // the keys (spatial navigation does that), so only these are taken
+        el.addEventListener("keydown", (e) => {
+          if (/^\d$/.test(e.key)) press(e.key);
+          else if (e.key === "Backspace") press("back");
+          else if (e.key === "Enter" && !e.target.closest("button")) press("ok");
+          else if (e.key === "Escape" && cancel) finish(null);
+          else return;
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        for (const type of ["keyup", "keypress"]) el.addEventListener(type, (e) => e.stopPropagation());
+        document.body.append(el);
+        this.el = el;
+        this.done = cancel ? () => finish(null) : null;
+        draw();
+        el.querySelector('[data-key="1"]').focus({ preventScroll: true });
+      });
+    },
+
+    // Back (Nathflix TV) or another keypad: cancels the one open, when it can be cancelled
+    cancel() {
+      if (!this.el) return false;
+      if (this.done) this.done();
+      return true;
+    },
+  };
+
+  // Profiles lock after a while unused (Nathflix settings → Home): Who's watching comes back, and a
+  // viewer with a PIN needs it. Playing a film never counts as unused
+  const idleLock = {
+    last: Date.now(),
+    timer: 0,
+
+    touch() {
+      this.last = Date.now();
+    },
+
+    minutes() {
+      const n = parseInt(settings.profileLock, 10);
+      return n > 0 ? n : 0;
+    },
+
+    check() {
+      const limit = this.minutes();
+      if (!limit) return;
+      // a film playing (Nathflix's own player on Android is on the player screen too) is activity
+      if (currentRoute() === "player" || miniPlayer.info) return this.touch();
+      if (whoIsWatching.el || Date.now() - this.last < limit * 60000) return;
+      // nothing to lock: one viewer, without a PIN
+      if (viewers.list().list.length < 2 && !viewers.current().pin) return;
+      log("profiles locked after inactivity");
+      whoIsWatching.open({ locked: true });
+    },
+
+    start() {
+      this.touch();
+      this.onActivity = () => this.touch();
+      this.onShown = () => { if (!document.hidden) this.check(); };
+      for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(type, this.onActivity, { capture: true, passive: true });
+      document.addEventListener("visibilitychange", this.onShown);
+      this.timer = setInterval(() => this.check(), 30000);
+    },
+
+    stop() {
+      clearInterval(this.timer);
+      for (const type of ["pointerdown", "keydown", "wheel", "touchstart"]) window.removeEventListener(type, this.onActivity, true);
+      document.removeEventListener("visibilitychange", this.onShown);
     },
   };
 
@@ -13680,6 +14289,7 @@
         subtitlesStart.apply().catch(() => { /* core not ready */ });
       }, 3000);
       if (!miniPlayer.info) whoIsWatching.maybeShow().catch(() => { /* nothing to show */ });
+      idleLock.start();
       store.ready.then(() => restrict.apply()).catch(() => { /* next sync */ });
       scheduleSync();
     });
@@ -13721,6 +14331,12 @@
     },
     // Nathflix TV's Back button: closes an open hover card, keeping its title selected (true if one was open)
     closePreview() {
+      // the PIN keypad, then Who's watching (which stays when it's locked)
+      if (pinPad.el) {
+        pinPad.cancel();
+        return true;
+      }
+      if (whoIsWatching.back()) return true;
       // phones and tablets: the title sheet
       if (titleSheet.close()) return true;
       if (!preview.el || !preview.el.classList.contains("is-open")) return false;
@@ -13731,6 +14347,8 @@
       return true;
     },
     destroy() {
+      idleLock.stop();
+      pinPad.cancel();
       mo.disconnect();
       io.disconnect();
       themeLinkWatch.disconnect();
@@ -13763,7 +14381,8 @@
       skip.reset();
       addonTools.close();
       for (const id of ["dx-extras-style", "dx-sub-style", "dx-focus-style"]) document.getElementById(id)?.remove();
-      document.querySelectorAll(".dxe-skip, .dxe-addon-btn, .dx-pip").forEach((el) => el.remove());
+      document.querySelectorAll(".dxe-skip, .dxe-addon-btn, .dxe-arrange-btn, .dxe-arrange, .dx-pip").forEach((el) => el.remove());
+      document.querySelectorAll(".dx-rows-arranged").forEach((el) => el.classList.remove("dx-rows-arranged"));
       onTitle.disconnect();
       document.removeEventListener("scroll", onScroll, { capture: true });
       document.removeEventListener("mouseover", onOver);
@@ -14389,13 +15008,42 @@ vec4 hook() {
       "{title} is hidden for {name}.": "{title} est masqué pour {name}.",
       "Undo": "Annuler",
       "Set a parental PIN": "Définir un code parental",
-      "4 to 8 digits. Leave empty to remove the PIN.": "4 à 8 chiffres. Laissez vide pour supprimer le code.",
-      "PIN not set": "Code non défini",
-      "Use 4 to 8 digits.": "Utilisez 4 à 8 chiffres.",
       "Parental PIN": "Code parental",
+      "Lock profiles after inactivity": "Verrouiller les profils après inactivité",
+      "After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security.": "Après ce temps sans que personne n'utilise Nathflix (jamais pendant un film), « Qui regarde ? » revient, et les spectateurs avec un code doivent le saisir. Donnez un code à un spectateur dans « Qui regarde ? » → Gérer les spectateurs. Cela évite que la famille aille dans le profil des autres : ce n'est pas une vraie sécurité.",
+      "Never": "Jamais",
+      "After {n} minutes": "Après {n} minutes",
+      "After 1 hour": "Après 1 heure",
+      "Anime": "Anime",
+      "TV channels": "Chaînes TV",
+      "Organise Home": "Organiser l'Accueil",
+      "Drag rows by ⠿ (or use the arrows) to set their order on Home, and hide the ones you don't want with the eye. Continue Watching and the billboard stay at the top.": "Faites glisser les rangées par ⠿ (ou utilisez les flèches) pour choisir leur ordre sur l'Accueil, et masquez celles que vous ne voulez pas avec l'œil. Continuer de regarder et la bannière restent en haut.",
+      "Only for {name}: each viewer has their own.": "Seulement pour {name} : chaque spectateur a le sien.",
+      "Stremio's order": "Ordre de Stremio",
+      "Save": "Enregistrer",
+      "Show on Home": "Afficher sur l'Accueil",
+      "Hide from Home": "Masquer de l'Accueil",
+      "Has a PIN": "Protégé par un code",
+      "Avatar": "Avatar",
+      "PIN: {state}": "Code : {state}",
+      "On": "Activé",
+      "Choose an avatar for {name}": "Choisissez un avatar pour {name}",
+      "Initials": "Initiales",
+      "Removing {name} needs their PIN (or the parental PIN).": "Pour supprimer {name}, saisissez son code (ou le code parental).",
+      "Enter the parental PIN to change it.": "Saisissez le code parental pour le changer.",
+      "4 to 8 digits.": "4 à 8 chiffres.",
+      "Remove the PIN": "Supprimer le code",
+      "Type it again": "Saisissez-le à nouveau",
+      "{name}'s PIN": "Code de {name}",
+      "Enter your PIN to watch.": "Saisissez votre code pour regarder.",
+      "Enter {name}'s current PIN, or the parental PIN.": "Saisissez le code actuel de {name}, ou le code parental.",
+      "Enter {name}'s current PIN.": "Saisissez le code actuel de {name}.",
+      "New PIN for {name}": "Nouveau code pour {name}",
+      "A PIN for {name}": "Un code pour {name}",
+      "4 digits, asked for to watch as {name}.": "4 chiffres, demandés pour regarder en tant que {name}.",
+      "Delete": "Effacer",
       "Enter the parental PIN.": "Saisissez le code parental.",
       "Wrong PIN": "Code incorrect",
-      "That isn't the parental PIN.": "Ce n'est pas le code parental.",
       // report a problem
       "Reporting isn't set up in this version.": "Le signalement n'est pas disponible dans cette version.",
       "A report was just sent: wait a minute before sending another.": "Un signalement vient d'être envoyé : attendez une minute avant d'en envoyer un autre.",

@@ -234,7 +234,16 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - `episodePlay` : bouton « Lancer l'épisode » (« Lecture » pour un film) avant la bande-annonce, sur la page des flux. Il clique la première source affichée (sans `data-dx-hide`, plus petit `style.order`).
     - **Attente des sources** (`playWhenReady`) : jusqu'à ce que plus aucun addon ne soit en `Loading` dans `meta_details.streams` (12 s au plus), plus 700 ms pour le tri, puis le clic.
     - **Page d'une série** : « Reprendre S1 É3 » (épisode en cours, si moins de 90 % vus), sinon « Lancer » l'épisode suivant le dernier fini (Stremio remet `timeOffset` à 0 à la fin), sinon S1 É1 (spéciaux exclus), d'après `meta_details.libraryItem.state`. Le clic ouvre la page des flux de l'épisode (`pending`), qui lance ensuite comme ci-dessus.
-  - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris).
+  - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris), avec `dragList(list, onMove)`, partagé.
+  - `homeArrange` (« Organiser l'Accueil », au bas de l'Accueil) : ordre et rangées masquées par spectateur (`store` `homeRows:<spectateur>`, clés `<manifest>|<type>|<catalogue>`).
+    - Les rangées de Stremio ne sont jamais déplacées : le conteneur passe en `flex` (`dx-rows-arranged`) avec un `style.order` par rangée.
+    - `keyNav.rows()` trie alors par position à l'écran, et `homeRows.preload(…, true)` charge toutes les rangées.
+  - **Spectateurs** (`viewers`, `whoIsWatching`) :
+    - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
+    - clavier de code `pinPad` (aussi pour le code parental) ;
+    - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
+    - Back de la couche TV : `closePreview` ferme le clavier, recule dans « Qui regarde ? », et ne ferme jamais l'écran verrouillé.
+    - Les codes sont une barrière familiale, pas une sécurité (tout est dans le stockage de l'appareil).
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.

@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **Organise Home.** A button at the bottom of Home puts its rows in the order you like and hides the ones you don't want (drag them, or use the arrows and the eye). Each viewer gets their own Home; Continue Watching and the billboard stay at the top, and the remote follows the new order.
+- **A PIN and an avatar for each viewer.** In Who's watching → Manage viewers, a viewer can have their own 4-digit PIN, asked for to watch as them, and an avatar picked from a gallery. PINs (the parental one too) are now typed on a keypad that hides the digits, by touch, remote or keyboard.
+- **Profiles lock when Nathflix sits unused.** Nathflix settings → Home → *Lock profiles after inactivity*: after 5 minutes to an hour without anyone using it (never during a film), Who's watching comes back, and a viewer with a PIN needs it. A viewer with a PIN is also asked for it at every start.
 - **Nathflix TV: Next episode no longer crashes the player.** Going on to the next episode (or picking one in Episodes) could close Nathflix on phones and tablets, when the new player started before Android had finished closing the last one. It also always plays the episode asked for now: it could start the previous one again.
 - **Library sorted by Watched no longer freezes.** With nothing to show under *Watched* or *Not watched*, Library froze the app.
 - **Nathflix TV: no more black screen after picture-in-picture.** Going back from a film playing in picture-in-picture (or in the background), then picking the same stream again, left a black screen with a spinner.

@@ -78,6 +78,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-018 | Revue : plantage du lecteur, gel de la Bibliothèque, faille XSS, écran noir, torrents | À valider | P0 | tv, plugin | — | 2026-10-29 |
 | T-019 | Revue : robustesse du plugin (vieilles WebView, billboard hors ligne, stockage plein…) | À valider | P1 | plugin, tv | — | 2026-10-29 |
 | T-020 | Revue : performances (mesure des rangées, observateur, langue, boutons) | À valider | P2 | plugin, tv | — | 2026-10-29 |
+| T-021 | Organiser les rangées de l'Accueil (ordre, masquer), par spectateur | À valider | P2 | plugin | — | 2026-10-29 |
+| T-022 | Code et avatar par profil, verrouillage après inactivité | À valider | P2 | plugin | — | 2026-10-29 |
+| T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
 
 ---
 
@@ -1056,6 +1059,116 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Les tests Playwright de T-018 et T-019 donnent les mêmes résultats.
 - Non vérifié : le gain réel sur une clé TV.
 
+### T-021 — Organiser les rangées de l'Accueil
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Les features de Stremio supporters ne sont pas disponible sur Nathflix ? […] Je ne suis pas supporter, j'aimerais voir si cependant je peux porter ces features sur mon app quand même. […] Rangées de l'Accueil, Code et avatar par profil
+
+On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué.
+
+**Critères d'acceptation**
+- [x] Bouton « Organiser l'Accueil » au bas de l'Accueil (pas pour les profils enfants)
+- [x] Fenêtre : glisser-déposer (poignée ⠿ ou souris), flèches, œil pour masquer, « Ordre de Stremio », Enregistrer
+- [x] Ordre et rangées masquées par spectateur ; Continuer de regarder, la bannière et « À l'antenne » restent en haut
+- [x] La télécommande suit le nouvel ordre ; Bas depuis la dernière rangée mène au bouton
+- [ ] Vérifié sur l'appareil (avec la vraie page de Stremio)
+
+**Notes techniques**
+- `homeArrange` : préférences dans `store` sous `viewers.key("homeRows")` = `{ order, hidden }`.
+  - Clés `<id du manifest>|<type>|<id du catalogue>`, jamais l'adresse de l'addon.
+  - La rangée est identifiée sur la page par son lien « Voir tout » ; l'adresse est convertie en id de manifest (`ids`, rafraîchi toutes les 60 s).
+- Les éléments de Stremio ne sont jamais déplacés :
+  - le conteneur reçoit `dx-rows-arranged` (`display:flex; flex-direction:column`) ;
+  - chaque enfant reçoit `style.order` : puces −40, bannière −30, Continuer −20, À l'antenne −10, rangées classées 1…, inconnues 1000+, bouton 100000 ;
+  - masquées : `dx-row-hidden`.
+- `homeRows.preload(…, force)` charge toutes les rangées quand un ordre est actif (Stremio les charge selon leur place).
+- `keyNav.rows()` trie par position à l'écran quand l'ordre est actif.
+- `dragList(list, onMove)` est extrait de `addonTools.wireDrag`, et partagé par les deux fenêtres.
+
+**Vérification**
+- Playwright (`supporter-test.cjs`, faux core, 2 addons, 4 rangées + un catalogue à recherche exclu) :
+  - téléphone :
+    - la liste montre les 4 rangées ;
+    - flèches, œil et glisser à la souris donnent Beta New, Beta Hot, Alpha Top Movies à l'écran, Alpha Top Series masquée ;
+    - les éléments de Stremio restent dans leur ordre ;
+    - toutes les rangées sont demandées (`LoadRange`) ;
+  - TV : Bas depuis Beta New → Beta Hot → Alpha Top Movies → « Organiser l'Accueil ».
+- Non vérifié : sur la vraie page de Stremio (chargement des rangées, mise en page).
+
+### T-022 — Code et avatar par profil, verrouillage après inactivité
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (voir T-021) Code et avatar par profil
+
+**Critères d'acceptation**
+- [x] Un code à 4 chiffres par spectateur (Gérer les spectateurs → « Code »), demandé pour passer à ce profil
+- [x] Changer ou retirer un code : l'ancien, ou le code parental ; supprimer un profil à code aussi
+- [x] Clavier de code : chiffres masqués, au doigt, à la télécommande et au clavier ; le code parental l'utilise aussi
+- [x] Galerie de 24 avatars (emoji sur une couleur), ou les initiales
+- [x] Réglage « Verrouiller les profils après inactivité » (Jamais, 5, 15, 30 min, 1 h) ; jamais pendant un film
+- [x] Écran verrouillé : Back ne le ferme pas, pas de « Gérer » ; un profil à code le demande à chaque démarrage
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `viewers.setPin` et `viewers.setAvatar` ; champs `pin` (SHA-256 de `<id>:<code>`, via `parentPin.hash`) et `avatar` (`AVATARS`, `avatarHtml()`).
+- `viewerPin` : `check`, `authorize` (code du profil ou parental), `change` (nouveau code, confirmation, « Supprimer le code »).
+- `pinPad.open({ title, note, length, verify, remove, cancel })` : un code faux secoue les cases et affiche « Code incorrect ».
+- `parentPin.set` et `check` passent par `pinPad`. Changer le code parental demande l'actuel.
+- `idleLock` :
+  - activité : `pointerdown`, `keydown`, `wheel`, `touchstart` ;
+  - contrôle toutes les 30 s et au retour de l'app (`visibilitychange`) ;
+  - route `player` ou mini-lecteur : compte comme activité ;
+  - rien à verrouiller avec un seul profil sans code.
+- `whoIsWatching` :
+  - `locked` ;
+  - focus sur le profil courant ;
+  - badge cadenas ;
+  - boutons « Avatar » et « Code » ;
+  - `back()`.
+- `closePreview` (Back de la couche TV) ferme d'abord le clavier, puis recule dans « Qui regarde ? » (sauf s'il est verrouillé).
+
+**Vérification**
+- Playwright (`supporter-test.cjs pin`, 2 spectateurs, verrou à 5 min) :
+  - « Qui regarde ? » au démarrage, focus sur le profil courant ;
+  - code 1234 posé et confirmé pour Léo (hash enregistré) ;
+  - renard choisi pour Nath ; cadenas sur Léo ;
+  - code faux → « Code incorrect », le clavier reste ; le bon → profil Léo ;
+  - 6 min plus tard → écran verrouillé sans « Gérer », Back ne le ferme pas ;
+  - pendant un film (`#/player/…`), une heure plus tard : rien.
+- Tests précédents rejoués, résultats identiques (retours, billboard, Reprendre, revue).
+
+### T-023 — Téléchargements hors ligne
+
+- **Statut :** À faire (future mise à jour, à la demande de l'utilisateur)
+- **Priorité :** P3
+- **Cible :** tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+
+**Demande**
+> Pour le téléchargement hors-ligne ça sera dans une future mis à jour, ça m'intéresse mais je vais pas le faire pour le moment
+
+**Notes techniques** (pistes)
+- L'équivalent du « gestionnaire de téléchargements » des Supporters de Stremio : télécharger un film ou un épisode pour le lire sans réseau dans le lecteur natif.
+- Liens directs et debrid d'abord (Media3 `DownloadManager` / `DownloadService`). Les torrents viendraient ensuite.
+
 <!--
 ### T-000 — Titre court
 
@@ -1133,6 +1246,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
 | 2026-10-29 | T-018 à T-020 | Revue complète (rapport), puis corrections à la demande de l'utilisateur ; testées (Playwright avant/après, CI). APK de test publiée |
 | 2026-10-29 | T-016, T-017 | Créées et implémentées : Reprendre sur la page d'une série, attente des sources ; rechargement à tout changement de langue. APK de test publiée |
 | 2026-10-29 | T-014, T-015 | Créées et implémentées : langue de Stremio en `fr-FR` ; billboard depuis les listes des addons (jusqu'à trois). APK de test publiée |
