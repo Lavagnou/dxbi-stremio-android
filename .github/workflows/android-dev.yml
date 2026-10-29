@@ -1,0 +1,57 @@
+name: Android test build
+
+# Every push that changes the Android app or the plugin builds "Nathflix Dev" (the debug build: it
+# installs next to the real app and over the previous test build) and puts it in the "dev"
+# pre-release, so it can be downloaded straight to a phone or TV:
+#   https://github.com/<owner>/<repo>/releases/download/dev/nathflix-dev.apk
+# Pre-releases are never offered as updates (the apps only look at the latest full release).
+on:
+  push:
+    paths:
+      - "tv/**"
+      - "nathflix.plugin.js"
+      - "nathflix.theme.css"
+      - ".github/workflows/android-dev.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Only the newest push matters: an older build still running is dropped
+concurrency:
+  group: android-dev
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tv
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # GitHub's Ubuntu runners come with the Android SDK (ANDROID_HOME); Gradle fetches what's missing
+      - name: Build
+        run: ./gradlew assembleDebug --no-daemon && cp app/build/outputs/apk/debug/app-debug.apk nathflix-dev.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nathflix-dev
+          path: tv/nathflix-dev.apk
+          if-no-files-found: error
+
+      - name: Publish to the dev pre-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete dev --yes --cleanup-tag 2>/dev/null || true
+          gh release create dev nathflix-dev.apk --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "Nathflix Dev (test build)" \
+            --notes "Test build of ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Installs next to Nathflix as \"Nathflix Dev\", and over the previous test build. Not offered as an update."

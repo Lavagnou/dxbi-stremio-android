@@ -37,7 +37,11 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         } catch (_: Exception) { JSONObject() }
         if (!settings.optBoolean("splash", true)) return
 
-        val box = FrameLayout(activity).apply { setBackgroundColor(0xFF000000.toInt()) }
+        val box = FrameLayout(activity).apply {
+            setBackgroundColor(0xFF000000.toInt())
+            // A tap skips it (phones and tablets), and never reaches the page underneath
+            setOnClickListener { skip() }
+        }
         val video = TextureView(activity)
         accentPaint(settings.optString("accent", "red"))?.let { video.setLayerPaint(it) }
         this.video = video
@@ -82,7 +86,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         main.postDelayed({ finish() }, 7500) // safety net
     }
 
-    /** OK, Back or a click skips it */
+    /** OK, Back or a tap skips it */
     fun skip() = finish()
 
     private fun finish() {

@@ -16,10 +16,10 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 /**
- * Keeps Nathflix current on the TV:
+ * Keeps Nathflix current on Android (TVs, phones and tablets):
  *  - the Nathflix plugin updates itself between app releases, like it does on a computer: a newer copy
  *    is fetched in the background and used from the next launch
- *  - a new Nathflix TV release is offered once, and downloaded and installed when wanted
+ *  - a new Nathflix release for Android is offered once, and downloaded and installed when wanted
  */
 object Updates {
     // Nathflix's own releases, never dx.bi's (Nathflix is based on it): its plugin would replace this
@@ -106,7 +106,9 @@ object Updates {
                 Toast.makeText(activity, "Allow Nathflix to install apps, then choose Update again", Toast.LENGTH_LONG).show()
             } catch (_: Exception) {
                 // Some TVs (Fire OS among them) have no such screen to open directly
-                Toast.makeText(activity, "Allow Nathflix to install apps in the TV's settings (on Fire TV: My Fire TV → Developer options → Install unknown apps), then choose Update again", Toast.LENGTH_LONG).show()
+                val where = if (Device.isMobile(activity)) "the ${Device.noun(activity)}'s settings (Apps → Special app access → Install unknown apps)"
+                else "the TV's settings (on Fire TV: My Fire TV → Developer options → Install unknown apps)"
+                Toast.makeText(activity, "Allow Nathflix to install apps in $where, then choose Update again", Toast.LENGTH_LONG).show()
             }
             return
         }
@@ -121,7 +123,7 @@ object Updates {
             try {
                 val dir = File(activity.cacheDir, "updates").apply { deleteRecursively(); mkdirs() }
                 val apk = File(dir, "nathflix-tv-$version.apk")
-                // A download cut short (slow Wi-Fi, the TV sleeping) is tried again before giving up
+                // A download cut short (slow Wi-Fi, the device sleeping) is tried again before giving up
                 var problem: String? = null
                 for (attempt in 1..3) {
                     problem = fetchApk(url, apk, size, version, activity)
@@ -139,7 +141,7 @@ object Updates {
                     if (activity.isFinishing) return@runOnUiThread
                     AlertDialog.Builder(activity)
                         .setTitle("The update didn't download")
-                        .setMessage("${e.message}\n\nTry again later, or install it with the Downloader app from:\ngithub.com/$REPO/releases/latest/download/nathflix-tv.apk")
+                        .setMessage("${e.message}\n\nTry again later, or install it ${if (Device.isMobile(activity)) "from your browser" else "with the Downloader app"} from:\ngithub.com/$REPO/releases/latest/download/nathflix-tv.apk")
                         .setPositiveButton("OK", null)
                         .show()
                 }

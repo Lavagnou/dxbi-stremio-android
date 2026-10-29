@@ -121,13 +121,13 @@ class Bridge(private val activity: MainActivity) {
         }
     }
 
-    /** A phone or tablet rather than a TV: browsing can turn upright */
+    /** A phone or tablet rather than a TV: touch, and a page laid out to the screen's width */
     @JavascriptInterface
-    fun isPhone(): Boolean {
-        val ui = activity.getSystemService(Context.UI_MODE_SERVICE) as android.app.UiModeManager
-        return ui.currentModeType != android.content.res.Configuration.UI_MODE_TYPE_TELEVISION &&
-            !activity.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
-    }
+    fun isPhone(): Boolean = Device.isMobile(activity)
+
+    /** "tv", "phone" or "tablet", for messages that name the device */
+    @JavascriptInterface
+    fun deviceKind(): String = Device.kind(activity)
 
     @JavascriptInterface
     fun version(): String = BuildConfigVersion.name(activity)

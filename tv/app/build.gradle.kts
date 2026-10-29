@@ -30,6 +30,14 @@ android {
     }
 
     signingConfigs {
+        // Test builds (Nathflix Dev) are always signed with the same key, kept in the repository, so a
+        // new one installs over the last without losing the sign-in. It signs nothing that's released
+        create("dev") {
+            storeFile = file("dev.keystore")
+            storePassword = "nathflix-dev"
+            keyAlias = "nathflix-dev"
+            keyPassword = "nathflix-dev"
+        }
         create("release") {
             val store = signingValue("storeFile", "NATHFLIX_TV_KEYSTORE")
             if (store != null) {
@@ -43,6 +51,9 @@ android {
 
     buildTypes {
         debug {
+            // "Nathflix Dev": installs next to the real app (named in src/debug/res)
+            applicationIdSuffix = ".dev"
+            signingConfig = signingConfigs.getByName("dev")
             // the emulator is x86
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64") }
         }

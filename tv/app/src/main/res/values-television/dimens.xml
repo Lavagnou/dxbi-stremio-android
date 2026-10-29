@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The player's own pieces on a TV (see values/dimens.xml for phones and tablets) -->
+<resources>
+    <dimen name="player_title_pad_side">48dp</dimen>
+    <dimen name="player_title_pad_top">28dp</dimen>
+    <dimen name="player_title_pad_bottom">40dp</dimen>
+    <dimen name="player_title_text">26sp</dimen>
+    <dimen name="player_subtitle_text">17sp</dimen>
+    <dimen name="player_skip_margin_end">56dp</dimen>
+    <dimen name="player_skip_margin_bottom">120dp</dimen>
+    <dimen name="player_skip_pad_side">26dp</dimen>
+    <dimen name="player_skip_pad_top_bottom">14dp</dimen>
+    <dimen name="player_skip_text">19sp</dimen>
+    <dimen name="player_flash_margin_top">150dp</dimen>
+    <dimen name="player_flash_pad_side">22dp</dimen>
+    <dimen name="player_flash_pad_top_bottom">12dp</dimen>
+    <dimen name="player_flash_text">20sp</dimen>
+</resources>

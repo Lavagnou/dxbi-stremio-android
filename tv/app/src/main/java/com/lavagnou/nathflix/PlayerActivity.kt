@@ -13,6 +13,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -94,12 +95,14 @@ class PlayerActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
+        fullScreen()
         setContentView(R.layout.activity_player)
+        // A phone's notch or punch hole: the picture and the controls stay clear of it
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.player_root)) { view, insets ->
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            view.setPadding(cutout.left, cutout.top, cutout.right, cutout.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
         playerView = findViewById(R.id.player_view)
         titleBar = findViewById(R.id.title_bar)
         seekFlash = findViewById(R.id.seek_flash)
@@ -331,6 +334,20 @@ class PlayerActivity : AppCompatActivity() {
         finish()
     }
 
+    // Back from another app (or the screen turning on): the bars that came up go away again
+    override fun onResume() {
+        super.onResume()
+        fullScreen()
+    }
+
+    private fun fullScreen() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         // Leaving the app (Home button) pauses, and the progress so far is kept
@@ -406,7 +423,7 @@ class PlayerActivity : AppCompatActivity() {
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ->
             // No software decoders are bundled: DTS and TrueHD audio (common in BluRay rips) only play
             // on TVs that decode them
-            "this TV can't decode its video or audio format (DTS and TrueHD audio often can't play: pick a release with AAC, AC3 or DD+ audio)"
+            "this ${Device.noun(this)} can't decode its video or audio format (DTS and TrueHD audio often can't play: pick a release with AAC, AC3 or DD+ audio)"
         PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> "its file format isn't supported"
         else -> error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
     }
