@@ -387,7 +387,7 @@ Rendre l'app utilisable au doigt sur téléphone et tablette : pouvoir se connec
 
 **Vérification**
 - `node --check` sur le plugin et `nathflix-tv.js`, puis `node tools/bundle-theme.mjs` : OK.
-- CI `android-dev.yml`, run 1 (commit c8b135f, partie Kotlin) : `BUILD SUCCESSFUL in 2m 19s`, APK publiée dans la pré-release `dev`. Avertissements de dépréciation seulement : `databaseEnabled` (déjà là avant) et `FLAG_FULLSCREEN` (supprimé ensuite par `@Suppress`). Le run du commit final est à relire.
+- CI `android-dev.yml`, run 1 (commit c8b135f, partie Kotlin) : `BUILD SUCCESSFUL in 2m 19s`, APK publiée dans la pré-release `dev`. Avertissements de dépréciation seulement : `databaseEnabled` (déjà là avant) et `FLAG_FULLSCREEN` (supprimé ensuite par `@Suppress`). Run 2 (commit final 757d8ca) : succès, APK publiée dans `dev`. Le test mpv Windows (`mpv-windows.yml`, déclenché par le plugin) passe aussi.
 - **Test Playwright, page Stremio de substitution, faux bridge, téléphone** (412×915, tactile, `nathflix-mobile/`) :
   - viewport `device-width` ; classes `dx-mobile` et `dxtv-touch` ;
   - e-mail sélectionné automatiquement : modifiable ; tap sur le mot de passe puis sur l'e-mail : modifiables ;
