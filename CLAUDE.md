@@ -270,4 +270,7 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
 - **Rapports de problème** : `REPORT_ENDPOINT` est vide, donc « Report a problem » est masqué (`report.enabled`, vérifié aussi par `nathflix-tv.js`). Pour le réactiver, déployer `tools/report-relay` (Worker Cloudflare et webhook Discord) et mettre son adresse `/report` dans `REPORT_ENDPOINT`.
 - **Statut Discord (desktop)** : `DISCORD.CLIENT_ID` est vide dans `app/src/constants/index.ts`, donc le statut ne démarre pas et son interrupteur est masqué. Pour l'activer, y mettre l'Application ID d'une application Discord « Nathflix ».
 - **Pas encore renommés (images)** : l'intro (`res/raw/intro.mp4`, `introVideoData()` du plugin), les icônes (`app/images/`, `tv/app/src/main/res/mipmap-*`, `drawable/banner.png`) et les captures d'écran montrent encore le logo DX.BI. À refaire avec le nouveau logo ; `tools/render_intro.py` a déjà `TEXT = "NATHFLIX"`.
-- **Signature Android** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` (alias `nathflix-tv`). Sans clé, `tv.yml` ne construit rien.
+- **Signature Android** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` (alias `nathflix-tv`).
+  - Sans clé, `tv.yml` ne construit rien, et la release n'a pas d'APK.
+  - Après avoir ajouté les secrets, lancer « TV app » à la main avec `tag` (par exemple `v0.2.0`) pour joindre l'APK à une release existante.
+  - Ne jamais signer une release avec la clé de test (`dev.keystore`) : elle est publique.

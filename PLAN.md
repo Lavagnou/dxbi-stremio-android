@@ -64,7 +64,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
-| T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | En cours | P0 | tv, ci | T-006 | 2026-10-29 |
+| T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | Bloqué | P0 | tv, ci | T-006 | 2026-10-29 |
 
 ---
 
@@ -549,7 +549,7 @@ Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app An
 
 ### T-007 — Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0
 
-- **Statut :** En cours
+- **Statut :** Bloqué (l'APK de la release attend la clé de signature de l'utilisateur)
 - **Priorité :** P0
 - **Cible :** tv, ci
 - **Dépend de :** T-006
@@ -567,8 +567,9 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - [x] Les pistes AC3, E-AC3, DTS et TrueHD se lisent même sans décodeur matériel (FFmpeg)
 - [x] Le panneau Audio et sous-titres montre aussi les pistes non lisibles (grisées, avec la raison) et le format de chaque piste
 - [x] Workflow de release (`release.yml`) : tag → release avec notes du CHANGELOG, plugin, installeurs, APK et apps desktop
-- [ ] Release 0.2.0 publiée
-- [ ] Son vérifié sur l'épisode de l'utilisateur
+- [x] Release 0.2.0 publiée : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.2.0 (plugin, installeurs, apps Windows, Mac et Linux)
+- [ ] `nathflix-tv.apk` dans la release : il faut les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD`, puis relancer « TV app » avec `tag = v0.2.0`
+- [ ] Son vérifié sur l'épisode de l'utilisateur (APK de test `nathflix-dev.apk`, qui contient le correctif, en attendant)
 
 **Notes techniques**
 - **Cause.** Le lecteur natif n'avait que les décodeurs matériels d'Android : aucun décodeur logiciel n'était embarqué (le message d'erreur le disait déjà pour DTS et TrueHD). Stremio, lui, décode en logiciel (libVLC/mpv). La plupart des téléphones n'ont ni Dolby ni DTS, d'où le silence. Mon panneau filtrait en plus les pistes non lisibles, d'où la liste vide.
@@ -577,7 +578,20 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - **Release.** Aucune release n'avait encore été publiée sur le fork (0.1.0 n'a jamais été publiée). 0.2.0 regroupe donc tout le travail téléphone et tablette, plus ce correctif.
 
 **Vérification**
-- (à compléter : CI, release)
+- **CI `android-dev.yml` (commit 0.2.0, push)** : build debug réussie, et build release non signée (R8) réussie avec FFmpeg et media3-session.
+- **Contenu du décodeur** : vérifié dans `libffmpegJNI.so` (ac3, eac3, dca, truehd/mlp…).
+- **Release 0.2.0**, run « Release » 40803181183, lancé à la main via l'API :
+  - tag `v0.2.0` créé sur le commit de la branche ;
+  - notes tirées du CHANGELOG, plus les téléchargements ;
+  - plugin et installeurs joints ;
+  - apps desktop construites et jointes (Windows installeur et portable, Mac arm64 et x64, Linux x86_64 et arm64) ;
+  - APK : étape sautée, pas de clé de signature dans les secrets.
+- **Non vérifié :** le son sur l'appareil de l'utilisateur.
+
+**Notes de release (session cloud)**
+- **Pousser un tag est refusé** (403 du proxy git : seule la branche de travail est autorisée). `release.yml` peut donc aussi être lancé à la main avec `version`, et pose alors lui-même le tag.
+- **Enregistrement du workflow.** GitHub ne permet de lancer un workflow à la main que s'il a déjà tourné une fois ou s'il est sur la branche par défaut. `release.yml` tourne donc aussi, sans rien faire, quand on le modifie sur une branche.
+- **Incident avec le `dev`.** Un `android-dev.yml` lancé à la main via l'API a échoué à recréer la pré-release `dev` (« Resource not accessible by integration ») après l'avoir supprimée. Elle a été restaurée en relançant le dernier run déclenché par un push. Pour le `dev`, ne relancer que des runs de push.
 
 **Livraison**
 - Commits : « Android: sound for Dolby, DTS and TrueHD tracks… », « 0.2.0… »
@@ -660,6 +674,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-007 | Release v0.2.0 publiée (desktop, plugin, installeurs) ; APK bloquée faute de clé de signature dans les secrets |
 | 2026-10-29 | T-007 | Créée : pas de son sur certains épisodes (pas de décodeur logiciel) ; FFmpeg ajouté ; release 0.2.0 en préparation |
 | 2026-10-29 | T-005, T-006 | Implémentées en autonome à la demande de l'utilisateur (feuille titre, pages mobiles, lecteur Netflix, PiP, arrière-plan, épisode suivant). À valider sur appareil |
 | 2026-10-29 | T-005, T-006 | Créées : navigation et lecteur façon Netflix mobile |

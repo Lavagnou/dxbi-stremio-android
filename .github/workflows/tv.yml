@@ -1,7 +1,7 @@
 name: TV app
 
 # Publishing a release builds Nathflix TV (Android TV) and attaches nathflix-tv.apk to that release.
-# Running it by hand just builds it (kept as a workflow artifact).
+# Run by hand, it builds it, and attaches it to the release given as "tag" (if any).
 #
 # Release builds are signed with Nathflix TV's key, kept in the repository's secrets:
 #   NATHFLIX_TV_KEYSTORE_B64       the keystore, base64-encoded
@@ -11,7 +11,13 @@ name: TV app
 on:
   release:
     types: [published]
+  # By hand: builds the APK, and attaches it to the release given (e.g. v0.2.0, once the signing key
+  # is in the secrets), or keeps it as a workflow artifact
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release to attach nathflix-tv.apk to (e.g. v0.2.0); empty: just build"
+        required: false
   # release.yml calls it with the tag it just published (a release made by the workflow's own token
   # doesn't start the "release" event)
   workflow_call:
