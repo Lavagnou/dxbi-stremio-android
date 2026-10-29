@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+- **Nathflix speaks French.** Every text of Nathflix (its settings, Home rows, title sheet, messages, the player on phones and TVs, update prompts) now follows the language picked for Stremio's interface: French or English. Changing the language reloads the page in the new one.
+- **French by default.** On its first start with an account, Nathflix sets Stremio's interface and audio to French, subtitles to none and blurs unwatched episodes, once: anything changed afterwards in Settings stays as you chose. The window offering catalog addons at start is gone (they're still in Addons → Order & backup).
+- **Continue Watching comes first.** On Home, *Airing this week* now comes after Continue Watching. On phones, the Shows, Movies and My List chips stay at the top instead of landing on the first row.
+- **Hold a title for its menu.** Holding your finger on a card (or right-clicking it) opens the same menu as its ⋮ button, which now sits in the card's corner instead of over the progress bar.
+- **Drag addons into order.** Addons → Order & backup now takes drag and drop, with a finger (by the ⠿ handle) or the mouse; the arrows still work.
+- **One Play button for an episode.** An episode's streams page has *Play episode* above the trailer: it plays the first stream in the list as shown (sorted and filtered). A film's page has *Play*.
+- **Nathflix TV: no glimpse of Stremio's player.** Picking a stream no longer shows Stremio's own player for a moment before Nathflix's: the screen stays black (with a spinner while the stream is looked up) until the player opens, and on the way back.
+- **Nathflix TV on phones and tablets: a player made like Netflix's.** Smaller, tidier buttons along the bottom (*Speed (1x)*, Lock, Episodes, Audio & Subtitles, Next Episode), speeds on a line, Audio & Subtitles side by side with Cancel and Apply, and Episodes as cards with each episode's picture and summary.
+
 ## 0.2.0
 - **Sound on every episode.** Episodes whose audio is Dolby Digital, Dolby Digital+ (E-AC3), DTS or TrueHD played silently on phones (and on TVs without those decoders) while Stremio played them fine: the Android app now decodes them itself when the device can't. The player's Audio & Subtitles panel names each track's format, and greys out (with why) any track this device still can't play.
 - **Nathflix on phones and tablets: signing in works.** Tapping the e-mail or password box now brings up the keyboard: boxes no longer wait for a TV remote's OK button (the remote works as before).

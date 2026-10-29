@@ -21,7 +21,73 @@
     findServers: () => bridge.findServers(TOKEN),
     torrentUrl: (json) => (bridge.torrentUrl ? bridge.torrentUrl(TOKEN, json) : ""),
     deviceInfo: () => { try { return JSON.parse(bridge.deviceInfo ? bridge.deviceInfo(TOKEN) : "{}"); } catch (_) { return {}; } },
+    setLanguage: (lang) => { if (bridge.setLanguage) bridge.setLanguage(TOKEN, lang); },
   };
+
+  // Nathflix speaks French or English, as Stremio's interface does: read the way the plugin reads it
+  // (its last look at Stremio's core, else Stremio's saved profile). A change of language reloads the
+  // page (the plugin sees to it), so this is read once. The app's own screens follow it too.
+  const LANG = (() => {
+    try {
+      const profile = JSON.parse(localStorage.getItem("profile") || "null");
+      const code = localStorage.getItem("nathflix.lang") || (profile && profile.settings && profile.settings.interfaceLanguage) || "";
+      return /^(fr|fre|fra)(\b|-|_)/i.test(code) ? "fr" : "en";
+    } catch (_) { return "en"; }
+  })();
+  try { native.setLanguage(LANG); } catch (_) { /* older app */ }
+  const FR = LANG === "fr" ? {
+    "this TV": "ce téléviseur",
+    "this phone": "ce téléphone",
+    "this tablet": "cette tablette",
+    "On": "Activé",
+    "Off": "Désactivé",
+    "Set": "Défini",
+    "Not set": "Non défini",
+    "Done": "Terminé",
+    "OK": "OK",
+    "Cancel": "Annuler",
+    "Close": "Fermer",
+    "Try again": "Réessayer",
+    "Nathflix settings": "Réglages Nathflix",
+    "Look, Home rows, previews, trailers, reviews, sounds and more": "Apparence, rangées de l'accueil, aperçus, bandes-annonces, critiques, sons et plus",
+    "Open": "Ouvrir",
+    "Streaming server for torrents": "Serveur de streaming pour les torrents",
+    "Torrents play through Nathflix or Stremio running on a computer on your network, or on {device} if you switch on Play torrents on {device} (Nathflix settings). Debrid streams don't need either": "Les torrents passent par Nathflix ou Stremio ouvert sur un ordinateur de votre réseau, ou par {device} si vous activez Lire les torrents sur {device} (Réglages Nathflix). Les flux debrid n'ont besoin ni de l'un ni de l'autre",
+    "Find": "Chercher",
+    "Report a problem": "Signaler un problème",
+    "Sends Nathflix's developer the details that help fix it (no passwords, keys or stream links)": "Envoie au développeur de Nathflix les détails utiles pour le corriger (aucun mot de passe, clé ou lien de flux)",
+    "Report": "Signaler",
+    "{device} (Stremio's app)": "{device} (app Stremio)",
+    "Looking for Nathflix or Stremio on your network…": "Recherche de Nathflix ou Stremio sur votre réseau…",
+    "No streaming server found": "Aucun serveur de streaming trouvé",
+    "Open Nathflix or Stremio on a computer connected to the same network as {device}, leave it running, then try again.\n\nDebrid streams play without a streaming server.": "Ouvrez Nathflix ou Stremio sur un ordinateur connecté au même réseau que {device}, laissez-le ouvert, puis réessayez.\n\nLes flux debrid se lisent sans serveur de streaming.",
+    "Streaming server found": "Serveur de streaming trouvé",
+    "Streaming servers found": "Serveurs de streaming trouvés",
+    "Torrents will play through the one you pick. Keep it running while you watch.": "Les torrents passeront par celui que vous choisissez. Laissez-le ouvert pendant que vous regardez.",
+    "Using the streaming server at {server}": "Serveur de streaming utilisé : {server}",
+    "Couldn't change the streaming server. Try again from Settings.": "Impossible de changer de serveur de streaming. Réessayez depuis les Paramètres.",
+    "Nathflix hasn't finished loading yet. Try again in a moment.": "Nathflix n'a pas fini de charger. Réessayez dans un instant.",
+    "What went wrong, and what were you doing? Nathflix adds its version, the model of {device}, your settings, addon names and recent errors. No passwords, keys or stream links are sent.": "Qu'est-ce qui n'a pas marché, et que faisiez-vous ? Nathflix ajoute sa version, le modèle de {device}, vos réglages, le nom de vos addons et les erreurs récentes. Aucun mot de passe, clé ou lien de flux n'est envoyé.",
+    "Send report": "Envoyer",
+    "Sending…": "Envoi…",
+    "Report sent": "Signalement envoyé",
+    "Thanks! Your report code is {code}.\nMention it when you ask for help so it can be matched to you.": "Merci ! Votre code de signalement est {code}.\nDonnez-le quand vous demandez de l'aide, pour qu'on puisse le retrouver.",
+    "Couldn't send the report": "Impossible d'envoyer le signalement",
+    "Try again in a moment.": "Réessayez dans un instant.",
+    "This stream needs a streaming server": "Ce flux a besoin d'un serveur de streaming",
+    "It's a torrent, and {device} has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let {device} download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on {device}: Nathflix settings → Play torrents on {device}.": "C'est un torrent, et {device} n'a pas de serveur de streaming. Utilisez celui de Nathflix ou de Stremio sur un ordinateur de votre réseau, ou laissez {device} le télécharger lui-même (il se connecte à d'autres personnes qui partagent le fichier).\n\nLes flux debrid se lisent sans l'un ni l'autre. Pour toujours lire les torrents sur {device} : Réglages Nathflix → Lire les torrents sur {device}.",
+    "Find one on my network": "En chercher un sur mon réseau",
+    "Play it on {device}": "Le lire sur {device}",
+    "Couldn't start the torrent. Try another stream.": "Impossible de lancer le torrent. Essayez un autre flux.",
+    "This stream couldn't play: {error}. Try another one.": "Ce flux n'a pas pu être lu : {error}. Essayez-en un autre.",
+    "S{s} E{e}": "S{s} É{e}",
+  } : {};
+  // t("Done") → "Terminé"; t("Play it on {device}", { device }) fills in {device}
+  function t(text, vars) {
+    let out = FR[text] || text;
+    if (vars) out = out.replace(/\{(\w+)\}/g, (m, key) => (key in vars ? String(vars[key]) : m));
+    return out;
+  }
 
   const PLUGIN = "nathflix.plugin.js";
   const tv = (window.__nathflixTv = {});
@@ -38,6 +104,9 @@
   // "tv", "phone" or "tablet" (older apps only knew phone or not), and its name in messages
   const KIND = (() => { try { return (bridge.deviceKind && bridge.deviceKind()) || (PHONE ? "phone" : "tv"); } catch (_) { return PHONE ? "phone" : "tv"; } })();
   const NOUN = KIND === "tv" ? "TV" : KIND;
+  // "this phone" / "ce téléphone"…, and with a capital at the start of a sentence
+  const THIS = t(`this ${NOUN}`);
+  const THIS_CAP = THIS.charAt(0).toUpperCase() + THIS.slice(1);
   tv.deviceKind = KIND;
   const VIEWPORT = PHONE ? "width=device-width, initial-scale=1, user-scalable=no" : "width=1280, user-scalable=no";
   function fitViewport() {
@@ -257,31 +326,31 @@
     return true;
   }
 
-  const serverName = (url) => /\/\/127\.0\.0\.1:/.test(url) ? `This ${NOUN} (Stremio's app)` : url.replace(/^http:\/\/|\/$/g, "");
+  const serverName = (url) => /\/\/127\.0\.0\.1:/.test(url) ? t("{device} (Stremio's app)", { device: THIS_CAP }) : url.replace(/^http:\/\/|\/$/g, "");
 
   // Resolves true once a server has been picked
   async function findServer() {
     for (;;) {
-      toast("Looking for Nathflix or Stremio on your network…", 6000);
+      toast(t("Looking for Nathflix or Stremio on your network…"), 6000);
       const urls = await scanForServers();
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
       if (!urls.length) {
         const again = await dialog({
-          title: "No streaming server found",
-          message: `Open Nathflix or Stremio on a computer connected to the same network as this ${NOUN}, leave it running, then try again.\n\nDebrid streams play without a streaming server.`,
-          buttons: ["Try again", "Close"],
+          title: t("No streaming server found"),
+          message: t("Open Nathflix or Stremio on a computer connected to the same network as {device}, leave it running, then try again.\n\nDebrid streams play without a streaming server.", { device: THIS }),
+          buttons: [t("Try again"), t("Close")],
         });
         if (again === 0) continue;
         return false;
       }
       const pick = await dialog({
-        title: urls.length === 1 ? "Streaming server found" : "Streaming servers found",
-        message: "Torrents will play through the one you pick. Keep it running while you watch.",
-        buttons: [...urls.map(serverName), "Cancel"],
+        title: urls.length === 1 ? t("Streaming server found") : t("Streaming servers found"),
+        message: t("Torrents will play through the one you pick. Keep it running while you watch."),
+        buttons: [...urls.map(serverName), t("Cancel")],
       });
       if (pick < 0 || pick >= urls.length) return false;
       const ok = await useServer(urls[pick]);
-      toast(ok ? `Using the streaming server at ${serverName(urls[pick])}` : "Couldn't change the streaming server. Try again from Settings.", 5000);
+      toast(ok ? t("Using the streaming server at {server}", { server: serverName(urls[pick]) }) : t("Couldn't change the streaming server. Try again from Settings."), 5000);
       return ok;
     }
   }
@@ -289,22 +358,22 @@
   // Report a problem: a description typed with the remote, then the plugin's report goes to the developer
   async function reportProblem() {
     const dx = window.__nathflix;
-    if (!dx || !dx.report) { toast("Nathflix hasn't finished loading yet. Try again in a moment."); return; }
+    if (!dx || !dx.report) { toast(t("Nathflix hasn't finished loading yet. Try again in a moment.")); return; }
     const r = await dialog({
-      title: "Report a problem",
-      message: `What went wrong, and what were you doing? Nathflix adds its version, this ${NOUN}'s model, your settings, addon names and recent errors. No passwords, keys or stream links are sent.`,
-      buttons: ["Send report", "Cancel"],
+      title: t("Report a problem"),
+      message: t("What went wrong, and what were you doing? Nathflix adds its version, the model of {device}, your settings, addon names and recent errors. No passwords, keys or stream links are sent.", { device: THIS }),
+      buttons: [t("Send report"), t("Cancel")],
       input: "",
     });
     if (!r || r.button !== 0) return;
-    toast("Sending…", 8000);
+    toast(t("Sending…"), 8000);
     try {
       const code = await dx.report.send(r.value || "");
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
-      await dialog({ title: "Report sent", message: `Thanks! Your report code is ${code}.\nMention it when you ask for help so it can be matched to you.`, buttons: ["OK"] });
+      await dialog({ title: t("Report sent"), message: t("Thanks! Your report code is {code}.\nMention it when you ask for help so it can be matched to you.", { code }), buttons: [t("OK")] });
     } catch (err) {
       document.querySelectorAll(".dxtv-toast").forEach((n) => n.remove());
-      await dialog({ title: "Couldn't send the report", message: (err && err.message) || "Try again in a moment.", buttons: ["OK"] });
+      await dialog({ title: t("Couldn't send the report"), message: (err && err.message) || t("Try again in a moment."), buttons: [t("OK")] });
     }
   }
 
@@ -326,20 +395,20 @@
     el.className = "dxtv-modal";
     const values = () => readSettings(plugin);
     const shown = (o, v) => {
-      if (o.type === "toggle") return v ? "On" : "Off";
+      if (o.type === "toggle") return v ? t("On") : t("Off");
       if (o.type === "select") return ((o.options || []).find((x) => x.value === v) || {}).label || v;
-      return v ? "Set" : "Not set";
+      return v ? t("Set") : t("Not set");
     };
     const render = (focusKey) => {
       const current = values();
-      el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>Nathflix settings</h2>
+      el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>${esc(t("Nathflix settings"))}</h2>
         ${schema.map((o, i) => {
           const v = current[o.key] === undefined ? o.defaultValue : current[o.key];
           // a heading wherever a new group of settings starts
           const heading = o.group && o.group !== (schema[i - 1] || {}).group ? `<h3 class="dxtv-group">${esc(o.group)}</h3>` : "";
           return `${heading}<button class="dxtv-row" data-key="${esc(o.key)}"><span>${esc(o.label)}${o.description ? `<small>${esc(o.description)}</small>` : ""}</span><b>${esc(shown(o, v))}</b></button>`;
         }).join("")}
-        <div class="dxtv-buttons"><button class="dxtv-btn" data-close>Done</button></div></div>`;
+        <div class="dxtv-buttons"><button class="dxtv-btn" data-close>${esc(t("Done"))}</button></div></div>`;
       const target = (focusKey && el.querySelector(`[data-key="${CSS.escape(focusKey)}"]`)) || el.querySelector(".dxtv-row, .dxtv-btn");
       if (target) target.focus();
     };
@@ -391,11 +460,11 @@
     if (!content.querySelector(".dxtv-settings-entry")) {
       const entry = document.createElement("button");
       entry.className = "dxtv-row dxtv-settings-entry";
-      entry.innerHTML = `<span>Nathflix settings<small>Look, Home rows, previews, trailers, reviews, sounds and more</small></span><b>Open</b>`;
+      entry.innerHTML = `<span>${esc(t("Nathflix settings"))}<small>${esc(t("Look, Home rows, previews, trailers, reviews, sounds and more"))}</small></span><b>${esc(t("Open"))}</b>`;
       entry.addEventListener("click", settingsSheet);
       const server = document.createElement("button");
       server.className = "dxtv-row dxtv-settings-entry dxtv-server-entry";
-      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through Nathflix or Stremio running on a computer on your network, or on this ${NOUN} if you switch on Play torrents on this ${NOUN} (Nathflix settings). Debrid streams don't need either</small></span><b>Find</b>`;
+      server.innerHTML = `<span>${esc(t("Streaming server for torrents"))}<small>${esc(t("Torrents play through Nathflix or Stremio running on a computer on your network, or on {device} if you switch on Play torrents on {device} (Nathflix settings). Debrid streams don't need either", { device: THIS }))}</small></span><b>${esc(t("Find"))}</b>`;
       server.addEventListener("click", findServer);
       content.prepend(entry, server);
     }
@@ -404,7 +473,7 @@
     if (!(dx && dx.report && dx.report.enabled === true) || content.querySelector(".dxtv-report-entry")) return;
     const problem = document.createElement("button");
     problem.className = "dxtv-row dxtv-settings-entry dxtv-report-entry";
-    problem.innerHTML = `<span>Report a problem<small>Sends Nathflix's developer the details that help fix it (no passwords, keys or stream links)</small></span><b>Report</b>`;
+    problem.innerHTML = `<span>${esc(t("Report a problem"))}<small>${esc(t("Sends Nathflix's developer the details that help fix it (no passwords, keys or stream links)"))}</small></span><b>${esc(t("Report"))}</b>`;
     problem.addEventListener("click", reportProblem);
     content.querySelector(".dxtv-server-entry").after(problem);
   }
@@ -483,7 +552,7 @@
   }
 
   function subtitleLabel(lang) {
-    try { return new Intl.DisplayNames(["en"], { type: "language" }).of(lang) || lang; } catch (_) { return lang; }
+    try { return new Intl.DisplayNames([LANG], { type: "language" }).of(lang) || lang; } catch (_) { return lang; }
   }
 
   // Stremio's own settings (Settings → Player): the languages to start a video in
@@ -497,10 +566,11 @@
   }
 
   // Addons can offer dozens of subtitle files: keep up to three per language, with the Stremio
-  // subtitle language (and English) first, so the TV's subtitle menu stays short
+  // subtitle language (then Nathflix's language, then English) first, so the subtitle menu stays short
   async function pickSubtitles(list) {
     const preferred = (await profileSettings()).subtitlesLanguage || "";
-    const rank = (lang) => (lang === preferred ? 0 : /^(eng|en)$/.test(lang) ? 1 : 2);
+    const own = LANG === "fr" ? /^(fre|fra|fr)$/ : /^(eng|en)$/;
+    const rank = (lang) => (lang === preferred ? 0 : own.test(lang) ? 1 : /^(eng|en)$/.test(lang) ? 2 : 3);
     const count = {};
     const out = [];
     for (const sub of list.filter((x) => x && x.url).sort((a, b) => rank(a.lang || "") - rank(b.lang || ""))) {
@@ -572,9 +642,9 @@
       let onTv = readSettings(PLUGIN.replace(/\.plugin\.js$/, "")).tvTorrents === true;
       if (!onTv) {
         const choice = await dialog({
-          title: "This stream needs a streaming server",
-          message: `It's a torrent, and this ${NOUN} has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let this ${NOUN} download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on this ${NOUN}: Nathflix settings → Play torrents on this ${NOUN}.`,
-          buttons: ["Find one on my network", `Play it on this ${NOUN}`, "Cancel"],
+          title: t("This stream needs a streaming server"),
+          message: t("It's a torrent, and {device} has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let {device} download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on {device}: Nathflix settings → Play torrents on {device}.", { device: THIS }),
+          buttons: [t("Find one on my network"), t("Play it on {device}", { device: THIS }), t("Cancel")],
         });
         if (choice === 1 && location.hash === hash) onTv = true;
         else {
@@ -592,7 +662,7 @@
       if (!url) {
         handoff = null;
         history.back();
-        toast("Couldn't start the torrent. Try another stream.", 5000);
+        toast(t("Couldn't start the torrent. Try another stream."), 5000);
         return;
       }
     }
@@ -612,7 +682,7 @@
     const headers = (stream.behaviorHints && stream.behaviorHints.proxyHeaders && stream.behaviorHints.proxyHeaders.request) || {};
     // the stream's own subtitle files first, then the subtitle addons'
     const subtitles = await pickSubtitles([...(stream.subtitles || []), ...(state.subtitles || [])]);
-    const episode = video && video.season != null ? `S${video.season} E${video.episode}${video.title || video.name ? ` · ${video.title || video.name}` : ""}` : "";
+    const episode = video && video.season != null ? `${t("S{s} E{e}", { s: video.season, e: video.episode })}${video.title || video.name ? ` · ${video.title || video.name}` : ""}` : "";
 
     const profile = await profileSettings();
     // Skip intro / recap / credits: the times Nathflix has for this episode (looked up while the player
@@ -662,7 +732,7 @@
     const type = meta.type || (metaPath && metaPath.type) || "series";
     const metaId = meta.id || (metaPath && metaPath.id) || "";
     const streamsOf = (id) => `#/detail/${encodeURIComponent(type)}/${encodeURIComponent(metaId)}/${encodeURIComponent(id)}`;
-    const label = (v) => (v.season != null ? `S${v.season} E${v.episode}` : "") + (v.title || v.name ? ` · ${v.title || v.name}` : "");
+    const label = (v) => (v.season != null ? t("S{s} E{e}", { s: v.season, e: v.episode }) : "") + (v.title || v.name ? ` · ${v.title || v.name}` : "");
     const out = {};
     if (video && video.season != null && metaId) {
       out.episodes = (meta.videos || [])
@@ -708,7 +778,7 @@
     } else {
       handoff = null;
     }
-    if (error) toast(`This stream couldn't play: ${error}. Try another one.`, 7000);
+    if (error) toast(t("This stream couldn't play: {error}. Try another one.", { error }), 7000);
   }
 
   // The native player closed: the app keeps how (see PlaybackBus) until the page takes it

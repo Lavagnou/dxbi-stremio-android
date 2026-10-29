@@ -4647,6 +4647,19 @@ body[data-dx-kids] #app [class*="vertical-nav-bar"] a[href="#/settings"] {
     display: none !important;
 }
 
+/* ===========================================================================
+   FRENCH: the labels this theme writes itself, when Stremio's interface is in French (the plugin
+   sets html.dx-lang-fr)
+   =========================================================================== */
+html.dx-lang-fr #app nav[class*="vertical-nav-bar"] a[href="#/"] [class*="label"]::after { content: "Accueil"; }
+html.dx-lang-fr #app [class*="meta-item-container"] [class*="dismiss-icon-layer"]::before { content: "Retirer"; }
+html.dx-lang-fr #app [class*="player-container"] [class*="menu-layer"][class*="subtitles-menu-container"] [class*="languages-header"]::after { content: "Sous-titres"; }
+html.dx-lang-fr #app [class*="player-container"] [class*="menu-layer"][class*="subtitles-menu-container"] [class*="variants-header"]::after { content: "Source"; }
+html.dx-lang-fr #app [class*="player-container"] [class*="menu-layer"][class*="subtitles-menu-container"] [class*="settings-header"]::after { content: "Réglages"; }
+html.dx-lang-fr #app [class*="player-container"] [class*="menu-layer"][class*="audio-menu-container"] [class*="languages-header"]::after { content: "Audio"; }
+html.dx-lang-fr #app .enhanced-subtitle-customize-header::after { content: "Style"; }
+html.dx-lang-fr.dx-mobile #app nav[class*="vertical-nav-bar"] a[href="#/library"] [class*="label"]::after { content: "Ma liste"; }
+
 /* =====================================================================
    PHONES AND TABLETS (Nathflix for Android, html.dx-mobile): the page is laid out at the
    screen's own width and steered by touch. Tabs move to a bar along the bottom, rows are swiped

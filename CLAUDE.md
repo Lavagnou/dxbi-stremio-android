@@ -61,6 +61,11 @@ Le reste du dépôt :
   - `isMobile()` : ni mode télévision ni leanback.
   - `kind()` renvoie `tv`, `phone` ou `tablet` (tablette si `smallestScreenWidthDp >= 600`).
   - `noun()` donne le nom de l'appareil dans les messages.
+  - `thisOne()` et `theOne()` le donnent traduit (« ce téléphone », « la tablette »…).
+- **`Lang.kt`** : langue des écrans de l'app (lecteur, messages, mises à jour), celle de l'interface de Stremio.
+  - La page la transmet (`Bridge.setLanguage`), gardée dans les SharedPreferences `nathflix-lang`. Avant cela, c'est la langue de l'appareil qui décide.
+  - `Lang.text(ctx, R.string.x, …)` donne un texte ; `Lang.context(ctx, theme)` un contexte pour gonfler des vues.
+  - **Tout texte visible de l'app** va dans `res/values/strings.xml`, avec sa traduction dans `res/values-fr/strings.xml`.
 - **`MainActivity.kt`** : la WebView sur `https://web.stremio.com/`.
   - User-Agent desktop suivi de `nathflix-tv/<version>` sur TV ou `nathflix-mobile/<version>` sur téléphone et tablette. Ces marqueurs activent `IN_TV` ou `IN_MOBILE` dans le plugin.
   - **Téléphone et tablette** :
@@ -77,6 +82,8 @@ Le reste du dépôt :
   - Ajoute les entrées « Nathflix settings », « Streaming server for torrents » et « Report a problem » dans Settings.
   - Le viewport fait 1280 px CSS sur TV, la largeur de l'écran (`device-width`) sur téléphone et tablette.
   - `KIND` et `NOUN` adaptent les libellés à l'appareil (« this phone »…).
+  - **Langue** : `LANG` est lu comme le fait le plugin (`nathflix.lang`, sinon le profil Stremio). `t()` cherche dans son petit dictionnaire `FR`. La langue est transmise à l'app (`native.setLanguage`).
+  - **Voile du relais de lecture** (`veil()`) : un `#dxtv-veil` noir couvre la page dès le toucher d'un flux (`a[href^="#/player/"]`) et pendant `startHandoff`, pour que le lecteur de Stremio ne se voie jamais. `onRoute` le retire hors de `#/player/`.
   - La classe `dxtv-touch` adapte les fenêtres au doigt.
   - Gère le bouton Back de la télécommande.
   - Champs texte verrouillés jusqu'à OK :
@@ -86,7 +93,7 @@ Le reste du dépôt :
   - Fait le **handoff de lecture** (`startHandoff`) : quand Stremio ouvre `#/player/…`, le flux est envoyé au lecteur natif.
 - **`nathflix-tv.js` → lecteur (téléphone et tablette)** :
   - `mobilePlayback()` ajoute au JSON de `native.play` :
-    - `episodes` : la saison, chaque épisode avec sa `route` ;
+    - `episodes` : la saison, chaque épisode avec sa `route` et sa `thumbnail` ; `season` ;
     - `next` : `label` et `route` (le lecteur du prochain épisode si Stremio connaît son flux, `nextVideo.deepLinks.player`, sinon sa liste de flux) ;
     - `mobile` : `{ pip, background, autoNext }`, tirés des réglages.
   - `closeHandoff(…, playRoute)` remplace la page du lecteur par cette route (`replaceRoute`), sinon fait `history.back()`.
@@ -107,12 +114,15 @@ Le reste du dépôt :
     - épisode suivant automatique à la fin.
   - **Routes rendues à la page** : `finishWith(playRoute = …)` renvoie à la page la route où aller (épisode suivant ou épisode choisi), via `PlaybackBus.closed`.
   - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`).
-- **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`) : contrôles façon Netflix.
-  - Haut : retour, titre.
+- **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`, `mc_*.xml`) : contrôles, clone de ceux de Netflix, gonflés dans la langue de Nathflix (`Lang.context`).
+  - Haut : retour, titre sur une ligne, PiP.
   - Centre : −10 s, lecture, +10 s.
-  - Bas : barre de progression (`DefaultTimeBar`) et rangée Vitesse / Verrouiller / Épisodes / Audio et sous-titres / Épisode suivant.
+  - Bas : barre de progression (`DefaultTimeBar`) avec le temps restant, puis une rangée centrée de petits boutons (icône de 20 dp et libellé de 12 sp) : Vitesse (1x) / Verrouiller / Épisodes / Audio et sous-titres / Épisode suivant.
   - Gestes : tap, double tap ±10 s, glisser à gauche pour la luminosité et à droite pour le volume (pas près des bords haut et bas, réservés aux gestes d'Android).
-  - Panneaux Vitesse, Audio et sous-titres (pistes Media3 via `TrackSelectionOverride`), Épisodes.
+  - Panneaux faits en code dans `mc_panel_body` :
+    - Vitesse : cinq points sur une ligne ;
+    - Audio et sous-titres : deux colonnes ; le choix (`pickedAudio`, `pickedText`) n'est appliqué qu'à « Appliquer » (`TrackSelectionOverride`) ;
+    - Épisodes : cartes avec image (`Thumbs.kt` : OkHttp, cache mémoire) et résumé.
 - **`PlaybackService.kt`** : `MediaSessionService` (media3-session) qui garde le film en arrière-plan, avec la notification. La session appartient à `PlayerActivity`, qui la passe via `PlaybackService.session`.
 - **`PlaybackBus.kt`** : état de lecture partagé (`activePlayback`, `pendingClose`). Il survit au redémarrage de la page ou de `MainActivity` pendant une lecture.
 - **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>`.
@@ -129,7 +139,7 @@ Le reste du dépôt :
 
 - **Page → app** : `native.xxx()` dans `nathflix-tv.js`, qui appelle `bridge.xxx(TOKEN, …)`.
 - **App → page** : `MainActivity.js("window.__nathflixTv && window.__nathflixTv.xxx(...)")`.
-- **Plugin ↔ couche TV** : `window.__nathflixTv` (exposé par `nathflix-tv.js`) et `window.__nathflix` (exposé par le plugin : `skipSegments`, `report`, `closePreview`, `settings`…).
+- **Plugin ↔ couche TV** : `window.__nathflixTv` (exposé par `nathflix-tv.js`) et `window.__nathflix` (exposé par le plugin : `skipSegments`, `report`, `closePreview`, `settings`, `lang`, `t`…).
 
 ### Invariants à respecter
 
@@ -177,7 +187,13 @@ adb logcat -s nathflix nathflix-torrent
   - `IN_MOBILE` (`nathflix-mobile/`) pour téléphone et tablette : tactile, classe `html.dx-mobile`, pas de cartes de survol ;
   - `IN_ANDROID` (`IN_TV || IN_MOBILE`) pour tout ce qui tient au lecteur natif et à la WebView : fonctions du lecteur in-page mises de côté, bouton Cast, intro native ;
   - sinon, le plugin dans Stremio Enhanced.
-- `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés.
+- `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés ; `THIS_DEVICE` / `THE_DEVICE` le donnent traduit.
+- **Langue (français ou anglais)** : elle suit la langue de l'interface de Stremio (`interfaceLanguage`).
+  - `LANG` (« fr » ou « en ») et `LOCALE` sont fixés au chargement : la langue vue en dernier dans le core (`localStorage` `nathflix.lang`), sinon le profil Stremio.
+  - `langWatch` (dans `sync()`) recharge la page quand la langue change, jamais pendant un film.
+  - **Tout texte visible passe par `t("English text", { vars })`**, avec sa traduction dans `frDictionary()` (en fin de fichier, juste avant `anime4kShaders()`). La clé est le texte anglais exact, et `{nom}` est rempli par `t()`. Un texte absent du dictionnaire reste en anglais.
+  - Dates : `LOCALE`. Les libellés écrits en CSS par le thème ont leur variante `html.dx-lang-fr` (bloc « FRENCH » du thème).
+- **Réglages Stremio par défaut** (`profileDefaults`) : interface et audio en français (`"fre"`), pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
 - Organisé en sections délimitées par `// ----…` puis un titre. Pour s'y retrouver :
 
 ```bash
@@ -185,7 +201,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 ```
 
 - **Ajouter un réglage** :
-  - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS` ;
+  - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS`, libellés et description en `t("…")`, avec leur traduction dans `frDictionary()` ;
   - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
   - s'il ne concerne que téléphone et tablette, ajouter `mobileOnly: true` (exemples : `mobilePip`, `backgroundPlay`, `autoNext`) ;
   - s'il n'a pas de sens au doigt, ajouter sa clé au `Set` `NOT_ON_TOUCH` de `nathflix-tv.js` ;
@@ -203,6 +219,11 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - `titleSheet` : un tap sur un poster (Accueil, Recherche, Découvrir, Bibliothèque ; sauf Reprendre) ouvre une feuille en bas de l'écran, avec Play ou Resume, My List, Hide et « Episodes & info ». Back la ferme (`closePreview`).
   - `mobileChips` : puces Shows, Movies et My List en haut de l'accueil, qui mènent aux catalogues « top » de Cinemeta.
   - Leur CSS (`.dxm-*`) est dans `EXTRAS_CSS`, toujours chargé.
+- **Partout** :
+  - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`, replacé par le thème dans le coin de la miniature).
+  - `episodePlay` : bouton « Lancer l'épisode » (« Lecture » pour un film) avant la bande-annonce, sur la page des flux. Il clique la première source affichée (sans `data-dx-hide`, plus petit `style.order`).
+  - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris).
+  - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
 
