@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Nathflix installer for Stremio Enhanced (Linux / macOS)
-#   curl -fsSL https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.sh | bash
 set -euo pipefail
 
-BASE_URL="${NATHFLIX_BASE_URL:-https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download}"
+BASE_URL="${NATHFLIX_BASE_URL:-https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main}"
 
 case "$(uname -s)" in
   Darwin) DATA="$HOME/Library/Application Support/stremio-enhanced" ;;

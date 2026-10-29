@@ -148,13 +148,13 @@ You can add Nathflix to [Stremio Enhanced](https://github.com/REVENGE977/stremio
 1. Run one command. On Windows, open *PowerShell* and paste:
 
    ```powershell
-   irm https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.ps1 | iex
+   irm https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.ps1 | iex
    ```
 
    On macOS or Linux, open *Terminal* and paste:
 
    ```bash
-   curl -fsSL https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/install.sh | bash
    ```
 
 2. Restart Stremio Enhanced.
@@ -167,7 +167,7 @@ Updates are offered automatically inside Stremio Enhanced.
 <summary>Prefer to install the plugin by hand?</summary>
 <br>
 
-1. Download [`nathflix.plugin.js`](https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/nathflix.plugin.js).
+1. Download [`nathflix.plugin.js`](https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/nathflix.plugin.js) (your browser may open it as text: save the page as `nathflix.plugin.js`).
 2. In Stremio Enhanced, go to *Settings → Enhanced*, open *Open Plugins Folder* and put the file there.
 3. Restart and switch the plugin on.
 

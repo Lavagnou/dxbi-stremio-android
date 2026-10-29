@@ -1,6 +1,7 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
+- **Lighter release pages.** A release now only carries the apps: Windows (installer and portable), Mac, Linux and Android, plus the small files the desktop app's automatic updates read. The Stremio Enhanced plugin and its install commands come straight from this repository (see the README), and the Android app reads its plugin updates from there too.
 - **Resume a series really shows up.** The *Resume* / *Play* button on a series' page never appeared: Nathflix read Stremio's title details at the wrong place. It now shows, and plays the first stream once every addon has answered.
 - **No ✕ on Continue Watching cards.** It was too easy to hit by accident; *Dismiss* is still in the card's ⋮ menu (or hold the card).
 - **Profiles made like Netflix's.** The profile picture at the top right (in place of Stremio's account menu) opens Who's watching, now drawn like Netflix: big square pictures, *Edit* / *Manage profiles*, then a page for each profile (icon, name, kids profile, profile lock, hidden titles, delete), the icon picker, and Netflix's profile lock screen.

@@ -24,8 +24,9 @@ object Updates {
     // Nathflix's own releases, never dx.bi's (Nathflix is based on it): its plugin would replace this
     // one as soon as its version is higher, and its APK is signed with another key (Android won't install it)
     private const val REPO = "lavagnou/dxbi-stremio-android"
-    // The plugin from the latest release, not the main branch: unreleased work never reaches TVs
-    private const val PLUGIN_URL = "https://github.com/$REPO/releases/latest/download/nathflix.plugin.js"
+    // The plugin as it is in the latest release (its tag), not the main branch: unreleased work never
+    // reaches TVs. Releases don't carry the plugin as a file any more: it's read from the repository
+    private fun pluginUrl(tag: String) = "https://raw.githubusercontent.com/$REPO/$tag/nathflix.plugin.js"
     private const val RELEASES_URL = "https://api.github.com/repos/$REPO/releases/latest"
     private const val APK_ASSET = "nathflix-tv.apk"
     private const val UPDATED_PLUGIN = "nathflix.plugin.js"
@@ -56,7 +57,8 @@ object Updates {
 
     fun checkPlugin(context: Context) = thread(name = "nathflix-plugin-update") {
         try {
-            val text = get(PLUGIN_URL) ?: return@thread
+            val tag = JSONObject(get(RELEASES_URL) ?: return@thread).optString("tag_name").ifEmpty { return@thread }
+            val text = get(pluginUrl(tag)) ?: return@thread
             if (!text.contains("@name Nathflix")) return@thread
             if (isNewer(version(text), version(pluginSource(context)))) {
                 // Written next to it and swapped in whole: a half-written copy (power cut, app closed)

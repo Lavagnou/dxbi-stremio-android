@@ -36,8 +36,11 @@ Le reste du dépôt :
   5. lancer `release.yml` : soit pousser le tag (`git tag vX.Y.Z && git push origin vX.Y.Z`), soit le lancer à la main avec la version (Actions → Release → Run workflow, ou l'API `run_workflow` avec `inputs.version`). Lancé à la main, il pose lui-même le tag sur le commit où il tourne. En session cloud, pousser un tag est refusé (403) : passer par le lancement manuel (outil GitHub `actions_run_trigger`). Le workflow fait le reste :
      - il vérifie que le tag correspond à `@version` et à une section `## X.Y.Z` du CHANGELOG ;
      - il publie la release avec ces notes et une liste de téléchargements ;
-     - il y joint `nathflix.plugin.js`, `install.sh` et `install.ps1` ;
-     - il appelle `tv.yml` (APK signée) et `app.yml` (apps desktop).
+     - il appelle `tv.yml` (APK signée) et `app.yml` (apps desktop, avec `latest*.yml` et `.blockmap` pour leur mise à jour automatique).
+
+     **Une release ne porte que les apps** (choix de l'utilisateur) : exe d'installation et portable, dmg Mac ×2, AppImage Linux ×2, APK, plus `latest*.yml` et `.blockmap`. Ni le plugin ni les installeurs ne sont joints :
+     - Stremio Enhanced et les installeurs (`install.sh`, `install.ps1`, README) prennent les fichiers de `main` (`raw.githubusercontent.com/…/main/`) ;
+     - l'app Android prend le plugin au tag de la dernière release (`Updates.checkPlugin`).
 
      Une release créée par le jeton du workflow ne déclenche pas l'événement `release` : d'où les appels `workflow_call`.
 - **Ne jamais modifier à la main** la chaîne du thème intégrée au plugin. Modifier `nathflix.theme.css`, puis relancer le script.

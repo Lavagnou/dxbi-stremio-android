@@ -83,6 +83,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
 | T-024 | Bouton « Lecture » absent de la page d'une série ; croix de Continuer de regarder retirée | À valider | P1 | plugin | T-016 | 2026-10-29 |
 | T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
+| T-026 | Release 0.3.0 ; releases sans plugin ni installeurs | En cours | P1 | release | — | 2026-10-29 |
 
 ---
 
@@ -1252,6 +1253,43 @@ On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué
 - Captures relues, téléphone et TV.
 - Non vérifié : la vraie barre de Stremio sur l'appareil.
 
+### T-026 — Release 0.3.0 et fichiers des releases
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`, puis `main`
+
+**Demande**
+> J'aimerais que tu me fasse une nouvelle release (sans l'apk signé du coup, pas grave). Mais par contre, pour les release je voudrais garder seulement les fichiers exe windows portable et setup, les deux images linux, les deux images mac, et l'apk. Le reste je voudrais l'enlever
+
+Réponses ensuite :
+- garder `latest*.yml` et `.blockmap` (mise à jour automatique de l'app desktop) ;
+- fusionner dans `main` puis faire la release ;
+- ne pas toucher à v0.2.0 ;
+- version 0.3.0.
+
+**Critères d'acceptation**
+- [x] La release ne joint plus `nathflix.plugin.js`, `install.sh` ni `install.ps1`
+- [x] La mise à jour du plugin sur Android lit `raw.githubusercontent.com/<dépôt>/<tag>/nathflix.plugin.js`
+- [x] Les installeurs, le README et la CI pointent vers les fichiers de `main`
+- [x] `@version 0.3.0`, section `## 0.3.0` du CHANGELOG
+- [ ] PR fusionnée dans `main`
+- [ ] Release v0.3.0 publiée : exe (installation, portable), dmg ×2, AppImage ×2, `latest*.yml`, `.blockmap` ; l'APK manque (pas de clé)
+
+**Notes techniques**
+- `release.yml` : `gh release create` sans fichiers. Les notes renvoient vers le README pour le plugin.
+- `Updates.checkPlugin` : la dernière release (`RELEASES_URL`), puis le plugin au tag de cette release. Jamais le travail en cours.
+- `install.sh` / `install.ps1` : `BASE_URL` par défaut = `https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main`.
+- `cross-platform.yml` : les one-liners du README sont testés depuis `main` (ils l'étaient depuis la dernière release).
+
+**Vérification**
+- `node --check`, `bash -n install.sh`, section `## 0.3.0` lue comme `release.yml` (30 lignes).
+- `main/install.sh` répond (200).
+
 <!--
 ### T-000 — Titre court
 
@@ -1303,6 +1341,7 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 | Date | Décision | Raison | Tâche |
 |---|---|---|---|
+| 2026-10-29 | Les releases ne portent que les apps : exe (installation, portable), dmg, AppImage, APK, plus `latest*.yml` et `.blockmap` (mise à jour automatique du desktop). Le plugin et les installeurs sont servis depuis le dépôt : `main` pour Stremio Enhanced, le tag de la release pour l'app Android. | Choix de l'utilisateur : des pages de release plus simples | T-026 |
 | 2026-10-29 | Téléphones et tablettes : une seule APK qui s'adapte. Marqueur `nathflix-mobile/` (User-Agent), `IN_MOBILE` / `IN_ANDROID` dans le plugin, `html.dx-mobile` dans le thème. Page à `device-width` ; la TV garde 1280 px. | Choix de l'utilisateur (une seule APK) ; un mode distinct évite de dégrader la TV | T-004 |
 | 2026-10-29 | Rotation libre pour la navigation, vidéo en paysage. | Choix de l'utilisateur | T-004 |
 | 2026-10-29 | APK de test « Nathflix Dev » construite par GitHub Actions (pré-release `dev`, suffixe `.dev`, clé de dev commitée). | L'utilisateur teste sur son téléphone sans Android Studio ; c'est aussi la vérification de compilation Kotlin en cloud | T-004 |
@@ -1329,6 +1368,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-026 | Créée : release 0.3.0, releases réduites aux apps ; en cours (PR vers main, puis release) |
 | 2026-10-29 | T-024, T-025 | Bouton Lecture d'une série corrigé (forme de `meta_details`), croix de Continuer retirée, profils façon Netflix, bouton profil, menu du compte dans les Réglages. Testés (Playwright). APK de test publiée |
 | 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
 | 2026-10-29 | T-018 à T-020 | Revue complète (rapport), puis corrections à la demande de l'utilisateur ; testées (Playwright avant/après, CI). APK de test publiée |
