@@ -65,12 +65,12 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
 | T-007 | Pas de piste audio sur certains épisodes (Dolby, DTS, TrueHD), puis release 0.2.0 | Bloqué | P0 | tv, ci | T-006 | 2026-10-29 |
-| T-008 | Réglages par défaut (UI et audio en français, sans sous-titres, épisodes floutés) ; plus de fenêtre d'addons au démarrage | En cours | P1 | plugin | — | 2026-10-29 |
-| T-009 | Tout en français (et en anglais), selon la langue de l'interface | En cours | P1 | plugin, tv | — | 2026-10-29 |
-| T-010 | Accueil : Continuer de regarder avant Airing, puces, 3 points et appui long sur les cartes | En cours | P1 | plugin | — | 2026-10-29 |
-| T-011 | Glisser-déposer pour réordonner les addons | En cours | P2 | plugin | — | 2026-10-29 |
-| T-012 | Bouton « Lancer l'épisode » qui lance la première source | En cours | P1 | plugin | — | 2026-10-29 |
-| T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | En cours | P1 | tv | T-006 | 2026-10-29 |
+| T-008 | Réglages par défaut (UI et audio en français, sans sous-titres, épisodes floutés) ; plus de fenêtre d'addons au démarrage | À valider | P1 | plugin | — | 2026-10-29 |
+| T-009 | Tout en français (et en anglais), selon la langue de l'interface | À valider | P1 | plugin, tv | — | 2026-10-29 |
+| T-010 | Accueil : Continuer de regarder avant Airing, puces, 3 points et appui long sur les cartes | À valider | P1 | plugin | — | 2026-10-29 |
+| T-011 | Glisser-déposer pour réordonner les addons | À valider | P2 | plugin | — | 2026-10-29 |
+| T-012 | Bouton « Lancer l'épisode » qui lance la première source | À valider | P1 | plugin | — | 2026-10-29 |
+| T-013 | Lecteur téléphone : clone de l'UI Netflix, panneaux, plus de flash du lecteur Stremio | À valider | P1 | tv | T-006 | 2026-10-29 |
 
 ---
 
@@ -605,7 +605,7 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 
 ### T-008 — Réglages par défaut et fenêtre d'addons
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P1
 - **Cible :** plugin
 - **Dépend de :** —
@@ -631,11 +631,12 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - **`offerPack()`** et son `setTimeout` dans `start()` sont supprimés.
 
 **Vérification**
-- (à compléter)
+- Playwright (UA mobile, faux core) : `UpdateSettings` envoyé une seule fois avec `fre` / `fre` / `null` / `true` ; rien de plus après rechargement de la page.
+- Non vérifié : sur le vrai Stremio (core, compte connecté).
 
 ### T-009 — Tout en français (et en anglais), selon la langue de l'interface
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P1
 - **Cible :** plugin, tv
 - **Dépend de :** —
@@ -647,9 +648,9 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 > il manque des éléments comme le "Airing this week" qui ne sont pas traduits en français, vu que c'est une app pour moi principalement, je veux que tout soit bien en français partout (tout en gardant l'anglais, il faut les deux, et que ça suive la langue de l'interface choisi)
 
 **Critères d'acceptation**
-- [ ] Plugin : tout texte visible passe par `t()` (dictionnaire `FR`, clé = texte anglais), selon `interfaceLanguage`
-- [ ] Thème : libellés posés en CSS traduits (`html.dx-lang-fr`)
-- [ ] `nathflix-tv.js` : dialogues et réglages traduits ; langue envoyée à l'app (`setLanguage`)
+- [x] Plugin : tout texte visible passe par `t()` (dictionnaire `FR`, clé = texte anglais), selon `interfaceLanguage`
+- [x] Thème : libellés posés en CSS traduits (`html.dx-lang-fr`)
+- [x] `nathflix-tv.js` : dialogues et réglages traduits ; langue envoyée à l'app (`setLanguage`)
 - [x] App Android : textes dans `strings.xml` et `values-fr/strings.xml`, langue suivie par `Lang.kt`
 - [ ] Vérifié sur l'appareil
 
@@ -662,11 +663,16 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - **Bridge** : `setLanguage(token, lang)`, détectée avant usage côté page.
 
 **Vérification**
-- (à compléter)
+- `frDictionary()` : 709 entrées ; script de vérification : 652 clés `t()` utilisées, 0 absente du dictionnaire, 0 inutilisée, 0 `{…}` incohérent.
+- Playwright en français (`interfaceLanguage: "fre"`) : puces « Séries / Films / Ma liste », « Lancer l'épisode », fenêtre « Ordre et sauvegarde des addons », `html.dx-lang-fr`, langue transmise à l'app (`setLanguage("fr")`), aucune erreur de page. En anglais : textes d'origine.
+- CI `android-dev.yml` : les textes Android (`values-fr`) compilent (debug et release R8).
+- Non vérifié : les libellés de Stremio lui-même (traduits par Stremio) et le rendu sur l'appareil.
+- Laissé en anglais exprès : textes de support (rapport, « Copy details »), noms de marques, critiques Wikidata/TMDB (sources anglaises).
+- Logique qui dépendait d'un texte affiché, corrigée : `hideButton` (drapeau `on`), bouton Statistics de Stremio (`data-dx-icon`), filtres de flux (valeurs gardées en anglais), `playbackHelp` (regex étendue au français, à vérifier sur un Stremio en français).
 
 ### T-010 — Accueil : ordre des rangées, puces, 3 points et appui long
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P1
 - **Cible :** plugin
 - **Dépend de :** —
@@ -690,11 +696,12 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - **Appui long** : écouteurs `pointer*` en capture sur `window`. `menu.click()` ouvre le menu de Stremio ; le clic qui suit est avalé. `fired` est posé *après* `menu.click()`, sinon ce clic-là serait avalé aussi. CSS `-webkit-touch-callout: none` sur les cartes (mobile).
 
 **Vérification**
-- (à compléter)
+- Playwright : appui long de 700 ms sur une carte de Continuer de regarder, le menu s'ouvre une fois et la page ne bouge pas ; un tap ouvre toujours le titre. Les puces finissent au-dessus de la rangée (160 px < 168 px), en `position: absolute`.
+- Non vérifié : position des 3 points avec le vrai CSS de Stremio ; ordre Airing / Continuer de regarder (pas de données d'épisodes dans le faux core).
 
 ### T-011 — Glisser-déposer pour réordonner les addons
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P2
 - **Cible :** plugin
 - **Dépend de :** —
@@ -714,11 +721,11 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - `addonTools.wireDrag()` : Pointer Events à la place du drag HTML5 (qui ne marche pas au doigt dans une WebView). Branché une fois sur `.dxe-list` (`render()` reconstruit les lignes). Positions mesurées au départ, en coordonnées du contenu de la liste (le défilement pendant le glisser ne les fausse pas). `move(from, to)` et `apply()` inchangés.
 
 **Vérification**
-- (à compléter)
+- Playwright au doigt (événements tactiles CDP) : Cinemeta glissé de la 1re à la 3e place, « Enregistrer l'ordre » activé.
 
 ### T-012 — Bouton « Lancer l'épisode »
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P1
 - **Cible :** plugin
 - **Dépend de :** —
@@ -740,11 +747,11 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Avec le bouton présent, la bande-annonce passe en bouton sombre.
 
 **Vérification**
-- (à compléter)
+- Playwright : bouton placé avant la bande-annonce, il ouvre la première source affichée (`#/player/…`), la source masquée est ignorée.
 
 ### T-013 — Lecteur téléphone : clone de l'UI Netflix, sans flash du lecteur Stremio
 
-- **Statut :** En cours
+- **Statut :** À valider (test sur l'appareil)
 - **Priorité :** P1
 - **Cible :** tv
 - **Dépend de :** T-006
@@ -773,7 +780,9 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Textes du lecteur dans `strings.xml` (voir T-009).
 
 **Vérification**
-- (à compléter)
+- Playwright : le voile (`#dxtv-veil`, spinner) est posé dès le toucher du flux, puis retiré au retour hors de `#/player/`.
+- CI `android-dev.yml` (commit d186daf) : build debug et release R8 réussies avec le nouveau lecteur.
+- Non vérifié : le rendu du lecteur sur un téléphone (pas d'émulateur ici).
 
 <!--
 ### T-000 — Titre court
@@ -852,6 +861,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-008 à T-013 | Implémentées et testées (Playwright, CI) ; APK de test publiée ; à valider sur l'appareil |
 | 2026-10-29 | T-008 à T-013 | Créées : retours sur l'APK de test (réglages par défaut, traductions, accueil, addons, Lancer l'épisode, lecteur Netflix) ; en cours |
 | 2026-10-29 | T-007 | Release v0.2.0 publiée (desktop, plugin, installeurs) ; APK bloquée faute de clé de signature dans les secrets |
 | 2026-10-29 | T-007 | Créée : pas de son sur certains épisodes (pas de décodeur logiciel) ; FFmpeg ajouté ; release 0.2.0 en préparation |
