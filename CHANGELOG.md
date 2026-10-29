@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0
+- **Sound on every episode.** Episodes whose audio is Dolby Digital, Dolby Digital+ (E-AC3), DTS or TrueHD played silently on phones (and on TVs without those decoders) while Stremio played them fine: the Android app now decodes them itself when the device can't. The player's Audio & Subtitles panel names each track's format, and greys out (with why) any track this device still can't play.
+- **Nathflix on phones and tablets: signing in works.** Tapping the e-mail or password box now brings up the keyboard: boxes no longer wait for a TV remote's OK button (the remote works as before).
+- **Phones and tablets get their own layout.** The page fits the screen instead of a TV's, with the tabs in a bar along the bottom, three posters per row when the phone is upright, swipeable rows, and Continue Watching's play and remove buttons always showing. The status and navigation bars stay, nothing hides under a notch or behind the keyboard, the screen can go to sleep while you browse, and a tap skips the intro.
+- **Settings and messages made for touch.** Nathflix settings and its dialogs fit a phone's screen, nothing stays highlighted after a tap, hover-card options are left out (there's no hover on a touch screen), and messages say "this phone" or "this tablet" instead of "this TV".
+- **The player fits a phone.** Its title, Skip button and seek feedback are sized for a phone, and stay clear of a notch. TVs look as before.
+- **A Netflix-style player on phones and tablets.** Back and title at the top, −10 s / play / +10 s in the middle, the seek bar with the time left, and Speed, Lock, Episodes, Audio & Subtitles and Next Episode along the bottom. Tap to show or hide them, double tap on the left or right to skip 10 seconds, slide up or down on the left for brightness and on the right for volume. Lock keeps stray touches away while you watch. TVs keep their remote-friendly player.
+- **Next episode, like Netflix.** During the credits (or the last half minute) Next episode takes the Skip button's place, and the next episode starts by itself when one ends (*Play the next episode automatically* in Nathflix settings). It plays the same release when Stremio has it, otherwise its list of streams opens. Episodes picks any episode of the season.
+- **Picture-in-picture and playing in the background.** Leaving Nathflix while something plays keeps it going in a small window (closing the window closes the player, keeping your place). With the screen off, the sound carries on, with play and pause in the notification and on the lock screen. Both can be switched off in Nathflix settings → Player.
+- **Tapping a title opens its sheet**, like Netflix's app: its poster, year, rating and description, Play (or Resume S1 E3 where you stopped), My List, Hide, and *Episodes & info* for its page. Continue Watching still resumes straight away.
+- **Phone pages laid out for a phone.** A title's page is one column: the picture, then its details and buttons (Play or Trailer across the width), then its episodes or streams. Home has Shows, Movies and My List chips at the top and a tall billboard when the phone is upright; Discover and Library show three posters a row; "Library" is "My List"; Settings lists its sections above them; messages and windows stay clear of the tab bar.
+
+## 0.1.0
+- **Nathflix's first version.** Nathflix is based on dx.bi 2.21.0: everything dx.bi does is here, under the name Nathflix (app, TV app, plugin, installers, files and folders). Its data lives in its own folders, so it starts fresh next to dx.bi rather than replacing it.
+- **Updates come from Nathflix's own releases.** The TV app, the desktop app and the plugin only ever update to a Nathflix release.
+- **Report a problem and the Discord status are off for now.** They used dx.bi's own services; they come back once Nathflix has its own.
+
+Everything below is dx.bi's history, up to 2.21.0, which Nathflix 0.1.0 is based on.
+
 ## 2.21.0
 - **Every viewer has their own library.** A new viewer in *Who's watching?* now starts with an empty Library and Continue Watching instead of seeing everyone else's. What a viewer adds or plays goes in their library only; everything that was already in your account stays with the first viewer. Removing a title (or dismissing it from Continue Watching) that someone else also has only takes it out of yours, and removing a viewer clears the titles only they had. Calendar, new episode badges, Airing this week and stats follow the viewer too. Addons stay shared. Two viewers watching the same title still share its progress: that's kept by the Stremio account.
 - **dx.bi TV on phones and tablets: the keyboard opens again.** Tapping the email or password box on the login screen (or Search) did nothing on phones like the Galaxy S25: text boxes waited for the remote's OK button. A tap now types straight away; the remote works as before.

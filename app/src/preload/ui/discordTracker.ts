@@ -3,7 +3,7 @@ import PlaybackState from "../../utils/PlaybackState";
 import DiscordPresence from "../../core/DiscordPresence";
 import { nativePlayback, nativePlayerActive } from "../mpvShell";
 
-// What's playing: mpv's state when dx.bi plays through mpv, otherwise the page's <video>
+// What's playing: mpv's state when Nathflix plays through mpv, otherwise the page's <video>
 function currentVideo(): HTMLVideoElement | null {
     if (nativePlayerActive) {
         return nativePlayback as unknown as HTMLVideoElement;
@@ -21,14 +21,14 @@ export const discordTracker = {
         // switching presence off and on calls this again: one listener, not one per switch
         window.removeEventListener('hashchange', discordTracker.handleNavigation);
         window.addEventListener('hashchange', discordTracker.handleNavigation);
-        window.removeEventListener('dxbi-discord-ready', discordTracker.handleNavigation);
-        window.addEventListener('dxbi-discord-ready', discordTracker.handleNavigation);
+        window.removeEventListener('nathflix-discord-ready', discordTracker.handleNavigation);
+        window.addEventListener('nathflix-discord-ready', discordTracker.handleNavigation);
         discordTracker.handleNavigation();
     },
 
     stop: () => {
         window.removeEventListener('hashchange', discordTracker.handleNavigation);
-        window.removeEventListener('dxbi-discord-ready', discordTracker.handleNavigation);
+        window.removeEventListener('nathflix-discord-ready', discordTracker.handleNavigation);
     },
 
     handleNavigation: () => {

@@ -1,0 +1,87 @@
+name: Release
+
+# Publishes a release of Nathflix, in either of two ways:
+#   - push a version tag:          git tag v0.2.0 && git push origin v0.2.0
+#   - or run it by hand (Actions → Release → Run workflow, or the API) with the version: it tags the
+#     commit it runs on
+# The version must match @version in nathflix.plugin.js and a "## 0.2.0" section of CHANGELOG.md,
+# which becomes the release notes. The plugin and its installers are attached, then the Android app
+# (tv.yml: signed with the release key in the repository's secrets) and the desktop apps (app.yml)
+# are built and added to it. (A release made with the workflow's own token starts no "release"
+# event, hence the calls.)
+on:
+  push:
+    tags: ["v*"]
+    # Also runs (doing nothing) when this file changes on a branch: GitHub only lets a workflow be run
+    # by hand once it has run at least once or is on the default branch
+    branches: ["**"]
+    paths: [".github/workflows/release.yml"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 0.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag
+        id: tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then tag="v${VERSION#v}"; else tag="$GITHUB_REF_NAME"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Release notes
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          version="${TAG#v}"
+          grep -q "@version $version\$" nathflix.plugin.js || { echo "::error::nathflix.plugin.js isn't @version $version"; exit 1; }
+          awk -v v="## $version" '$0 == v {on = 1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "::error::CHANGELOG.md has no \"## $version\" section"; exit 1; }
+          base="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG"
+          {
+            echo
+            echo "## Download"
+            echo
+            echo "- **Android** (phones, tablets, Android TV, Google TV, Fire TV): [nathflix-tv.apk]($base/nathflix-tv.apk)"
+            echo "- **Windows**: [installer]($base/nathflix-Setup-x64.exe) · [portable]($base/nathflix-portable-x64.exe)"
+            echo "- **Mac**: [Apple chip]($base/nathflix-mac-arm64.dmg) · [Intel]($base/nathflix-mac-x64.dmg)"
+            echo "- **Linux**: [x86_64]($base/nathflix-linux-x86_64.AppImage) · [ARM]($base/nathflix-linux-arm64.AppImage)"
+            echo "- **Stremio Enhanced plugin**: [nathflix.plugin.js]($base/nathflix.plugin.js)"
+          } >> notes.md
+          cat notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # a pushed tag is used as it is; run by hand, the release tags this commit
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then where="--verify-tag"; else where="--target $GITHUB_SHA"; fi
+          gh release create "$TAG" nathflix.plugin.js install.sh install.ps1 $where --title "Nathflix ${TAG#v}" --notes-file notes.md
+
+  android:
+    needs: publish
+    uses: ./.github/workflows/tv.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}
+    secrets: inherit
+
+  desktop:
+    needs: publish
+    uses: ./.github/workflows/app.yml
+    with:
+      tag: ${{ needs.publish.outputs.tag }}
+    secrets: inherit

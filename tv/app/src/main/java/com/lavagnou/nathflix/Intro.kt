@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.content.Context
 import android.graphics.ColorMatrix
@@ -19,7 +19,7 @@ import kotlin.math.sin
 /**
  * The intro film, played by the TV itself over the page while it loads. The page can't afford it
  * (decoding AV1 in the web engine stopped 2 GB sticks), but every TV decodes H.264 in hardware, so
- * here it costs next to nothing. Follows dx.bi's Intro animation, Intro sound, Sound volume and accent.
+ * here it costs next to nothing. Follows Nathflix's Intro animation, Intro sound, Sound volume and accent.
  */
 class Intro(private val activity: MainActivity, private val parent: FrameLayout) {
 
@@ -33,11 +33,15 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
 
     fun start() {
         val settings = try {
-            JSONObject(activity.getSharedPreferences("plugin-settings", Context.MODE_PRIVATE).getString("dxbi", "{}") ?: "{}")
+            JSONObject(activity.getSharedPreferences("plugin-settings", Context.MODE_PRIVATE).getString("nathflix", "{}") ?: "{}")
         } catch (_: Exception) { JSONObject() }
         if (!settings.optBoolean("splash", true)) return
 
-        val box = FrameLayout(activity).apply { setBackgroundColor(0xFF000000.toInt()) }
+        val box = FrameLayout(activity).apply {
+            setBackgroundColor(0xFF000000.toInt())
+            // A tap skips it (phones and tablets), and never reaches the page underneath
+            setOnClickListener { skip() }
+        }
         val video = TextureView(activity)
         accentPaint(settings.optString("accent", "red"))?.let { video.setLayerPaint(it) }
         this.video = video
@@ -82,7 +86,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         main.postDelayed({ finish() }, 7500) // safety net
     }
 
-    /** OK, Back or a click skips it */
+    /** OK, Back or a tap skips it */
     fun skip() = finish()
 
     private fun finish() {
@@ -148,7 +152,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
     }
 
     companion object {
-        // dx.bi's accent colours (ACCENTS in dxbi.plugin.js)
+        // Nathflix's accent colours (ACCENTS in nathflix.plugin.js)
         private val ACCENTS = mapOf(
             "red" to 0xFFE50914.toInt(),
             "crimson" to 0xFFD81F3C.toInt(),

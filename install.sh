@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# dx.bi installer for Stremio Enhanced (Linux / macOS)
-#   curl -fsSL https://github.com/notdxbi/dxbi-stremio/releases/latest/download/install.sh | bash
+# Nathflix installer for Stremio Enhanced (Linux / macOS)
+#   curl -fsSL https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download/install.sh | bash
 set -euo pipefail
 
-BASE_URL="${DXBI_BASE_URL:-https://github.com/notdxbi/dxbi-stremio/releases/latest/download}"
+BASE_URL="${NATHFLIX_BASE_URL:-https://github.com/lavagnou/dxbi-stremio-android/releases/latest/download}"
 
 case "$(uname -s)" in
   Darwin) DATA="$HOME/Library/Application Support/stremio-enhanced" ;;
@@ -13,7 +13,7 @@ esac
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }
 red()  { printf '\033[1;31m%s\033[0m\n' "$*"; }
 
-bold "DX.BI — installing into: $DATA"
+bold "NATHFLIX — installing into: $DATA"
 mkdir -p "$DATA/plugins"
 
 tmp="$(mktemp -d)"
@@ -27,8 +27,8 @@ fetch() {
   else
     wget -qO "$tmp/$name" "$BASE_URL/$name"
   fi
-  # sanity check: the file must be the real dx.bi mod, not an error page
-  if ! head -c 400 "$tmp/$name" | grep -q "@name dx.bi"; then
+  # sanity check: the file must be the real Nathflix mod, not an error page
+  if ! head -c 400 "$tmp/$name" | grep -q "@name Nathflix"; then
     echo
     red "Download of $name looks wrong — aborting, nothing was changed."
     exit 1
@@ -37,12 +37,12 @@ fetch() {
   echo " ok"
 }
 
-fetch dxbi.plugin.js "$DATA/plugins"
+fetch nathflix.plugin.js "$DATA/plugins"
 
 echo
 bold "Done. Now in Stremio Enhanced:"
 echo "  1. Restart the app"
-echo "  2. Settings → Enhanced → Plugins → switch \"dx.bi\" on (the theme is built in)"
+echo "  2. Settings → Enhanced → Plugins → switch \"Nathflix\" on (the theme is built in)"
 echo
 echo "Made for Stremio Enhanced 1.2.0 (the latest full release, not a preview build)."
 echo "Tip: turn off Dynamic Hero, Horizontal Navigation, Enhanced Covers and Enhanced Title Bar if you use them."

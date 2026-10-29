@@ -337,7 +337,7 @@ class StremioService {
     /**
      * Windows: Stremio Service's download ships ffmpeg/ffprobe builds that need DLLs it leaves out,
      * so they can't start (0xC0000135) and videos that need probing or converting fail. Replaces
-     * them with the self-contained build dx.bi uses for its own streaming server. Runs once per
+     * them with the self-contained build Nathflix uses for its own streaming server. Runs once per
      * launch, in the background; the service starts ffprobe per video, so it picks up the new copy.
      */
     public static repairFFmpeg(): Promise<void> {

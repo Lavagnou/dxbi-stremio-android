@@ -1,4 +1,4 @@
-// Cross-platform smoke test: launches a real Stremio Enhanced, switches dx.bi on and checks that it
+// Cross-platform smoke test: launches a real Stremio Enhanced, switches Nathflix on and checks that it
 // boots, styles the app and survives the main screens without throwing. Used by the CI workflow on
 // Windows, macOS and Linux.
 //
@@ -18,7 +18,7 @@ if (!exe) {
 mkdirSync(outDir, { recursive: true });
 
 const PORT = 9333;
-const PLUGIN = "dxbi.plugin.js";
+const PLUGIN = "nathflix.plugin.js";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const failures = [];
 const fail = (msg) => { failures.push(msg); console.log(`  ✗ ${msg}`); };
@@ -94,14 +94,14 @@ async function main() {
     }
   };
 
-  // Enhanced injects plugins as inline scripts, so find dx.bi's by its source
+  // Enhanced injects plugins as inline scripts, so find Nathflix's by its source
   const pluginScripts = new Set();
   const scriptChecks = [];
   const errors = [];
   listeners.push((msg) => {
     if (msg.method === "Debugger.scriptParsed" && msg.params.length > 200000 && !msg.params.url.startsWith("http")) {
       scriptChecks.push(send("Debugger.getScriptSource", { scriptId: msg.params.scriptId })
-        .then(({ scriptSource }) => { if (scriptSource.includes("@name dx.bi")) pluginScripts.add(msg.params.scriptId); })
+        .then(({ scriptSource }) => { if (scriptSource.includes("@name Nathflix")) pluginScripts.add(msg.params.scriptId); })
         .catch(() => {}));
     }
     // Anything that would freeze the page for the remaining checks: report it and carry on
@@ -118,8 +118,8 @@ async function main() {
     if (msg.method === "Runtime.exceptionThrown") errors.push(msg.params.exceptionDetails);
     if (msg.method === "Runtime.consoleAPICalled") {
       const text = msg.params.args.map((a) => a.value ?? a.description ?? "").join(" ");
-      if (text.startsWith("[dx.bi]")) console.log(`    console: ${text.slice(0, 200)}`);
-      if (msg.params.type === "error" && text.includes("dx.bi")) errors.push({ text, console: true });
+      if (text.startsWith("[Nathflix]")) console.log(`    console: ${text.slice(0, 200)}`);
+      if (msg.params.type === "error" && text.includes("Nathflix")) errors.push({ text, console: true });
     }
   });
   await send("Runtime.enable");
@@ -132,16 +132,16 @@ async function main() {
   // Retried: on a first launch Enhanced can still be swapping the page out under us
   await waitFor("the plugin to be switched on", () => evaluate(`localStorage.setItem("enabledPlugins", ${JSON.stringify(JSON.stringify([PLUGIN]))});
     localStorage.setItem("checkForUpdatesOnStartup", "false");
-    localStorage.setItem("dxbi.packOffered", "1"); // the one-time Home rows offer is a native dialog on macOS and blocks the page
+    localStorage.setItem("nathflix.packOffered", "1"); // the one-time Home rows offer is a native dialog on macOS and blocks the page
     localStorage.getItem("enabledPlugins").includes(${JSON.stringify(PLUGIN)})`), 30000);
   await send("Page.reload", { ignoreCache: true });
   await sleep(2000);
 
   try {
-    await waitFor("dx.bi to start", () => evaluate("typeof window.__dxbi === 'object' && !!window.__dxbi.settings"), 60000);
-    pass("dx.bi loaded (window.__dxbi present)");
+    await waitFor("Nathflix to start", () => evaluate("typeof window.__nathflix === 'object' && !!window.__nathflix.settings"), 60000);
+    pass("Nathflix loaded (window.__nathflix present)");
   } catch (e) {
-    fail(`dx.bi never started: ${e.message}`);
+    fail(`Nathflix never started: ${e.message}`);
   }
   try {
     await waitFor("the built-in theme", () => evaluate("!!document.getElementById('dx-builtin-theme') && !!document.getElementById('dx-extras-style')"), 20000);
@@ -178,8 +178,8 @@ async function main() {
   await sleep(4000);
   await screenshot("settings");
 
-  // macOS CI runs a real streaming server: dx.bi should switch on the hardware converter it tested
-  const hwProfile = process.env.DXBI_EXPECT_HW_PROFILE;
+  // macOS CI runs a real streaming server: Nathflix should switch on the hardware converter it tested
+  const hwProfile = process.env.NATHFLIX_EXPECT_HW_PROFILE;
   if (hwProfile) {
     const profile = () => fetch("http://127.0.0.1:11470/settings").then((r) => r.json()).then((j) => j.values.transcodeProfile, () => null);
     try {
@@ -191,7 +191,7 @@ async function main() {
   }
 
   await Promise.all(scriptChecks);
-  if (!pluginScripts.size) fail("couldn't find the dx.bi script among the page's scripts");
+  if (!pluginScripts.size) fail("couldn't find the Nathflix script among the page's scripts");
   const fromPlugin = (d) => d.console
     || pluginScripts.has(d.scriptId)
     || (d.stackTrace?.callFrames || []).some((f) => pluginScripts.has(f.scriptId));
@@ -200,9 +200,9 @@ async function main() {
   if (otherErrors) console.log(`  (${otherErrors} error(s) from Stremio itself ignored)`);
   for (const d of pluginErrors) {
     const where = d.lineNumber != null ? ` at line ${d.lineNumber + 1}` : "";
-    fail(`dx.bi threw${where}: ${(d.exception?.description || d.text || "").split("\n").slice(0, 3).join(" | ")}`);
+    fail(`Nathflix threw${where}: ${(d.exception?.description || d.text || "").split("\n").slice(0, 3).join(" | ")}`);
   }
-  if (!pluginErrors.length) pass("no errors from dx.bi");
+  if (!pluginErrors.length) pass("no errors from Nathflix");
 }
 
 let exitCode = 0;

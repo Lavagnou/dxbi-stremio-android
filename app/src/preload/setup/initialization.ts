@@ -20,8 +20,8 @@ export function initializeUserSettings(): void {
         }
     }
 
-    // dx.bi is built in: switched on the first time the app runs (it can still be switched off
-    // under Settings → dx.bi → Plugins, and stays off then)
+    // Nathflix is built in: switched on the first time the app runs (it can still be switched off
+    // under Settings → Nathflix → Plugins, and stays off then)
     if (!localStorage.getItem(BUILT_IN_ENABLED_KEY)) {
         const enabled: string[] = JSON.parse(localStorage.getItem(STORAGE_KEYS.ENABLED_PLUGINS) || "[]");
         if (!enabled.includes(BUILT_IN_PLUGIN)) enabled.push(BUILT_IN_PLUGIN);
@@ -30,8 +30,8 @@ export function initializeUserSettings(): void {
     }
 }
 
-const BUILT_IN_PLUGIN = "dxbi.plugin.js";
-const BUILT_IN_ENABLED_KEY = "dxbiBuiltInEnabled";
+const BUILT_IN_PLUGIN = "nathflix.plugin.js";
+const BUILT_IN_ENABLED_KEY = "nathflixBuiltInEnabled";
 
 export function reloadServer(): void {
     setTimeout(() => {

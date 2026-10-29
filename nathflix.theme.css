@@ -1,13 +1,13 @@
 /**
- * @name dx.bi
- * @description Cinematic, Netflix-inspired interface for dx.bi. Pair it with the dx.bi plugin for the billboard, carousels, previews, ratings and player extras.
- * @version 2.17.0
- * @author dx.bi
- * @requirements ["dxbi.plugin.js"]
- * @updateUrl https://raw.githubusercontent.com/notdxbi/dxbi-stremio/main/dxbi.theme.css
+ * @name Nathflix
+ * @description Cinematic, Netflix-inspired interface for Nathflix. Pair it with the Nathflix plugin for the billboard, carousels, previews, ratings and player extras.
+ * @version 0.2.0
+ * @author lavagnou
+ * @requirements ["nathflix.plugin.js"]
+ * @updateUrl https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/nathflix.theme.css
  */
-/* dx.bi — Copyright (C) 2026 dx.bi. Free software under the GNU General Public License, version 3
-   or later (see LICENSE and NOTICE.md at github.com/notdxbi/dxbi-stremio). Versions up to 2.15.9: MIT. */
+/* Nathflix — Copyright (C) 2026 lavagnou. Based on dx.bi, Copyright (C) 2026 dx.bi (github.com/notdxbi/dxbi-stremio).
+   Free software under the GNU General Public License, version 3 or later (see LICENSE and NOTICE.md). */
 
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300..800&family=Bebas+Neue&display=swap");
 
@@ -25,7 +25,7 @@
    ===================================================================== */
 
 :root {
-    /* Accent is overridable by the plugin (Settings → dx.bi) */
+    /* Accent is overridable by the plugin (Settings → Nathflix) */
     --dx-accent: #e50914;
     --dx-accent-hover: color-mix(in srgb, var(--dx-accent) 85%, white);
     --dx-accent-soft: color-mix(in srgb, var(--dx-accent) 18%, transparent);
@@ -163,7 +163,8 @@ body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][
 #app nav[class*="horizontal-nav-bar"] [class*="logo-container"] {
     flex: none;
     margin-right: auto;
-    width: 6.5rem;
+    /* the wordmark's width (NATHFLIX is about 7.6rem at this size) plus a little room */
+    width: 9.5rem;
     height: var(--dx-nav-h);
     justify-content: flex-start;
     order: 0;
@@ -174,7 +175,7 @@ body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][
 }
 
 #app nav[class*="horizontal-nav-bar"] [class*="logo-container"]::before {
-    content: "DX.BI";
+    content: "NATHFLIX";
     font-family: "Bebas Neue", "Inter", sans-serif;
     font-size: 2.35rem;
     line-height: 1;
@@ -188,7 +189,7 @@ body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][
 #app [class*="main-nav-bars-container"] > nav[class*="vertical-nav-bar"] {
     top: 0;
     bottom: auto;
-    left: calc(var(--dx-gutter) + 6.5rem + 1.5rem);
+    left: calc(var(--dx-gutter) + 9.5rem + 1.5rem);
     z-index: 6;
     width: auto;
     height: var(--dx-nav-h);
@@ -3739,7 +3740,7 @@ body #skiprange-upgrade-btn:focus-visible {
    18. ENHANCED VIDEO PLAYER compatibility (subtitle style panel + title)
    ===================================================================== */
 
-/* dx.bi shows the title in the control bar; hide the duplicate */
+/* Nathflix shows the title in the control bar; hide the duplicate */
 body[data-dx-ptitle] #app .custom-series-name,
 body[data-dx-ptitle] #app .custom-episode-title {
     display: none !important;
@@ -3999,7 +4000,7 @@ body[data-dx-ptitle] #app .custom-episode-title {
     animation: none;
 }
 
-/* Chips / inputs that stream plugins add: match dx.bi */
+/* Chips / inputs that stream plugins add: match Nathflix */
 #app [class*="metadetails-content"] [class*="chip"]:not([class*="chips"]) {
     border-radius: 999px;
 }
@@ -4356,7 +4357,7 @@ body[data-dx-ptitle] #app .custom-episode-title {
     overflow: visible !important;
 }
 
-/* dx.bi's card already shows the time — hide Stremio's small tooltip while it's there */
+/* Nathflix's card already shows the time — hide Stremio's small tooltip while it's there */
 body[data-dx-route="player"] > [class*="seek-tooltip"] {
     display: none !important;
 }
@@ -4372,7 +4373,7 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     image-rendering: auto;
 }
 
-/* The video's own subtitle lines would sit under the canvas — dx.bi redraws them on top */
+/* The video's own subtitle lines would sit under the canvas — Nathflix redraws them on top */
 #app [class*="player-container"] video[data-dx-enhanced]::cue {
     visibility: hidden !important;
 }
@@ -4429,7 +4430,7 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
 
 /* Chromium on Windows can leave stale copies of a scrolled panel on screen when it has a blurred
    (backdrop-filter) background: the streams list then looks like rows drawn over each other.
-   Solid backgrounds instead (dx.bi's plugin adds .dx-win on Windows). TVs (.dx-tv, dx.bi TV) get the
+   Solid backgrounds instead (Nathflix's plugin adds .dx-win on Windows). TVs (.dx-tv, Nathflix TV) get the
    same, since their graphics are far weaker than a computer's. */
 .dx-win #app *,
 .dx-win body > *,
@@ -4449,7 +4450,7 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     background: rgb(22, 22, 27) !important;
 }
 
-/* THE DX.BI APP: the top bar's fullscreen button repeats the window's own buttons (F11 still
+/* THE NATHFLIX APP: the top bar's fullscreen button repeats the window's own buttons (F11 still
    toggles full screen, and the player keeps its fullscreen button) */
 .dx-app #app [class*="horizontal-nav-bar"] [title*="ullscreen"] {
     display: none !important;
@@ -4618,4 +4619,386 @@ body[data-dx-kids] #app [class*="horizontal-nav-bar"] a[href="#/settings"],
 body[data-dx-kids] #app [class*="vertical-nav-bar"] a[href="#/addons"],
 body[data-dx-kids] #app [class*="vertical-nav-bar"] a[href="#/settings"] {
     display: none !important;
+}
+
+/* =====================================================================
+   PHONES AND TABLETS (Nathflix for Android, html.dx-mobile): the page is laid out at the
+   screen's own width and steered by touch. Tabs move to a bar along the bottom, rows are swiped
+   rather than paged with arrows, and what only showed on hover shows all the time.
+   ===================================================================== */
+
+html.dx-mobile {
+    --dx-nav-h: 3.5rem;
+    --dx-tabs-h: 3.75rem;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Posters per row: three on a phone held upright, more when it's turned or on a tablet */
+@media (max-width: 600px) { html.dx-mobile { --dx-cols: 3; --dx-wide-cols: 1.7; } }
+@media (min-width: 601px) and (max-width: 1050px) { html.dx-mobile { --dx-cols: 5; --dx-wide-cols: 3; } }
+
+/* Top bar: a smaller wordmark, and the buttons big enough for a finger */
+html.dx-mobile #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"] {
+    gap: 0.5rem;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="logo-container"] {
+    width: auto;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="logo-container"]::before {
+    font-size: 1.85rem;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="buttons-container"] > [class*="button-container"] {
+    height: 2.75rem;
+    min-width: 2.75rem;
+}
+
+/* Search opens across the top bar */
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"] {
+    width: 2.75rem;
+    height: 2.75rem;
+}
+
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:focus-within,
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"].active {
+    position: absolute;
+    left: var(--dx-gutter);
+    right: var(--dx-gutter);
+    width: auto;
+}
+
+/* Tabs: a bar along the bottom, icon over label, like the phone apps */
+html.dx-mobile #app [class*="main-nav-bars-container"] > nav[class*="vertical-nav-bar"] {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: var(--dx-tabs-h);
+    box-sizing: border-box;
+    padding: 0 0.25rem;
+    gap: 0;
+    justify-content: space-around;
+    align-items: stretch;
+    background: rgba(11, 11, 13, 0.97);
+    box-shadow: 0 -1px 0 var(--dx-line);
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] {
+    display: flex;
+    flex: 1 1 0;
+    text-decoration: none;
+    min-width: 0;
+    padding: 0.4rem 0 0.3rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] svg {
+    display: block;
+    width: 1.45rem;
+    height: 1.45rem;
+    color: var(--dx-text-3);
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] [class*="label"] {
+    display: block;
+    max-width: 100%;
+    font-size: 0.68rem;
+    color: var(--dx-text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[href="#/"] [class*="label"]::after {
+    font-size: 0.68rem;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"].selected svg,
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"].selected [class*="label"] {
+    color: #fff;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"]::after {
+    display: none;
+}
+
+/* The pages stop above the tab bar */
+html.dx-mobile #app [class*="main-nav-bars-container"] > [class*="nav-content-container"] {
+    bottom: var(--dx-tabs-h);
+}
+
+/* Rows are swiped: no arrows or page dots */
+html.dx-mobile .dx-arrow,
+html.dx-mobile .dx-row-pages {
+    display: none !important;
+}
+
+/* Continue Watching: play and remove are always there (no hover to bring them up) */
+html.dx-mobile #app [class*="meta-item-container"] [class*="play-icon-layer"],
+html.dx-mobile #app [class*="meta-item-container"] [class*="dismiss-icon-layer"] {
+    opacity: 1;
+    transform: none;
+}
+
+/* Billboard: the text across the picture's width, centred, over a shade that rises from the bottom */
+html.dx-mobile .dx-hero-content {
+    right: var(--dx-gutter);
+    width: auto;
+    align-items: center;
+    text-align: center;
+}
+
+html.dx-mobile .dx-hero-shade {
+    background:
+        linear-gradient(0deg, var(--dx-bg) 0%, rgba(11, 11, 13, 0.85) 22%, rgba(11, 11, 13, 0.2) 55%, transparent 70%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 22%);
+}
+
+@media (max-width: 600px) {
+    html.dx-mobile .dx-hero-desc {
+        -webkit-line-clamp: 3;
+    }
+}
+
+/* ---- Phones and tablets: Home (Netflix's app) ---- */
+
+/* See All always there (no hover), and row headers use their full width */
+html.dx-mobile {
+    --dx-row-hot: 1;
+}
+
+html.dx-mobile #app [class*="meta-row"] > [class*="header-container"] {
+    padding-right: var(--dx-gutter) !important;
+}
+
+/* The category chips (plugin) sit over the billboard under the top bar */
+html.dx-mobile #app [class*="board-content-"]:not([class*="board-content-container"]) {
+    position: relative;
+}
+
+html.dx-mobile #app [class*="board-content-"]:not([class*="board-content-container"]):not(:has(> .dx-hero)) {
+    padding-top: calc(var(--dx-nav-h) + 3rem) !important;
+}
+
+html.dx-mobile .dx-hero-content {
+    top: calc(var(--dx-nav-h) + 3rem);
+}
+
+html.dx-mobile .dx-hero-logo {
+    object-position: center bottom;
+}
+
+html.dx-mobile .dx-hero-actions {
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+html.dx-mobile .dx-hero-dots {
+    display: none;
+}
+
+/* Upright phone: a tall billboard, like Netflix's poster at the top of Home */
+@media (max-width: 600px) {
+    html.dx-mobile .dx-hero {
+        height: min(72vh, 34rem);
+        min-height: 24rem;
+        margin-bottom: 0;
+    }
+}
+
+html.dx-mobile .dxe-air {
+    width: min(19rem, 72vw);
+}
+
+/* "Library" is "My List" on a phone, as in Netflix's app */
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[href="#/library"] [class*="label"] {
+    font-size: 0 !important;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[href="#/library"] [class*="label"]::after {
+    content: "My List";
+    font-size: 0.68rem;
+}
+
+/* ---- Phones and tablets: a title's page in one column: the picture on top, then its details,
+   then its episodes or streams (side by side, the list alone was wider than a phone) ---- */
+
+html.dx-mobile #app [class*="metadetails-container"] > [class*="background-image-layer"] {
+    bottom: auto;
+    height: calc(var(--dx-nav-h) + 60vw);
+}
+
+html.dx-mobile #app [class*="metadetails-container"] > [class*="background-image-layer"]::after {
+    background:
+        linear-gradient(0deg, var(--dx-bg) 0%, rgba(11, 11, 13, 0.55) 35%, rgba(11, 11, 13, 0) 65%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 25%);
+}
+
+html.dx-mobile #app [class*="metadetails-container"] [class*="metadetails-content"] {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-left: 0 !important;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] > * {
+    grid-column: auto !important;
+    grid-row: auto !important;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] > [class*="spacing"] {
+    display: none !important;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] > [class*="meta-preview-container"] {
+    flex: none !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: calc(var(--dx-nav-h) + 38vw) var(--dx-gutter) 1rem !important;
+    justify-content: flex-start !important;
+    overflow: visible !important;
+}
+
+@media (orientation: landscape) {
+    html.dx-mobile #app [class*="metadetails-content"] > [class*="meta-preview-container"] {
+        padding-top: calc(var(--dx-nav-h) + 6rem) !important;
+    }
+}
+
+html.dx-mobile #app [class*="metadetails-content"] [class*="meta-info-container"] {
+    padding-right: 0 !important;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] [class*="meta-preview-container"] [class*="logo"]:not([class*="logo-placeholder"]) {
+    max-width: 70vw;
+    max-height: 7rem;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] [class*="description-container"] {
+    max-width: none;
+    font-size: 0.92rem;
+}
+
+/* Buttons wrap; the wide one (Play / Trailer) takes the whole row, like Netflix's Play */
+html.dx-mobile #app [class*="meta-preview-container"] [class*="action-buttons-container"] {
+    flex-wrap: wrap;
+    row-gap: 0.6rem;
+}
+
+html.dx-mobile #app [class*="meta-preview-container"] [class*="action-button-container"][class*="wide"] {
+    flex: 1 1 100%;
+    justify-content: center;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] > :is([class*="streams-list-container"], [class*="videos-list-container"]) {
+    flex: none !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 calc(var(--dx-gutter) - 0.5rem) calc(var(--dx-tabs-h) + 1rem) !important;
+    backdrop-filter: none !important;
+    animation: none !important;
+}
+
+html.dx-mobile #app [class*="metadetails-content"] :is([class*="streams-container"], [class*="videos-container"]) {
+    flex: none !important;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+html.dx-mobile #app [class*="streams-container"] > [class*="stream-container"] [class*="info-container"] {
+    width: 6rem;
+}
+
+html.dx-mobile #app [class*="streams-container"] > [class*="stream-container"]:hover {
+    transform: none;
+}
+
+/* ---- Phones and tablets: Discover, Library, Settings, Addons ---- */
+
+/* Discover: a tap opens the title's sheet (plugin), so no preview column beside the grid */
+html.dx-mobile #app [class*="discover-content"] > [class*="meta-preview-container"] {
+    display: none !important;
+}
+
+html.dx-mobile #app :is([class*="discover-content"], [class*="library-content"]) [class*="meta-items-container"] {
+    grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr)) !important;
+}
+
+@media (max-width: 600px) {
+    html.dx-mobile #app :is([class*="discover-content"], [class*="library-content"]) [class*="meta-items-container"] {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+html.dx-mobile #app :is([class*="discover-content"], [class*="library-content"]) [class*="selectable-inputs-container"] {
+    flex-wrap: wrap;
+}
+
+html.dx-mobile .dxl-tools {
+    padding: 0 var(--dx-gutter) 0.9rem;
+}
+
+/* Settings: its sections list above the settings, sideways */
+html.dx-mobile #app [class*="settings-content"] {
+    flex-direction: column;
+    gap: 1rem;
+}
+
+html.dx-mobile #app [class*="settings-content"] > [class*="menu-"] {
+    flex: none;
+    flex-direction: row;
+    width: auto;
+    overflow-x: auto;
+}
+
+html.dx-mobile #app [class*="settings-content"] > [class*="menu-"] > [class*="button"] {
+    flex: none;
+}
+
+/* ---- Phones and tablets: messages and windows fit the screen, clear of the tab bar ---- */
+
+html.dx-mobile .dxe-toast {
+    bottom: calc(var(--dx-tabs-h) + 1rem);
+    max-width: calc(100vw - 2rem);
+}
+
+html.dx-mobile :is(.dxp-back, .dxp-toasts) {
+    bottom: calc(var(--dx-tabs-h) + 1rem);
+}
+
+html.dx-mobile #app [class*="modal-dialog-container"] {
+    max-width: calc(100vw - 1.5rem);
+}
+
+html.dx-mobile .dxe-who {
+    align-items: flex-start;
+    overflow-y: auto;
+}
+
+html.dx-mobile .dxe-who-inner {
+    padding: 1.5rem 1rem;
+}
+
+html.dx-mobile .dxe-who h1 {
+    font-size: 1.8rem;
+}
+
+html.dx-mobile :is(.dxe-who-tile, .dxe-who-avatar) {
+    width: 6.5rem;
+}
+
+html.dx-mobile .dxe-who-avatar {
+    height: 6.5rem;
 }

@@ -1,5 +1,5 @@
 # The page calls these through the JavaScript bridge
--keepclassmembers class com.notdxbi.dxbi.tv.Bridge {
+-keepclassmembers class com.lavagnou.nathflix.Bridge {
     @android.webkit.JavascriptInterface <methods>;
 }
 
@@ -7,3 +7,6 @@
 -keep class org.libtorrent4j.** { *; }
 -dontwarn org.libtorrent4j.**
 -keep class fi.iki.elonen.** { *; }
+
+# The FFmpeg audio decoder: Media3 finds it by name and builds it by reflection
+-keep class androidx.media3.decoder.ffmpeg.** { *; }

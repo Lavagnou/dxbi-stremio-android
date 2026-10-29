@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Score for the dx.bi intro, synced to render_intro.py's timeline. Writes 48 kHz stereo WAV.
+"""Score for the Nathflix intro, synced to render_intro.py's timeline. Writes 48 kHz stereo WAV.
 
 usage: intro_audio.py OUT.wav
 """

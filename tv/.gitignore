@@ -3,5 +3,7 @@ build/
 app/build/
 local.properties
 *.keystore
+# The test builds' (Nathflix Dev) key: not a secret, it only signs builds made for testing
+!app/dev.keystore
 *.jks
 keystore.properties

@@ -5,12 +5,12 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-// The TV app shares dx.bi's version number: it's read from the plugin at the repository root
-val pluginFile = rootProject.file("../dxbi.plugin.js")
-val dxbiVersion = Regex("""@version\s+([\d.]+)""").find(pluginFile.readText())!!.groupValues[1]
-val versionParts = dxbiVersion.split(".").map { it.toInt() }
+// The TV app shares Nathflix's version number: it's read from the plugin at the repository root
+val pluginFile = rootProject.file("../nathflix.plugin.js")
+val nathflixVersion = Regex("""@version\s+([\d.]+)""").find(pluginFile.readText())!!.groupValues[1]
+val versionParts = nathflixVersion.split(".").map { it.toInt() }
 
-// Release signing: tv/keystore.properties (not in git) or the DXBI_TV_KEYSTORE* environment variables in CI
+// Release signing: tv/keystore.properties (not in git) or the NATHFLIX_TV_KEYSTORE* environment variables in CI
 val keystoreProps = Properties().apply {
     val f = rootProject.file("keystore.properties")
     if (f.exists()) f.inputStream().use { load(it) }
@@ -18,31 +18,42 @@ val keystoreProps = Properties().apply {
 fun signingValue(key: String, env: String): String? = keystoreProps.getProperty(key) ?: System.getenv(env)
 
 android {
-    namespace = "com.notdxbi.dxbi.tv"
+    namespace = "com.lavagnou.nathflix"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.notdxbi.dxbi.tv"
+        applicationId = "com.lavagnou.nathflix"
         minSdk = 24
         targetSdk = 35
-        versionName = dxbiVersion
+        versionName = nathflixVersion
         versionCode = versionParts[0] * 10000 + versionParts[1] * 100 + versionParts[2]
     }
 
     signingConfigs {
+        // Test builds (Nathflix Dev) are always signed with the same key, kept in the repository, so a
+        // new one installs over the last without losing the sign-in. It signs nothing that's released
+        create("dev") {
+            storeFile = file("dev.keystore")
+            storePassword = "nathflix-dev"
+            keyAlias = "nathflix-dev"
+            keyPassword = "nathflix-dev"
+        }
         create("release") {
-            val store = signingValue("storeFile", "DXBI_TV_KEYSTORE")
+            val store = signingValue("storeFile", "NATHFLIX_TV_KEYSTORE")
             if (store != null) {
                 storeFile = rootProject.file(store)
-                storePassword = signingValue("storePassword", "DXBI_TV_KEYSTORE_PASSWORD")
-                keyAlias = signingValue("keyAlias", "DXBI_TV_KEY_ALIAS")
-                keyPassword = signingValue("keyPassword", "DXBI_TV_KEY_PASSWORD")
+                storePassword = signingValue("storePassword", "NATHFLIX_TV_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "NATHFLIX_TV_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "NATHFLIX_TV_KEY_PASSWORD")
             }
         }
     }
 
     buildTypes {
         debug {
+            // "Nathflix Dev": installs next to the real app (named in src/debug/res)
+            applicationIdSuffix = ".dev"
+            signingConfig = signingConfigs.getByName("dev")
             // the emulator is x86
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64") }
         }
@@ -52,7 +63,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (signingValue("storeFile", "DXBI_TV_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
+            if (signingValue("storeFile", "NATHFLIX_TV_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -69,13 +80,13 @@ android {
         jniLibs { useLegacyPackaging = true }
     }
 
-    // The built-in dx.bi plugin is the one at the repository root, copied in at build time
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/dxbiAssets"))
+    // The built-in Nathflix plugin is the one at the repository root, copied in at build time
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/nathflixAssets"))
 }
 
 val copyPlugin by tasks.registering(Copy::class) {
     from(pluginFile)
-    into(layout.buildDirectory.dir("generated/dxbiAssets"))
+    into(layout.buildDirectory.dir("generated/nathflixAssets"))
 }
 tasks.named("preBuild") { dependsOn(copyPlugin) }
 
@@ -88,6 +99,12 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-dash:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation("androidx.media3:media3-datasource-okhttp:1.5.1")
+    // phones and tablets: playing in the background, with controls in the notification
+    implementation("androidx.media3:media3-session:1.5.1")
+    // Audio the device can't decode itself (Dolby AC3 and E-AC3, DTS, TrueHD: most phones have none of
+    // them, and a film then played without sound) decoded in software by FFmpeg. Jellyfin's build of
+    // Media3's FFmpeg extension, matching Media3 1.5
+    implementation("org.jellyfin.media3:media3-ffmpeg-decoder:1.5.0+1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // Torrents played on the TV itself (no streaming server needed): libtorrent, and a small local
     // web server that hands the downloading file to the player

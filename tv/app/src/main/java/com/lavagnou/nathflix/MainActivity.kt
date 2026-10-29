@@ -1,4 +1,4 @@
-package com.notdxbi.dxbi.tv
+package com.lavagnou.nathflix
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -23,6 +23,7 @@ import org.json.JSONObject
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -30,8 +31,9 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 
 /**
- * dx.bi TV: Stremio's web app with dx.bi built in, steered with the remote. Streams play in
- * [PlayerActivity]; this screen stays alive underneath so Stremio keeps the watch progress.
+ * Nathflix for Android: Stremio's web app with Nathflix built in, steered with a TV's remote or by
+ * touch on a phone or tablet. Streams play in [PlayerActivity]; this screen stays alive underneath so
+ * Stremio keeps the watch progress.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -40,22 +42,34 @@ class MainActivity : AppCompatActivity() {
     private var lastBack = 0L
     private var playbackListener: PlaybackBus.Listener? = null
     private var intro: Intro? = null
+    // A phone or tablet (touch, the page at the screen's own width) rather than a TV
+    private val mobile by lazy { Device.isMobile(this) }
+    private val debuggable by lazy { applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        hideSystemBars()
+        // A TV has no screen timeout worth keeping while browsing; a phone does (the player keeps it on)
+        if (!mobile) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setUpSystemBars()
 
         if (!webViewIsRecentEnough()) return
 
         // Debug builds can be inspected from a computer (chrome://inspect)
-        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
+        if (debuggable) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this)
         val root = FrameLayout(this)
+        root.setBackgroundColor(getColor(R.color.background))
         root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
-        // Only when dx.bi is opened, not when the screen is rebuilt (after a page crash, a turned phone)
+        // Phones and tablets: the page sits between the status and navigation bars, clear of a notch,
+        // and above the keyboard while it's open (so the box being typed in stays in sight)
+        if (mobile) ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val clear = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            view.setPadding(clear.left, clear.top, clear.right, clear.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
+        // Only when Nathflix is opened, not when the screen is rebuilt (after a page crash, a turned phone)
         if (savedInstanceState == null) intro = Intro(this, root).also { it.start() }
         web.setBackgroundColor(getColor(R.color.background))
         web.isFocusable = true
@@ -71,14 +85,15 @@ class MainActivity : AppCompatActivity() {
             loadWithOverviewMode = true
             setSupportZoom(false)
             builtInZoomControls = false
-            // A desktop browser's identity (Stremio's web app is made for one), plus dx.bi TV's mark
+            // A desktop browser's identity (Stremio's web app is made for one), plus Nathflix's mark:
+            // nathflix-tv/ on a TV, nathflix-mobile/ on a phone or tablet (the plugin adapts to each)
             userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " +
-                "Chrome/${chromeVersion()} Safari/537.36 dxbi-tv/${BuildConfigVersion.name(this@MainActivity)}"
+                "Chrome/${chromeVersion()} Safari/537.36 ${if (mobile) "nathflix-mobile" else "nathflix-tv"}/${BuildConfigVersion.name(this@MainActivity)}"
         }
         CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
 
-        web.addJavascriptInterface(Bridge(this), "DxbiTV")
-        val startScript = assets.open("dxbi-tv.js").bufferedReader().use { it.readText() }.replace(Bridge.PLACEHOLDER, Bridge.TOKEN)
+        web.addJavascriptInterface(Bridge(this), "NathflixTV")
+        val startScript = assets.open("nathflix-tv.js").bufferedReader().use { it.readText() }.replace(Bridge.PLACEHOLDER, Bridge.TOKEN)
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             WebViewCompat.addDocumentStartJavaScript(web, startScript, setOf(STREMIO_ORIGIN))
             injectedAtStart = true
@@ -95,7 +110,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             // The page's engine crashed, or Android took its memory back (TVs with 1.5–2 GB): without
-            // this, Android closes dx.bi straight back to the home screen
+            // this, Android closes Nathflix straight back to the home screen
             override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
                 recoverFromCrash(detail.didCrash())
                 return true
@@ -116,12 +131,12 @@ class MainActivity : AppCompatActivity() {
 
         playbackListener = object : PlaybackBus.Listener {
             override fun onProgress(positionMs: Long, durationMs: Long, paused: Boolean) {
-                js("window.__dxbiTv && window.__dxbiTv.onProgress($positionMs, $durationMs, $paused)")
+                js("window.__nathflixTv && window.__nathflixTv.onProgress($positionMs, $durationMs, $paused)")
             }
 
             // The page takes the details from PlaybackBus (a restarted page picks them up as it loads)
             override fun onClosed() {
-                js("window.__dxbiTv && window.__dxbiTv.playerClosed && window.__dxbiTv.playerClosed()")
+                js("window.__nathflixTv && window.__nathflixTv.playerClosed && window.__nathflixTv.playerClosed()")
             }
         }
 
@@ -135,8 +150,11 @@ class MainActivity : AppCompatActivity() {
         if (link?.scheme == "stremio") openStremioLink(link) else web.loadUrl(STREMIO_URL)
         web.requestFocus()
 
-        Updates.checkPlugin(this)
-        Updates.checkApp(this)
+        // A test build (Nathflix Dev) runs the plugin it was built with, and is never offered a release
+        if (!debuggable) {
+            Updates.checkPlugin(this)
+            Updates.checkApp(this)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -148,7 +166,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        hideSystemBars()
+        setUpSystemBars()
         if (::web.isInitialized) web.requestFocus()
     }
 
@@ -165,40 +183,40 @@ class MainActivity : AppCompatActivity() {
 
     /** The page decides first (closing a card or menu, going back a screen); on Home, Back twice leaves. */
     private fun goBack() {
-        web.evaluateJavascript("(window.__dxbiTv && window.__dxbiTv.back()) ? 1 : 0") { handled ->
+        web.evaluateJavascript("(window.__nathflixTv && window.__nathflixTv.back()) ? 1 : 0") { handled ->
             if (handled == "1") return@evaluateJavascript
             val now = System.currentTimeMillis()
             if (now - lastBack < 2500) finish()
             else {
                 lastBack = now
-                Toast.makeText(this, "Press Back again to leave dx.bi", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Press Back again to leave Nathflix", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     /**
      * Start the page again in a lighter way: the intro film is the heaviest moment of a start, so it's
-     * switched off (it can be switched back on in dx.bi's settings). A second crash soon after says so.
+     * switched off (it can be switched back on in Nathflix's settings). A second crash soon after says so.
      */
     private fun recoverFromCrash(crashed: Boolean) {
         val state = getSharedPreferences("app", MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val again = now - state.getLong("lastPageCrash", 0) < 3 * 60_000
         state.edit().putLong("lastPageCrash", now).apply()
-        android.util.Log.w("dxbi", "page engine gone (crashed=$crashed, again=$again)")
+        android.util.Log.w("nathflix", "page engine gone (crashed=$crashed, again=$again)")
 
         val settings = getSharedPreferences("plugin-settings", MODE_PRIVATE)
-        val dxbi = try { JSONObject(settings.getString("dxbi", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
-        dxbi.put("splash", false)
-        settings.edit().putString("dxbi", dxbi.toString()).commit()
+        val nathflix = try { JSONObject(settings.getString("nathflix", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+        nathflix.put("splash", false)
+        settings.edit().putString("nathflix", nathflix.toString()).commit()
 
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
         if (again) {
             setContentView(View(this))
             AlertDialog.Builder(this)
-                .setTitle("dx.bi keeps stopping")
-                .setMessage("dx.bi's screen stopped twice in a row on this TV, usually because the TV is short of memory. Closing other apps (or restarting the TV) helps. Try again?")
+                .setTitle("Nathflix keeps stopping")
+                .setMessage("Nathflix's screen stopped twice in a row on this ${Device.noun(this)}, usually because it's short of memory. Closing other apps (or restarting the ${Device.noun(this)}) helps. Try again?")
                 .setCancelable(false)
                 .setPositiveButton("Try again") { _, _ -> recreate() }
                 .setNegativeButton("Close") { _, _ -> finish() }
@@ -222,13 +240,13 @@ class MainActivity : AppCompatActivity() {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage(pkg))
                     return
-                } catch (_: Exception) { /* not on this TV: the next one */ }
+                } catch (_: Exception) { /* not on this device: the next one */ }
             }
         }
         try {
             startActivity(Intent(Intent.ACTION_VIEW, uri))
         } catch (_: Exception) {
-            Toast.makeText(this, "No app on this TV can open that link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No app on this ${Device.noun(this)} can open that link", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -248,11 +266,21 @@ class MainActivity : AppCompatActivity() {
         if (::web.isInitialized) web.post { web.evaluateJavascript(code, null) }
     }
 
-    private fun hideSystemBars() {
+    /** A TV shows the page full screen; a phone or tablet keeps its bars (light icons on the dark page) */
+    private fun setUpSystemBars() {
+        // (the theme is full screen, which would also keep a phone's status bar hidden)
+        @Suppress("DEPRECATION")
+        if (mobile) window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (mobile) {
+                show(WindowInsetsCompat.Type.systemBars())
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            } else {
+                hide(WindowInsetsCompat.Type.systemBars())
+                systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            }
         }
     }
 
@@ -273,10 +301,10 @@ class MainActivity : AppCompatActivity() {
             .setTitle(if (fireTv) "Update your Fire TV" else "Update Android System WebView")
             .setCancelable(false)
         if (fireTv) {
-            builder.setMessage("dx.bi needs a newer web engine than this Fire TV has ($major). Update it under Settings → My Fire TV → About → Check for Updates, then open dx.bi again.")
+            builder.setMessage("Nathflix needs a newer web engine than this Fire TV has ($major). Update it under Settings → My Fire TV → About → Check for Updates, then open Nathflix again.")
                 .setPositiveButton("Close") { _, _ -> finish() }
         } else {
-            builder.setMessage("dx.bi needs Android System WebView $MIN_WEBVIEW or newer (this TV has $major). Update it from the Play Store (search \"Android System WebView\"), then open dx.bi again.")
+            builder.setMessage("Nathflix needs Android System WebView $MIN_WEBVIEW or newer (this ${Device.noun(this)} has $major). Update it from the Play Store (search \"Android System WebView\"), then open Nathflix again.")
                 .setPositiveButton("Open Play Store") { _, _ ->
                     openExternal("market://details?id=com.google.android.webview")
                     finish()
@@ -298,7 +326,7 @@ class MainActivity : AppCompatActivity() {
         const val STREMIO_ORIGIN = "https://web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
-        // SPLASH_READY in dxbi.plugin.js (Home's rows, a details page, Settings…)
+        // SPLASH_READY in nathflix.plugin.js (Home's rows, a details page, Settings…)
         private const val PAGE_READY = """[class*="meta-item-container"], [class*="metadetails-container"], [class*="player-container"], [class*="settings-content"], [class*="addons-content"]"""
     }
 }

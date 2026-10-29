@@ -8,10 +8,10 @@ import { getLogger } from "../utils/logger";
 
 const logger = getLogger("BuiltIn");
 
-export const BUILT_IN_PLUGIN = "dxbi.plugin.js";
+export const BUILT_IN_PLUGIN = "nathflix.plugin.js";
 
 /**
- * dx.bi ships inside the app. It's kept in the plugins folder like any other plugin, so the
+ * Nathflix ships inside the app. It's kept in the plugins folder like any other plugin, so the
  * plugin's own update check keeps working between app releases: the bundled copy only replaces
  * an older one.
  */
@@ -28,21 +28,21 @@ export function seedBuiltInPlugin(): void {
             : null;
         if (!installedVersion || (bundledVersion && Helpers.isNewerVersion(bundledVersion, installedVersion))) {
             writeFileSync(installed, content, "utf-8");
-            logger.info(`Installed the built-in dx.bi plugin v${bundledVersion}.`);
+            logger.info(`Installed the built-in Nathflix plugin v${bundledVersion}.`);
         }
     } catch (err) {
-        logger.error("Failed to install the built-in dx.bi plugin: " + (err as Error).message);
+        logger.error("Failed to install the built-in Nathflix plugin: " + (err as Error).message);
     }
 }
 
 // What comes over from Stremio Enhanced: the Stremio sign-in, library and app settings (browser
 // storage), plugins and themes with their settings, and the streaming server it downloaded
-// (not window transparency: dx.bi's look isn't made for a see-through window)
+// (not window transparency: Nathflix's look isn't made for a see-through window)
 const IMPORT_ITEMS = ["Local Storage", "IndexedDB", "Session Storage", "plugins", "themes", "streamingserver",
     "use_stremio_service_for_streaming", "use_server_js_for_streaming"];
 
 /**
- * First launch only: offer to bring everything over from Stremio Enhanced, so dx.bi opens signed
+ * First launch only: offer to bring everything over from Stremio Enhanced, so Nathflix opens signed
  * in and set up exactly as before.
  */
 export async function offerEnhancedImport(): Promise<void> {
@@ -52,12 +52,12 @@ export async function offerEnhancedImport(): Promise<void> {
     if (existsSync(marker) || existsSync(join(to, "Local Storage")) || !existsSync(join(from, "Local Storage"))) return;
     writeFileSync(marker, new Date().toISOString());
 
-    // (DXBI_IMPORT=copy|fresh answers for automated tests)
-    const preset = process.env.DXBI_IMPORT;
+    // (NATHFLIX_IMPORT=copy|fresh answers for automated tests)
+    const preset = process.env.NATHFLIX_IMPORT;
     const choice = preset ? (preset === "copy" ? 0 : 1) : await Helpers.showAlert(
         "question",
         "Bring your Stremio Enhanced setup?",
-        "dx.bi found Stremio Enhanced on this computer. It can copy your Stremio sign-in, library, settings, " +
+        "Nathflix found Stremio Enhanced on this computer. It can copy your Stremio sign-in, library, settings, " +
         "plugins and themes over, so everything is just as you left it.\n\n" +
         "Close Stremio Enhanced first if it's open. Stremio Enhanced itself isn't changed.",
         ["Copy my setup", "Start fresh"]

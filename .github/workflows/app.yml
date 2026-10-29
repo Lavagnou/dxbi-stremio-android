@@ -1,11 +1,18 @@
 name: Desktop app
 
-# Publishing a release builds the dx.bi desktop app for every platform and attaches the files to
+# Publishing a release builds the Nathflix desktop app for every platform and attaches the files to
 # that release, next to the plugin. Running it by hand just builds (files kept as artifacts).
 on:
   release:
     types: [published]
   workflow_dispatch:
+  # release.yml calls it with the tag it just published (a release made by the workflow's own token
+  # doesn't start the "release" event)
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
 
 permissions:
   contents: write
@@ -53,7 +60,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dxbi-app-${{ matrix.target }}-${{ matrix.arch }}
+          name: nathflix-app-${{ matrix.target }}-${{ matrix.arch }}
           path: |
             app/release-builds/*.exe
             app/release-builds/*.dmg
@@ -63,13 +70,13 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag != ''
         shell: bash
         # each platform only makes some of these kinds of file; latest*.yml and the block maps are
         # what the app's self-updater reads (core/AutoUpdate.ts, Windows and Linux only). The Mac app
         # doesn't update itself, so Mac releases carry just the .dmg
         run: |
           if [ "${{ matrix.target }}" = "mac" ]; then rm -f release-builds/latest-mac.yml release-builds/*.blockmap; fi
-          gh release upload "${{ github.event.release.tag_name }}" $(ls release-builds/*.exe release-builds/*.dmg release-builds/*.AppImage release-builds/latest*.yml release-builds/*.blockmap 2>/dev/null) --clobber
+          gh release upload "${{ inputs.tag || github.event.release.tag_name }}" $(ls release-builds/*.exe release-builds/*.dmg release-builds/*.AppImage release-builds/latest*.yml release-builds/*.blockmap 2>/dev/null) --clobber
         env:
           GH_TOKEN: ${{ github.token }}

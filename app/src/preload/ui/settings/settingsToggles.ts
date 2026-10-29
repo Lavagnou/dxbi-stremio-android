@@ -79,7 +79,7 @@ export function setupGpuDropdown() {
             await alertAPI.showAlert(
                 "info",
                 "Restart Required",
-                "Your hardware acceleration settings have been saved. Please restart dx.bi to apply the changes.",
+                "Your hardware acceleration settings have been saved. Please restart Nathflix to apply the changes.",
                 ["OK"]
             );
         });
@@ -142,13 +142,13 @@ function setupPathInput(elementId: string, storageKey: string, playerName: strin
         });
     }).catch(() => {});
 }
-// "Play videos with mpv": dx.bi's own player (mpv behind the page), or the browser's. Only shown
-// where dx.bi has mpv; the change applies after a restart.
+// "Play videos with mpv": Nathflix's own player (mpv behind the page), or the browser's. Only shown
+// where Nathflix has mpv; the change applies after a restart.
 export function setupMpvPlayerToggle(): void {
     Helpers.waitForElm('#enableTransparentThemes').then(() => {
         let status: { available: boolean; enabled: boolean };
         try { status = ipcRenderer.sendSync(IPC_CHANNELS.MPV_STATUS); } catch { return; }
-        if (!status?.available || document.getElementById("dxbiMpvPlayer")) return;
+        if (!status?.available || document.getElementById("nathflixMpvPlayer")) return;
         const option = document.getElementById("enableTransparentThemes")?.closest('[class*="option-"]');
         if (!option) return;
         const html = `
@@ -157,19 +157,19 @@ export function setupMpvPlayerToggle(): void {
         <div class="label-qI6Vh">Play videos with mpv (recommended)</div>
     </div>
     <div class="content-P2T0i">
-        <div tabindex="-1" class="toggle-container-lZfHP button-container-zVLH6 ${status.enabled ? CLASSES.CHECKED : ""}" id="dxbiMpvPlayer" style="outline: none;">
+        <div tabindex="-1" class="toggle-container-lZfHP button-container-zVLH6 ${status.enabled ? CLASSES.CHECKED : ""}" id="nathflixMpvPlayer" style="outline: none;">
             <div class="toggle-toOWM"></div>
         </div>
     </div>
 </div>
-<p style="color:rgb(204, 204, 204);">mpv plays every format as it is (HEVC, Dolby Vision, AV1, DTS, TrueHD, embedded subtitles) with hardware decoding, like Stremio's own app. Switch it off to use the browser's player instead. Opening streams in VLC or mpv as separate apps is the External player setting below. Applies after restarting dx.bi.</p>`;
+<p style="color:rgb(204, 204, 204);">mpv plays every format as it is (HEVC, Dolby Vision, AV1, DTS, TrueHD, embedded subtitles) with hardware decoding, like Stremio's own app. Switch it off to use the browser's player instead. Opening streams in VLC or mpv as separate apps is the External player setting below. Applies after restarting Nathflix.</p>`;
         option.insertAdjacentHTML("beforebegin", html);
-        const toggle = document.getElementById("dxbiMpvPlayer");
+        const toggle = document.getElementById("nathflixMpvPlayer");
         toggle?.addEventListener("click", () => {
             toggle.classList.toggle(CLASSES.CHECKED);
             const on = toggle.classList.contains(CLASSES.CHECKED);
             ipcRenderer.send(IPC_CHANNELS.MPV_SET_ENABLED, on);
-            alertAPI.showAlert("info", "Video player changed", "Restart dx.bi to use the new player.", ["OK"]);
+            alertAPI.showAlert("info", "Video player changed", "Restart Nathflix to use the new player.", ["OK"]);
         });
     }).catch(() => {});
 }

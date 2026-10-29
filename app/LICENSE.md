@@ -1,8 +1,8 @@
 # Licence
 
-The dx.bi app is Copyright (C) 2026 dx.bi and licensed under the GNU General Public License,
+The Nathflix app is Copyright (C) 2026 lavagnou, based on the dx.bi app (Copyright (C) 2026 dx.bi), and licensed under the GNU General Public License,
 version 3 or (at your option) any later version: see [COPYING](COPYING) and the repository's
-[NOTICE.md](../NOTICE.md). Versions up to 2.15.9 were released under the MIT licence.
+[NOTICE.md](../NOTICE.md). dx.bi versions up to 2.15.9 were released under the MIT licence.
 
 The app is built on Stremio Enhanced. The code that comes from it remains under its own MIT
 licence, reproduced here as it requires:

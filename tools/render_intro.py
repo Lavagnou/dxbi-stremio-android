@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the dx.bi intro as a PNG sequence + WAV.
+"""Render the Nathflix intro as a PNG sequence + WAV.
 
 usage: render_intro.py OUT_DIR [--frames 0,60,120] [--w 1920 --h 1080 --fps 60]
 """
@@ -29,7 +29,7 @@ N = int(DURATION * FPS)
 os.makedirs(args.out, exist_ok=True)
 
 ACCENT = np.array([229, 9, 20], np.float32) / 255.0
-TEXT = "DX.BI"
+TEXT = "NATHFLIX"
 
 # Timeline (seconds)
 T_LETTERS = 0.22      # first letter starts
