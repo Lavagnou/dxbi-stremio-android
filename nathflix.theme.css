@@ -4694,10 +4694,43 @@ html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="buttons-container"
     min-width: 2.75rem;
 }
 
-/* Search opens across the top bar */
+/* Search opens across the top bar. Closed, it's only its magnifier, centred and the size of the
+   profile button next to it (the hidden field pushed it off-centre, and it was small) */
 html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"] {
     width: 2.75rem;
     height: 2.75rem;
+}
+
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:not(:focus-within):not(.active) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:not(:focus-within):not(.active) > :not([class*="submit-button-container"]) {
+    display: none;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="search-bar-container"] [class*="submit-button-container"] {
+    width: 2.75rem;
+    height: 2.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="search-bar-container"] svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: #fff;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="buttons-container"] {
+    display: flex;
+    align-items: center;
 }
 
 html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:focus-within,
@@ -5036,23 +5069,3 @@ html.dx-mobile #app [class*="modal-dialog-container"] {
     max-width: calc(100vw - 1.5rem);
 }
 
-html.dx-mobile .dxe-who {
-    align-items: flex-start;
-    overflow-y: auto;
-}
-
-html.dx-mobile .dxe-who-inner {
-    padding: 1.5rem 1rem;
-}
-
-html.dx-mobile .dxe-who h1 {
-    font-size: 1.8rem;
-}
-
-html.dx-mobile :is(.dxe-who-tile, .dxe-who-avatar) {
-    width: 6.5rem;
-}
-
-html.dx-mobile .dxe-who-avatar {
-    height: 6.5rem;
-}

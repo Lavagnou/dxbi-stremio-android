@@ -231,6 +231,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - Leur CSS (`.dxm-*`) est dans `EXTRAS_CSS`, toujours chargé.
 - **Partout** :
   - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`, replacé par le thème dans le coin de la miniature).
+  - **`meta_details`** : la fiche est `metaItem.content.content` (`metaItem` est la réponse de l'addon). Pour le lecteur (`getState("player")`), c'est `metaItem.content`.
   - `episodePlay` : bouton « Lancer l'épisode » (« Lecture » pour un film) avant la bande-annonce, sur la page des flux. Il clique la première source affichée (sans `data-dx-hide`, plus petit `style.order`).
     - **Attente des sources** (`playWhenReady`) : jusqu'à ce que plus aucun addon ne soit en `Loading` dans `meta_details.streams` (12 s au plus), plus 700 ms pour le tri, puis le clic.
     - **Page d'une série** : « Reprendre S1 É3 » (épisode en cours, si moins de 90 % vus), sinon « Lancer » l'épisode suivant le dernier fini (Stremio remet `timeOffset` à 0 à la fin), sinon S1 É1 (spéciaux exclus), d'après `meta_details.libraryItem.state`. Le clic ouvre la page des flux de l'épisode (`pending`), qui lance ensuite comme ci-dessus.
@@ -238,7 +239,9 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - `homeArrange` (« Organiser l'Accueil », au bas de l'Accueil) : ordre et rangées masquées par spectateur (`store` `homeRows:<spectateur>`, clés `<manifest>|<type>|<catalogue>`).
     - Les rangées de Stremio ne sont jamais déplacées : le conteneur passe en `flex` (`dx-rows-arranged`) avec un `style.order` par rangée.
     - `keyNav.rows()` trie alors par position à l'écran, et `homeRows.preload(…, true)` charge toutes les rangées.
-  - **Spectateurs** (`viewers`, `whoIsWatching`) :
+  - **Barre du haut** : le menu du compte de Stremio est masqué (CSS `menu-button-container`) et remplacé par l'image du profil (`navAvatar`, qui ouvre « Qui regarde ? »). Ses entrées utiles sont dans Réglages, sous le compte (`settingsMenu`, `.dxe-set-menu`).
+  - **Croix de Continuer de regarder** masquée (`dismiss-icon-layer`) : « Effacer » reste dans le menu ⋮.
+  - **Spectateurs** (`viewers`, `whoIsWatching`) : écrans faits comme ceux de Netflix, et à garder ainsi (demande de l'utilisateur pour tout ce qui touche aux profils). Vues `gate | manage | edit | avatars | hidden | delete`, avec `draft` pour la page d'un profil ;
     - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
     - clavier de code `pinPad` (aussi pour le code parental) ;
     - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;

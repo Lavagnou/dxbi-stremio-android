@@ -81,6 +81,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-021 | Organiser les rangées de l'Accueil (ordre, masquer), par spectateur | À valider | P2 | plugin | — | 2026-10-29 |
 | T-022 | Code et avatar par profil, verrouillage après inactivité | À valider | P2 | plugin | — | 2026-10-29 |
 | T-023 | Téléchargements hors ligne | À faire | P3 | tv | — | 2026-10-29 |
+| T-024 | Bouton « Lecture » absent de la page d'une série ; croix de Continuer de regarder retirée | À valider | P1 | plugin | T-016 | 2026-10-29 |
+| T-025 | Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages | À valider | P1 | plugin | T-022 | 2026-10-29 |
 
 ---
 
@@ -1169,6 +1171,87 @@ On construit nos propres versions : l'abonnement de Stremio n'est pas débloqué
 - L'équivalent du « gestionnaire de téléchargements » des Supporters de Stremio : télécharger un film ou un épisode pour le lire sans réseau dans le lecteur natif.
 - Liens directs et debrid d'abord (Media3 `DownloadManager` / `DownloadService`). Les torrents viendraient ensuite.
 
+### T-024 — Bouton « Lecture » de la page d'une série absent ; croix de Continuer de regarder
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-016
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Enlève la croix pour effacer les séries/films dans "Continuer de regarder", vu que le menu contextuel permet déjà de le faire […] Sur les détails d'une série, j'ai toujours pas le bouton "Lecture" qui lance l'épisode en cours ou le prochain épisode non-lu en prenant la première source (mais en laissant le temps aux sources de charger, ça prend environ 5 secondes je crois.
+
+**Critères d'acceptation**
+- [x] Le bouton apparaît sur la page d'une série avec les vraies données de Stremio
+- [x] Plus de ✕ sur les cartes de Continuer de regarder ; « Effacer » reste dans le menu ⋮
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- **Cause :** dans `meta_details`, la fiche est `metaItem.content.content` (`metaItem` est la réponse de l'addon, `content` un `Loadable`), et non `metaItem.content` (vérifié dans `useMetaDetails.js` de stremio-web). `findEpisode` ne trouvait jamais les épisodes.
+- Le faux core des tests avait la même erreur : `series-real-test.cjs` reprend la vraie forme.
+- **L'attente des sources** ne change pas : jusqu'à ce que tous les addons aient répondu (12 s au plus), plus 700 ms.
+- **La croix :** `[class*="dismiss-icon-layer"]` est masquée (`EXTRAS_CSS`). Le bouton « Retirer » de la carte de survol (ordinateur) la clique toujours.
+
+**Vérification**
+- Playwright avec la vraie forme de `meta_details` :
+  - l'ancienne version n'affiche aucun bouton (comme sur l'appareil) ;
+  - la nouvelle affiche « Reprendre S1 É2 », « Lancer S1 É3 » ou « Lancer S1 É1 », attend l'addon lent et lance la première source.
+- Croix masquée : vérifié (`profiles-test.cjs`).
+
+### T-025 — Profils façon Netflix, bouton profil en haut à droite, menu du compte dans les Réglages
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-022
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Le menu en haut à droite du compte stremio est souvent par dessus d'autres éléments, comme le bouton de recherche, qui d'ailleurs est un peu petit et mal aligné. Je voudrais l'enlever carrément, pour le remplacer par un bouton de choix du profil (comme le fait "Qui regarde ?") qui doit fonctionner et être visuellement comme dans l'app Netflix […] pareil pour toute les fenêtres lié au profil, il faut toujours reprendre le design de Netflix. Pour le bouton menu stremio enlevé du coup, il faut le remettre dispo dans l'onglet réglage, là on a déjà le compte affiché.
+
+**Critères d'acceptation**
+- [x] Le menu du compte de Stremio n'est plus dans la barre du haut ; à sa place, l'image du profil courant, qui ouvre « Qui regarde ? »
+- [x] Bouton de recherche à la taille du bouton profil, centré et aligné
+- [x] « Qui regarde ? » façon Netflix :
+  - fond noir, logo, grandes vignettes carrées, noms en gris ;
+  - « Modifier » en haut à droite sur téléphone, « Gérer les profils » sous les profils sur TV et ordinateur.
+- [x] Pages Netflix :
+  - « Modifier le profil » / « Ajouter un profil » : icône, nom, Profil Enfants, Verrouillage du profil, Titres masqués, Supprimer le profil ;
+  - « Choisir une icône » ;
+  - « Supprimer le profil ? » ;
+  - écran « Le verrouillage de profil est activé. ».
+- [x] Réglages : sous le compte, Profils, Vos statistiques, Addons, Compte Stremio (et Signaler un problème quand il est actif)
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `whoIsWatching` réécrit avec des vues `gate | manage | edit | avatars | hidden | delete` et un brouillon (`draft`) pour la page d'un profil. Le nom tapé est gardé en passant aux icônes (`keepName`).
+- Modifier un profil verrouillé demande son code ou le code parental (`viewerPin.authorize`).
+- `pinPad` : option `eager` (un code de 4 chiffres passe sans OK, un code parental plus long reste possible). Fond noir opaque.
+- `navAvatar` est ajouté à la fin de `buttons-container` de la barre du haut. Le menu de Stremio est masqué par CSS (`menu-button-container` dans la barre).
+- `settingsMenu` : un bloc `.dxe-set-menu` après la section du compte (`user-info-content`). « Lire une URL / un lien magnet » n'a pas été repris : il passe par une fonction interne de Stremio.
+- Thème (bloc téléphones) : la recherche fermée n'affiche que sa loupe (2,75 rem, icône 1,5 rem).
+
+**Vérification**
+- Playwright (`profiles-test.cjs`, téléphone et TV, faux Stremio avec la mise en page de base de sa barre) :
+  - le menu de Stremio est masqué, la croix aussi ;
+  - avatar 🦊 en haut à droite, aligné avec la loupe (même milieu, 28 px) ;
+  - « Qui regarde ? » avec le focus sur le profil courant ;
+  - Modifier → Gérer les profils → page de Léo :
+    - nom « Léonard », Enfants 12+ ;
+    - icône 🚀 ;
+    - verrouillage 2468 posé et confirmé ;
+    - enregistré ;
+  - rouvrir Léonard demande son code ; « Supprimer le profil ? » puis Annuler ;
+  - choisir Léonard affiche « Le verrouillage de profil est activé. », le code 2468 passe, et l'avatar du haut devient 🚀 ;
+  - Réglages : le bloc suit le compte (Profils, Vos statistiques, Addons, Compte Stremio).
+- Captures relues, téléphone et TV.
+- Non vérifié : la vraie barre de Stremio sur l'appareil.
+
 <!--
 ### T-000 — Titre court
 
@@ -1246,6 +1329,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-024, T-025 | Bouton Lecture d'une série corrigé (forme de `meta_details`), croix de Continuer retirée, profils façon Netflix, bouton profil, menu du compte dans les Réglages. Testés (Playwright). APK de test publiée |
 | 2026-10-29 | T-021 à T-023 | Équivalents Nathflix des fonctions Stremio Supporters : rangées de l'Accueil et codes, avatars, verrou par profil implémentés et testés (Playwright) ; téléchargements notés pour plus tard. APK de test publiée |
 | 2026-10-29 | T-018 à T-020 | Revue complète (rapport), puis corrections à la demande de l'utilisateur ; testées (Playwright avant/après, CI). APK de test publiée |
 | 2026-10-29 | T-016, T-017 | Créées et implémentées : Reprendre sur la page d'une série, attente des sources ; rechargement à tout changement de langue. APK de test publiée |

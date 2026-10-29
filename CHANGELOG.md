@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+- **Resume a series really shows up.** The *Resume* / *Play* button on a series' page never appeared: Nathflix read Stremio's title details at the wrong place. It now shows, and plays the first stream once every addon has answered.
+- **No ✕ on Continue Watching cards.** It was too easy to hit by accident; *Dismiss* is still in the card's ⋮ menu (or hold the card).
+- **Profiles made like Netflix's.** The profile picture at the top right (in place of Stremio's account menu) opens Who's watching, now drawn like Netflix: big square pictures, *Edit* / *Manage profiles*, then a page for each profile (icon, name, kids profile, profile lock, hidden titles, delete), the icon picker, and Netflix's profile lock screen.
+- **Stremio's account menu moved to Settings.** Under your account in Settings: Profiles, Your stats, Addons and your Stremio account. The search button on phones is now the same size as the profile button, and lined up with it.
 - **Organise Home.** A button at the bottom of Home puts its rows in the order you like and hides the ones you don't want (drag them, or use the arrows and the eye). Each viewer gets their own Home; Continue Watching and the billboard stay at the top, and the remote follows the new order.
 - **A PIN and an avatar for each viewer.** In Who's watching → Manage viewers, a viewer can have their own 4-digit PIN, asked for to watch as them, and an avatar picked from a gallery. PINs (the parental one too) are now typed on a keypad that hides the digits, by touch, remote or keyboard.
 - **Profiles lock when Nathflix sits unused.** Nathflix settings → Home → *Lock profiles after inactivity*: after 5 minutes to an hour without anyone using it (never during a film), Who's watching comes back, and a viewer with a PIN needs it. A viewer with a PIN is also asked for it at every start.
