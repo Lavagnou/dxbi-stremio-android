@@ -468,6 +468,7 @@ Sur téléphone et tablette, une navigation qui ressemble à l'app Android de Ne
   - puces Shows, Movies et My List présentes ;
   - aucune erreur.
 - **Même test, TV** : le tap ouvre directement le titre, pas de puces.
+- **CI du commit 5c1f790** : APK de test construite et publiée dans `dev` ; le test mpv Windows passe.
 - **Page d'un titre à 412 px** : détails (412 px de large), puis flux (388 px) en dessous, rien de plus large que l'écran (`scrollWidth` 412), bouton large sur toute la ligne.
 - **Non vérifié :** le vrai Stremio (couleurs, tailles réelles, grilles), une tablette.
 
