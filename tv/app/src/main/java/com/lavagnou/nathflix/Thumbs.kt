@@ -6,7 +6,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
 import android.widget.ImageView
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -17,7 +16,7 @@ import java.util.concurrent.TimeUnit
  */
 object Thumbs {
     private val http by lazy {
-        OkHttpClient.Builder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
+        Http.client.newBuilder().connectTimeout(10, TimeUnit.SECONDS).readTimeout(20, TimeUnit.SECONDS).build()
     }
     private val pool = Executors.newFixedThreadPool(3)
     private val main = Handler(Looper.getMainLooper())

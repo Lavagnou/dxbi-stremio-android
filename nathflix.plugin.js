@@ -103,16 +103,25 @@
       const { getState } = core();
       if (!getState) return;
       this.busy = true;
-      this.next = Date.now() + 2000;
+      // The language is changed in Settings (or on another device, seen within 15 s): reading the
+      // core's whole context every 2 s elsewhere was wasted work
+      this.next = Date.now() + (currentRoute() === "settings" ? 2000 : 15000);
       getState("ctx").then((ctx) => {
         const code = ctx && ctx.profile && ctx.profile.settings && ctx.profile.settings.interfaceLanguage;
         if (!code) return;
-        try { localStorage.setItem("nathflix.lang", code); } catch (_) { /* read from the profile next time */ }
+        let saved = false;
+        try { localStorage.setItem("nathflix.lang", code); saved = localStorage.getItem("nathflix.lang") === code; } catch (_) { /* storage full */ }
         // Any change reloads, not only French ↔ English: Stremio keeps some texts (a card's ⋮ menu) in the
         // language they were first drawn in. On the very first look, only a change of Nathflix's own
         if (code === LANG_CODE || (!LANG_CODE && langOf(code) === LANG)) return;
         // never in the middle of a film
         if (currentRoute() === "player") return;
+        // The new language must be readable after the reload, or each reload would see a change again.
+        // And never more than one reload a minute, whatever happens
+        let last = 0;
+        try { last = Number(sessionStorage.getItem("nathflix.langReload")) || 0; } catch (_) { /* none */ }
+        if (!saved || Date.now() - last < 60000) return;
+        try { sessionStorage.setItem("nathflix.langReload", String(Date.now())); } catch (_) { return; }
         this.reloading = true;
         log("interface language changed: reloading");
         setTimeout(() => location.reload(), 300);
@@ -520,10 +529,7 @@
     if (!API) return;
 
     // Drop a schema left over from an older version (kept in memory until the app restarts)
-    try {
-      await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY);
-    } catch (_) { /* nothing registered yet */ }
-    registerSchema();
+    await reregisterSchema();
     const values = await Promise.all(
       Object.keys(DEFAULTS).map((key) => API.getSetting(key).then((v) => [key, v]).catch(() => [key, null]))
     );
@@ -548,6 +554,18 @@
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
   function registerSchema() {
     return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly)))).catch(() => { /* already registered */ });
+  }
+
+  // Clears what's registered and registers the schema again, one at a time: two at once (start-up and
+  // the billboard's list of catalogs) could register it twice, or clear it after the other had
+  let schemaQueue = Promise.resolve();
+  function reregisterSchema() {
+    schemaQueue = schemaQueue.then(async () => {
+      try { await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY); } catch (_) { /* nothing registered yet */ }
+      // (never waiting long on it: the saved settings load after this)
+      await Promise.race([registerSchema(), new Promise((r) => setTimeout(r, 3000))]);
+    });
+    return schemaQueue;
   }
 
   function persistSettings() {
@@ -598,6 +616,17 @@
   };
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // A signal that gives up a request after [ms]. timeoutSignal() only came with Chrome 103,
+  // and Android TVs can have an older WebView (from 100)
+  const timeoutSignal = (ms) => {
+    if (typeof AbortSignal.timeout === "function") return AbortSignal.timeout(ms);
+    const c = new AbortController();
+    setTimeout(() => c.abort(), ms);
+    return c.signal;
+  };
+  // A picture's address as CSS url(): quotes, brackets and spaces are escaped, so an addon's link can't
+  // end the url() (or, wrapped in esc() inside style="…", the attribute)
+  const cssUrl = (u) => `url("${String(u ?? "").replace(/["'()\\\s]/g, (c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0").toUpperCase())}")`;
 
   const art = {
     background: (id) => `https://images.metahub.space/background/large/${id}/img`,
@@ -706,7 +735,24 @@
       if (++writes % 50 === 0) pruneCache(900);
     } catch (_) {
       pruneCache(0);
+      pruneOld();
     }
+  }
+
+  // Nathflix's other caches (age ratings, episode lists, TMDB → IMDb ids) are only checked for age when
+  // read: what's past its time is cleared at start-up and whenever storage fills up, so it can't fill
+  // the storage Stremio's own profile and library need
+  const OLD_CACHES = [["nathflix.age:", 30 * 86400000], ["nathflix.tmdb2imdb.", 30 * 86400000], ["nathflix.eps.", 7 * 86400000]];
+  function pruneOld() {
+    try {
+      for (const k of Object.keys(localStorage)) {
+        const cache = OLD_CACHES.find(([prefix]) => k.startsWith(prefix));
+        if (!cache) continue;
+        let t = 0;
+        try { t = JSON.parse(localStorage.getItem(k)).t || 0; } catch (_) { /* corrupt entry */ }
+        if (Date.now() - t > cache[1]) localStorage.removeItem(k);
+      }
+    } catch (_) { /* ignore */ }
   }
 
   // Keep the cache bounded: drop expired entries, then the oldest beyond `limit`
@@ -761,7 +807,7 @@
     while (active < 4 && queue.length) {
       const job = queue.shift();
       active++;
-      fetch(`https://v3-cinemeta.strem.io/meta/${job.type}/${job.id}.json`, { signal: AbortSignal.timeout(10000) })
+      fetch(`https://v3-cinemeta.strem.io/meta/${job.type}/${job.id}.json`, { signal: timeoutSignal(10000) })
         .then((r) => (r.ok ? r.json() : null))
         .then((j) => {
           const meta = slimMeta(j && j.meta);
@@ -824,7 +870,7 @@
       try {
         if (source === "kitsu") {
           const ids = batch.map(([num]) => num).join(",");
-          const r = await fetch(`https://kitsu.app/api/edge/anime?filter[id]=${ids}&fields[anime]=averageRating&page[limit]=20`, { signal: AbortSignal.timeout(10000) });
+          const r = await fetch(`https://kitsu.app/api/edge/anime?filter[id]=${ids}&fields[anime]=averageRating&page[limit]=20`, { signal: timeoutSignal(10000) });
           const j = r.ok ? await r.json() : null;
           for (const item of (j && j.data) || []) scores.set(String(item.id), parseFloat(item.attributes && item.attributes.averageRating) / 10);
         } else {
@@ -833,7 +879,7 @@
             method: "POST",
             headers: { "Content-Type": "application/json", Accept: "application/json" },
             body: JSON.stringify({ query }),
-            signal: AbortSignal.timeout(10000),
+            signal: timeoutSignal(10000),
           });
           const j = r.ok || r.status === 404 ? await r.json() : null;
           for (const [alias, media] of Object.entries((j && j.data) || {})) {
@@ -997,8 +1043,7 @@
         option.options = [...option.options.filter((o) => !String(o.value).startsWith("cat:")), ...catalogOptions(list)];
       }
       if (!API) return;
-      try { await window.StremioEnhancedAPI?.clearRegisteredSettings?.(PLUGIN_KEY); } catch (_) { /* nothing to clear */ }
-      registerSchema();
+      await reregisterSchema();
     },
 
     // The addresses of the lists a "cat:" choice stands for ([] when that addon is gone)
@@ -1008,10 +1053,18 @@
       const profile = await addonTools.profile().catch(() => null);
       const addon = profile && (profile.addons || []).find((a) => a && a.manifest && a.manifest.id === id);
       if (!addon || !addon.transportUrl) return [];
-      const base = addon.transportUrl.replace(/\/manifest\.json$/, "");
+      // (an address can carry the addon's settings after a "?": they stay on, as Stremio keeps them)
+      const at = (path) => {
+        try {
+          const u = new URL(addon.transportUrl);
+          u.pathname = u.pathname.replace(/\/manifest\.json$/, "") + path;
+          return u.toString();
+        } catch (_) { return null; }
+      };
       return (addon.manifest.catalogs || [])
         .filter((c) => c && /^(movie|series)$/.test(c.type) && String(c.name || c.id) === name)
-        .map((c) => `${base}/catalog/${c.type}/${encodeURIComponent(c.id)}.json`);
+        .map((c) => at(`/catalog/${c.type}/${encodeURIComponent(c.id)}.json`))
+        .filter(Boolean);
     },
   };
 
@@ -1042,6 +1095,8 @@
 
     async load() {
       if (this.loading) return this.loading;
+      // (a reset while this loads, after a settings change, makes its result out of date)
+      const gen = (this.gen = (this.gen || 0) + 1);
       this.loading = (async () => {
         // The lists picked (up to three, mixed); the account's own lists when they're gone, empty or have
         // nothing to show leave the popular titles
@@ -1054,7 +1109,11 @@
         const usable = candidates.filter((m, i) => fits[i]).slice(0, 8);
         // Only keep slides whose backdrop actually loads
         const checked = await Promise.all(usable.map(async (m) => ((await preload(art.background(m.id))) ? m : null)));
+        if (gen !== this.gen) return this.items;
         this.items = checked.filter(Boolean).slice(0, 6);
+        // Nothing at all (no network yet: a TV often starts before its Wi-Fi): tried again in a minute,
+        // rather than no billboard until the next restart
+        if (!this.items.length) setTimeout(() => { if (gen === this.gen && !this.items.length) { this.loading = null; scheduleSync(); } }, 60000);
         return this.items;
       })();
       return this.loading;
@@ -1070,7 +1129,7 @@
     async candidates(urls, fillIn) {
       const lists = await Promise.all(
         urls.map((u) =>
-          fetch(u, { signal: AbortSignal.timeout(10000) })
+          fetch(u, { signal: timeoutSignal(10000) })
             .then((r) => (r.ok ? r.json() : { metas: [] }))
             .then((j) => (Array.isArray(j.metas) ? j.metas : []))
             .catch(() => [])
@@ -1085,10 +1144,8 @@
       if (fillIn) {
         items = await Promise.all(items.slice(0, 12).map(async (m) => {
           if (m.description && (m.background || m.poster)) return m;
-          const full = await fetch(`https://v3-cinemeta.strem.io/meta/${m.type === "movie" ? "movie" : "series"}/${m.id}.json`, { signal: AbortSignal.timeout(8000) })
-            .then((r) => (r.ok ? r.json() : {}))
-            .then((j) => j.meta || null)
-            .catch(() => null);
+          // (through the metadata cache: the same titles come back at every settings save)
+          const full = await getMeta(m.type === "movie" ? "movie" : "series", m.id).catch(() => null);
           return full ? { ...full, ...Object.fromEntries(Object.entries(m).filter(([, v]) => v)), type: m.type || full.type } : m;
         }));
       }
@@ -1171,7 +1228,7 @@
       const playHref = type === "movie" ? `/detail/movie/${m.id}/${m.id}` : `/detail/series/${m.id}`;
       return `
         <div class="dx-hero-slide" data-i="${i}">
-          <div class="dx-hero-backdrop" style="background-image:url('${art.background(m.id)}')"></div>
+          <div class="dx-hero-backdrop" style="background-image:${esc(cssUrl(art.background(m.id)))}"></div>
           <div class="dx-hero-content">
             <div class="dx-hero-kicker"><b>NATHFLIX</b>${type === "series" ? t("Series") : t("Film")}</div>
             <img class="dx-hero-logo" src="${art.logo(m.id)}" alt="${esc(m.name)}" draggable="false">
@@ -1255,6 +1312,7 @@
       this.remove();
       this.items = [];
       this.loading = null;
+      this.gen = (this.gen || 0) + 1;
       this.index = 0;
       scheduleSync();
     },
@@ -1292,11 +1350,30 @@
 
   // Measure every row first, then write: interleaving the two forced a full style recalculation
   // per row (over a second on a big Home)
-  function updateAllArrows() {
+  // Each row's titles when it was last measured, and when (Stremio draws a new list when a row changes)
+  const measuredRows = new WeakMap();
+  const rowTrack = (row) => row.querySelector(':scope > [class*="meta-items-container"]');
+
+  function updateAllArrows(force) {
+    // Phones and tablets swipe their rows: no arrows (the theme hides them), nothing to measure
+    if (IN_MOBILE) return;
     const rows = [...carouselRows()];
     rows.forEach(enhanceRow);
-    const sizes = rows.map(measureRow);
-    rows.forEach((row, i) => applyArrows(row, sizes[i]));
+    // Only new rows, rows whose titles changed, and the rest every few seconds (wide art can change a
+    // row's length), plus every row on a resize: measuring makes the browser lay out the whole page,
+    // and this runs on every sync (scrolling a row updates its own)
+    const now = Date.now();
+    const todo = force === true ? rows : rows.filter((row) => {
+      const track = rowTrack(row);
+      const last = track && measuredRows.get(track);
+      return track && (!last || last.count !== track.childElementCount || now - last.at > 3000);
+    });
+    const sizes = todo.map(measureRow);
+    todo.forEach((row, i) => {
+      applyArrows(row, sizes[i]);
+      const track = rowTrack(row);
+      if (track) measuredRows.set(track, { count: track.childElementCount, at: now });
+    });
   }
 
   function page(row, dir) {
@@ -1508,7 +1585,7 @@
         wide.className = "dx-wide-art";
         wide.dataset.key = key;
         const target = wide;
-        const fallback = info.poster ? `url('${info.poster}')` : "none";
+        const fallback = info.poster ? esc(cssUrl(info.poster)) : "none";
         const useFallback = () => {
           target.classList.add("is-fallback");
           target.innerHTML =
@@ -1522,7 +1599,7 @@
           preload(bg).then((ok) => {
             if (!target.isConnected) return;
             if (!ok) { useFallback(); return; }
-            target.style.backgroundImage = `url('${bg}')`;
+            target.style.backgroundImage = cssUrl(bg);
             target.innerHTML = logoUrl ? `<img class="dx-wide-logo" alt="" src="${esc(logoUrl)}">` : `<div class="dx-wide-name">${esc(info.title)}</div>`;
             target.querySelector(".dx-wide-logo")?.addEventListener("error", (ev) => {
               ev.target.replaceWith(Object.assign(document.createElement("div"), { className: "dx-wide-name", textContent: info.title }));
@@ -1851,7 +1928,7 @@
       const playHref = info.type === "movie" ? `/detail/movie/${info.id}/${info.id}` : href;
       const bg = artFor(meta, info.id, "background");
       const logoUrl = artFor(meta, info.id, "logo");
-      const media = [bg && `url('${bg}')`, info.poster && `url('${info.poster}')`].filter(Boolean).join(", ") || "none";
+      const media = esc([bg && cssUrl(bg), info.poster && cssUrl(info.poster)].filter(Boolean).join(", ") || "none");
       const score = scoreOf(meta);
       const length = info.type === "series"
         ? (meta.seasons ? (meta.seasons > 1 ? t("{n} Seasons", { n: meta.seasons }) : t("1 Season")) : "")
@@ -1972,7 +2049,7 @@
       const ghost = el.querySelector(".dx-preview-ghost");
       if (ghost) {
         const wideArt = card.querySelector(".dx-wide-art");
-        const art = (wideArt && wideArt.style.backgroundImage) || (info.poster ? `url("${info.poster}")` : "none");
+        const art = (wideArt && wideArt.style.backgroundImage) || (info.poster ? cssUrl(info.poster) : "none");
         Object.assign(ghost.style, { left: Math.round(rect.left - left) + "px", top: Math.round(rect.top - top) + "px", width: Math.round(rect.width) + "px", height: Math.round(rect.height) + "px", backgroundImage: art });
       }
       if (inner) inner.style.clipPath = from;
@@ -2190,7 +2267,7 @@
       return `
         <div class="dxm-grip"></div>
         <div class="dxm-top">
-          <div class="dxm-poster"${poster ? ` style="background-image:url('${esc(poster)}')"` : ""}></div>
+          <div class="dxm-poster"${poster ? ` style="background-image:${esc(cssUrl(poster))}"` : ""}></div>
           <div class="dxm-head">
             <h2>${esc(name)}</h2>
             ${facts ? `<div class="dxm-facts">${facts}</div>` : ""}
@@ -3255,7 +3332,7 @@
           OPTIONAL { ?s pq:P459 ?method } OPTIONAL { ?s pq:P585 ?when } }
         OPTIONAL { ?article schema:about ?f; schema:isPartOf <https://en.wikipedia.org/> }
       } LIMIT 60`;
-      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: timeoutSignal(12000) });
       if (!r.ok) throw new Error(`Wikidata ${r.status}`);
       const rows = ((await r.json()).results || {}).bindings || [];
       const v = (row, k) => (row[k] ? row[k].value.replace("http://www.wikidata.org/entity/", "") : "");
@@ -3281,7 +3358,7 @@
       const cached = readCached(key);
       if (cached !== undefined) return cached;
       const kind = by[0] === "mal" ? "any" : ids.type === "movie" ? "movie" : "show";
-      const r = await fetch(`https://api.mdblist.com/${by[0]}/${kind}/${encodeURIComponent(by[1])}/?apikey=${encodeURIComponent(settings.mdblistKey)}`, { signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`https://api.mdblist.com/${by[0]}/${kind}/${encodeURIComponent(by[1])}/?apikey=${encodeURIComponent(settings.mdblistKey)}`, { signal: timeoutSignal(12000) });
       if (r.status === 401 || r.status === 403) throw new Error(t("MDBList didn't accept your key"));
       if (r.status === 429) throw new Error(t("MDBList's daily limit is used up"));
       if (r.status === 404) {
@@ -3311,7 +3388,7 @@
       if (cached !== undefined) return cached;
       const api = "https://en.wikipedia.org/w/api.php?format=json&formatversion=2&redirects=1&action=parse";
       const headers = { "Api-User-Agent": "Nathflix (https://github.com/lavagnou/dxbi-stremio-android)" };
-      const r = await fetch(`${api}&prop=sections&page=${encodeURIComponent(title)}`, { headers, signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`${api}&prop=sections&page=${encodeURIComponent(title)}`, { headers, signal: timeoutSignal(12000) });
       if (!r.ok) throw new Error(`Wikipedia ${r.status}`);
       const sections = (((await r.json()).parse || {}).sections) || [];
       const pick = sections.find((s) => /^critical (response|reception)$/i.test(s.line))
@@ -3319,7 +3396,7 @@
         || sections.find((s) => /^reception/i.test(s.line));
       let result = { text: [], section: null, url: article };
       if (pick) {
-        const r2 = await fetch(`${api}&prop=text&disableeditsection=1&disablelimitreport=1&page=${encodeURIComponent(title)}&section=${encodeURIComponent(pick.index)}`, { headers, signal: AbortSignal.timeout(12000) });
+        const r2 = await fetch(`${api}&prop=text&disableeditsection=1&disablelimitreport=1&page=${encodeURIComponent(title)}&section=${encodeURIComponent(pick.index)}`, { headers, signal: timeoutSignal(12000) });
         if (!r2.ok) throw new Error(`Wikipedia ${r2.status}`);
         const html = (((await r2.json()).parse || {}).text) || "";
         const doc = new DOMParser().parseFromString(html, "text/html");
@@ -3350,7 +3427,7 @@
       const cached = readCached(key);
       if (cached !== undefined) return cached;
       const get = async (url) => {
-        const r = await fetch(withKey(url), { ...auth, signal: AbortSignal.timeout(12000) });
+        const r = await fetch(withKey(url), { ...auth, signal: timeoutSignal(12000) });
         if (r.status === 401) throw new Error(t("TMDB didn't accept your key"));
         if (!r.ok) throw new Error(`TMDB ${r.status}`);
         return r.json();
@@ -4386,7 +4463,7 @@
       this.abort = new AbortController();
       try {
         const url = `${this.src.server}/thumb.jpg?from=${encodeURIComponent(this.src.from)}&at=${at}`;
-        const res = await fetch(url, { signal: AbortSignal.any ? AbortSignal.any([this.abort.signal, AbortSignal.timeout(20000)]) : this.abort.signal });
+        const res = await fetch(url, { signal: AbortSignal.any ? AbortSignal.any([this.abort.signal, timeoutSignal(20000)]) : this.abort.signal });
         if (!res.ok) throw new Error("thumb " + res.status);
         const bmp = await createImageBitmap(await res.blob(), { resizeWidth: 320, resizeQuality: "medium" });
         if (key !== this.key) { bmp.close(); return; }
@@ -7017,10 +7094,14 @@
     }
   }
 
+  // One of Nathflix's own elements (dx-…, dxe-…, dxm-… classes)
+  const ownNode = (n) => n.nodeType === 1 && typeof n.className === "string" && /(^|\s)dx/.test(n.className);
   const mo = new MutationObserver((records) => {
     for (const r of records) {
-      // Ignore changes we made ourselves
-      if (r.target.closest && r.target.closest(".dx-hero, .dx-preview, .dx-row-pages, .dxe-airing, .dxe-upnext, .dxe-playhelp, .dxe-placeholder, .dxe-skip, .dxe-trailer, .dx-wide-art, .dx-player-title, .dx-player-flash, .dx-streambar, .dx-stream-empty, .dx-scrub, .dx-enhance-subs, .dx-player-toast, .dxp-nav-btn, .dxp-player-btn, .dxt-panel, .dx-sub2, .dxl-tools, .dxe-theatre, .dx-scores, .dx-reviews-btn, .dx-hide-btn, .dx-play-ep, .dxe-kids-block, .dxe-toast, .dx-ends, .dx-cal-item, .dxe-report")) continue;
+      // Ignore changes we made ourselves: inside our own elements, or our elements put into (or taken
+      // out of) Stremio's, like badges, wide art and captions. Each one ran a whole sync again
+      if ((r.addedNodes.length || r.removedNodes.length) && [...r.addedNodes, ...r.removedNodes].every(ownNode)) continue;
+      if (r.target.closest && r.target.closest(".dx-hero, .dx-preview, .dx-row-pages, .dxe-airing, .dxe-upnext, .dxe-playhelp, .dxe-placeholder, .dxe-skip, .dxe-trailer, .dx-wide-art, .dx-player-title, .dx-player-flash, .dx-streambar, .dx-stream-empty, .dx-scrub, .dx-enhance-subs, .dx-player-toast, .dxp-nav-btn, .dxp-player-btn, .dxt-panel, .dx-sub2, .dxl-tools, .dxe-theatre, .dx-scores, .dx-reviews-btn, .dx-hide-btn, .dx-play-ep, .dxe-kids-block, .dxe-toast, .dx-ends, .dx-cal-item, .dxe-report, .dxl-empty")) continue;
       scheduleSync();
       // Library's watched filters hide titles in the same frame Stremio draws them (a whole sync
       // later, the wrong titles were on screen for a moment)
@@ -7031,7 +7112,7 @@
 
   const onResize = () => {
     preview.close(true);
-    updateAllArrows();
+    updateAllArrows(true);
   };
   const onOver = (e) => preview.onOver(e);
   const onSheetClick = (e) => titleSheet.onClick(e);
@@ -7521,6 +7602,9 @@
 
     // Resolves true once the defaults are in (or were already), false when the core isn't ready yet
     async apply() {
+      // the saved copy on disk first: a localStorage that was full or cleared has lost the flags
+      // saying the defaults were given already, and they'd overwrite the account's settings again
+      if (store.ready) await store.ready.catch(() => {});
       if (!this.pending()) return true;
       const { getState, dispatch } = core();
       if (!getState || !dispatch) return false;
@@ -7550,9 +7634,11 @@
     // Signing in to another account later gives it the defaults too (looked at now and then)
     next: 0,
     watch() {
-      if (this.busy || Date.now() < this.next || !this.pending()) return;
-      this.busy = true;
+      // (pending() reads the whole saved profile: not on every sync)
+      if (this.busy || Date.now() < this.next) return;
       this.next = Date.now() + 10000;
+      if (!this.pending()) return;
+      this.busy = true;
       this.apply().catch(() => false).finally(() => { this.busy = false; });
     },
   };
@@ -7866,7 +7952,7 @@
     },
 
     async apply() {
-      const r = await fetch(streamingServerUrl() + "/settings", { signal: AbortSignal.timeout(5000) });
+      const r = await fetch(streamingServerUrl() + "/settings", { signal: timeoutSignal(5000) });
       const values = (await r.json()).values || {};
       const profiles = values.allTranscodeProfiles || [];
       if (values.transcodeProfile) return this.finish(); // already chosen by the viewer
@@ -7899,8 +7985,17 @@
         return;
       }
       if (this.checked.has(v)) return;
+      // a live stream (no end) is never a placeholder clip
+      if (v.duration === Infinity) {
+        this.checked.add(v);
+        return;
+      }
       if (!isFinite(v.duration) || v.duration <= 0) {
-        v.addEventListener("loadedmetadata", () => scheduleSync(), { once: true });
+        // (once: added on every sync, they piled up)
+        if (!v.dxWaitMeta) {
+          v.dxWaitMeta = true;
+          v.addEventListener("loadedmetadata", () => { v.dxWaitMeta = false; scheduleSync(); }, { once: true });
+        }
         return;
       }
       this.checked.add(v);
@@ -7912,7 +8007,7 @@
       const st = await core().getState?.("player").catch(() => null);
       const url = st && st.selected && st.selected.stream && st.selected.stream.url;
       if (!url || !/^https?:/.test(url) || !/\/(?:resolve|playback|play)\//i.test(url)) return;
-      const r = await fetch(url, { headers: { Range: "bytes=0-0" }, signal: AbortSignal.timeout(8000) });
+      const r = await fetch(url, { headers: { Range: "bytes=0-0" }, signal: timeoutSignal(8000) });
       r.body?.cancel?.();
       const final = r.url || "";
       const m = /\/videos?\/([a-z_]+?)(?:_v\d+)?\.mp4/i.exec(final);
@@ -7958,7 +8053,7 @@
     // conversion, so ask twice with time to spare, and count answers it already gave this video.
     async serverSettings() {
       for (const wait of [5000, 8000]) {
-        const s = await fetch(streamingServerUrl() + "/settings", { signal: AbortSignal.timeout(wait) })
+        const s = await fetch(streamingServerUrl() + "/settings", { signal: timeoutSignal(wait) })
           .then((r) => (r.ok ? r.json().catch(() => ({})) : null), () => null);
         if (s) return s;
       }
@@ -7984,7 +8079,7 @@
         note.innerHTML = `<p>${t("Converting it so this PC can play it…")}</p>`;
         label.after(note);
         this.el = note;
-        fetch(streamingServerUrl() + "/settings", { signal: AbortSignal.timeout(2500) })
+        fetch(streamingServerUrl() + "/settings", { signal: timeoutSignal(2500) })
           .then((r) => r.ok, () => false)
           .then((up) => (up ? convert.retry() : false))
           .then((retrying) => {
@@ -8064,7 +8159,7 @@
       if (segments.some((e) => ok(e.responseStatus))) return { kind: "file" };
       const last = segments[segments.length - 1] || entries.find((e) => /video\d*\.m3u8/.test(e.name)) || entries[0];
       if (last) {
-        const r = await fetch(last.name, { signal: AbortSignal.timeout(25000) }).catch((err) => ({ ok: false, status: 0, error: String(err && err.name) }));
+        const r = await fetch(last.name, { signal: timeoutSignal(25000) }).catch((err) => ({ ok: false, status: 0, error: String(err && err.name) }));
         report.refetch = r.status || r.error || 0;
         if (!r.ok && typeof r.text === "function") report.serverSaid = (await r.text().catch(() => "")).slice(0, 300);
         if (r.ok && segments.length) return { kind: "file" };
@@ -8083,7 +8178,7 @@
         const any = entries[0] && new URL(entries[0].name);
         const media = any && any.searchParams.get("mediaURL");
         if (!media) return;
-        const r = await fetch(`${any.origin}/hlsv2/probe?${new URLSearchParams([["mediaURL", media]])}`, { signal: AbortSignal.timeout(15000) });
+        const r = await fetch(`${any.origin}/hlsv2/probe?${new URLSearchParams([["mediaURL", media]])}`, { signal: timeoutSignal(15000) });
         if (!r.ok) {
           report.probe = `HTTP ${r.status}`;
           report.probeFailed = true;
@@ -8277,7 +8372,7 @@
         if (!Number.isInteger(season) || !Number.isInteger(episode)) return [];
         query += `&season=${season}&episode=${episode}`;
       }
-      const r = await fetch(`https://api.theintrodb.org/v3/media?${query}`, { signal: AbortSignal.timeout(10000) });
+      const r = await fetch(`https://api.theintrodb.org/v3/media?${query}`, { signal: timeoutSignal(10000) });
       if (r.status !== 200) return [];
       const j = await r.json();
       const out = [];
@@ -8295,7 +8390,7 @@
       const key = `malmap:${kitsuId}`;
       const cached = readCached(key);
       if (cached !== undefined) return cached;
-      const r = await fetch(`https://kitsu.app/api/edge/anime/${kitsuId}/mappings?filter[externalSite]=myanimelist/anime`, { signal: AbortSignal.timeout(10000) });
+      const r = await fetch(`https://kitsu.app/api/edge/anime/${kitsuId}/mappings?filter[externalSite]=myanimelist/anime`, { signal: timeoutSignal(10000) });
       const j = r.ok ? await r.json() : null;
       const ext = j && j.data && j.data[0] && j.data[0].attributes && j.data[0].attributes.externalId;
       const mal = ext ? parseInt(ext, 10) || null : null;
@@ -8305,7 +8400,7 @@
 
     async aniskip(mal, episode) {
       const types = ["op", "ed", "recap", "mixed-op", "mixed-ed"].map((t) => `types[]=${t}`).join("&");
-      const r = await fetch(`https://api.aniskip.com/v2/skip-times/${mal}/${episode}?${types}&episodeLength=0`, { signal: AbortSignal.timeout(10000) });
+      const r = await fetch(`https://api.aniskip.com/v2/skip-times/${mal}/${episode}?${types}&episodeLength=0`, { signal: timeoutSignal(10000) });
       if (!r.ok) return []; // 404: nobody has submitted times for this episode yet
       const j = await r.json();
       const kind = { op: "intro", "mixed-op": "intro", ed: "credits", "mixed-ed": "credits", recap: "recap" };
@@ -8586,7 +8681,10 @@
     },
 
     async open() {
-      const profile = await this.profile().catch(() => null);
+      // (a double tap, or the remote repeating OK, opened two windows: the first then couldn't be closed)
+      if ((this.modal && this.modal.isConnected) || this.opening) return;
+      this.opening = true;
+      const profile = await this.profile().catch(() => null).finally(() => { this.opening = false; });
       if (!profile || !Array.isArray(profile.addons)) return;
       this.original = profile.addons.slice();
       this.list = profile.addons.slice();
@@ -8791,7 +8889,7 @@
       const missing = this.missingPack(profile.addons);
       if (!missing.length) return 0;
       try { localStorage.setItem("nathflix.addonBackup", JSON.stringify({ t: Date.now(), addons: profile.addons })); } catch (_) { /* undo just won't be offered */ }
-      const manifests = await Promise.all(missing.map((p) => fetch(p.url, { signal: AbortSignal.timeout(15000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)));
+      const manifests = await Promise.all(missing.map((p) => fetch(p.url, { signal: timeoutSignal(15000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null)));
       let added = 0;
       missing.forEach((p, i) => {
         const manifest = manifests[i];
@@ -8817,7 +8915,7 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ type: "addonCollectionSet", authKey, addons }),
-          signal: AbortSignal.timeout(15000),
+          signal: timeoutSignal(15000),
         });
         const j = await r.json().catch(() => null);
         if (!j || !j.result) throw new Error((j && j.error && (j.error.message || j.error)) || `HTTP ${r.status}`);
@@ -9447,10 +9545,13 @@
     queue: new Map(), // "type:id" → [resolve…]
     timer: 0,
     TTL: 30 * 86400000,
+    // looked up while a service was unreachable: not saved, asked again after a while
+    retry: new Map(), // "type:id" → when
 
     known(type, id) {
       const key = `${type}:${id}`;
       if (this.mem.has(key)) return this.mem.get(key);
+      if (this.retry.get(key) > Date.now()) return null;
       try {
         const saved = JSON.parse(localStorage.getItem("nathflix.age:" + key) || "null");
         if (saved && Date.now() - saved.t < this.TTL) {
@@ -9491,22 +9592,36 @@
         else if (/^tmdb:\d+$/.test(id) && settings.tmdbKey.trim()) tmdbIds.push([key, id.split(":")[1], key.startsWith("movie:") ? "movie" : "tv"]);
         else this.remember(key, null);
       }
-      for (let i = 0; i < imdb.length; i += 60) await this.wikidata(imdb.slice(i, i + 60)).catch(() => { /* below */ });
-      for (let i = 0; i < kitsu.length; i += 20) await this.kitsu(kitsu.slice(i, i + 20)).catch(() => { /* below */ });
+      // (a lookup that failed, offline or a service down, says nothing about the title)
+      let failed = false;
+      const fail = () => { failed = true; };
+      for (let i = 0; i < imdb.length; i += 60) await this.wikidata(imdb.slice(i, i + 60)).catch(fail);
+      for (let i = 0; i < kitsu.length; i += 20) await this.kitsu(kitsu.slice(i, i + 20)).catch(fail);
       // still unknown: TMDB, when there's a key
       const left = imdb.filter(([key]) => this.queue.has(key));
       if (settings.tmdbKey.trim()) {
-        for (const [key, tt] of left) await this.tmdb(key, tt).catch(() => { /* below */ });
-        for (const [key, n, kind] of tmdbIds) await this.tmdb(key, null, { id: n, kind }).catch(() => { /* below */ });
+        for (const [key, tt] of left) await this.tmdb(key, tt).catch(fail);
+        for (const [key, n, kind] of tmdbIds) await this.tmdb(key, null, { id: n, kind }).catch(fail);
       }
-      for (const key of keys) if (this.queue.has(key)) this.remember(key, null);
+      for (const key of keys) {
+        if (!this.queue.has(key)) continue;
+        if (failed) this.skip(key);
+        else this.remember(key, null);
+      }
+    },
+
+    // No answer this time: "no rating" for now (resolved as unknown), asked again in 10 minutes
+    skip(key) {
+      this.retry.set(key, Date.now() + 10 * 60000);
+      for (const resolve of this.queue.get(key) || []) resolve(null);
+      this.queue.delete(key);
     },
 
     async wikidata(pairs) {
       const values = [...new Set(pairs.map(([, tt]) => `"${tt}"`))].join(" ");
       const label = (p, v) => `OPTIONAL { ?item wdt:${p} ?${v}i . ?${v}i rdfs:label ?${v} FILTER(LANG(?${v}) = "en") }`;
       const query = `SELECT ?imdb ?mpa ?bbfc ?fsk ?ci WHERE { VALUES ?imdb { ${values} } ?item wdt:P345 ?imdb . ${label("P1657", "mpa")} ${label("P2629", "bbfc")} ${label("P1981", "fsk")} ${label("P3216", "ci")} }`;
-      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: AbortSignal.timeout(15000) });
+      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: timeoutSignal(15000) });
       if (!r.ok) throw new Error(`Wikidata ${r.status}`);
       const rows = (await r.json()).results.bindings;
       const found = new Map();
@@ -9523,7 +9638,7 @@
     },
 
     async kitsu(pairs) {
-      const r = await fetch(`https://kitsu.io/api/edge/anime?filter[id]=${pairs.map(([, n]) => n).join(",")}&fields[anime]=ageRating&page[limit]=20`, { signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`https://kitsu.io/api/edge/anime?filter[id]=${pairs.map(([, n]) => n).join(",")}&fields[anime]=ageRating&page[limit]=20`, { signal: timeoutSignal(12000) });
       if (!r.ok) throw new Error(`Kitsu ${r.status}`);
       const byId = new Map(((await r.json()).data || []).map((a) => [String(a.id), ratingAge("kitsu", a.attributes && a.attributes.ageRating)]));
       for (const [key, n] of pairs) if (byId.has(n) && byId.get(n) != null) this.remember(key, byId.get(n));
@@ -9534,7 +9649,7 @@
       const auth = token.startsWith("eyJ") ? { headers: { Authorization: `Bearer ${token}` } } : { headers: {} };
       const withKey = (url) => (token.startsWith("eyJ") ? url : `${url}${url.includes("?") ? "&" : "?"}api_key=${encodeURIComponent(token)}`);
       const get = async (url) => {
-        const r = await fetch(withKey(url), { ...auth, signal: AbortSignal.timeout(12000) });
+        const r = await fetch(withKey(url), { ...auth, signal: timeoutSignal(12000) });
         if (!r.ok) throw new Error(`TMDB ${r.status}`);
         return r.json();
       };
@@ -9632,7 +9747,7 @@
       card.toggleAttribute("data-dx-pending", v === null);
       if (v === null && !card.dataset.dxAsked) {
         card.dataset.dxAsked = "1";
-        this.decide(info.type, info.id).then(() => { delete card.dataset.dxAsked; scheduleSync(); });
+        this.decide(info.type, info.id).catch(() => { /* treated as unknown */ }).then(() => { delete card.dataset.dxAsked; scheduleSync(); });
       }
     },
 
@@ -9779,8 +9894,12 @@
       const label = this.waiting || (onStreams && !ready) ? t("Finding streams…")
         : onSeries ? this.series.label
         : parts[1] === "movie" ? t("Play") : t("Play episode");
-      const html = `${ICONS.play}<span>${esc(label)}</span>`;
-      if (b.innerHTML !== html) b.innerHTML = html;
+      // (compared with what was written last: the browser writes the icon back differently, so
+      // comparing innerHTML never matched and the button was rewritten on every sync)
+      if (b.dataset.label !== label) {
+        b.innerHTML = `${ICONS.play}<span>${esc(label)}</span>`;
+        b.dataset.label = label;
+      }
       b.classList.toggle("is-waiting", !ready);
       b.setAttribute("aria-disabled", String(!ready));
     },
@@ -9804,6 +9923,8 @@
           if (settled && this.firstStream()) break;
         }
         await new Promise((r) => setTimeout(r, 700));
+        // (left the page meanwhile: nothing to play here)
+        if (!(location.hash || "").includes(encodeURIComponent(videoId)) && !(location.hash || "").includes(videoId)) return;
         const first = this.firstStream();
         if (first) first.click();
         else {
@@ -9824,8 +9945,10 @@
     // The episode to resume: the one in progress, else the one after the episode last finished, else
     // the first (specials left out)
     async findEpisode(id) {
-      if (this.looking === id) return;
+      // (a series whose details don't load, or have no episodes, isn't asked about on every sync)
+      if (this.looking === id || (this.lastLook && this.lastLook.id === id && Date.now() - this.lastLook.at < 2000)) return;
       this.looking = id;
+      this.lastLook = { id, at: Date.now() };
       try {
         const s = await core().getState("meta_details").catch(() => null);
         const meta = s && s.metaItem && s.metaItem.content;
@@ -9921,8 +10044,11 @@
         row.append(b);
       }
       b.dxAct = act;
-      const html = `${kind === "hide" ? ICONS.eyeOff : ICONS.people}<span>${esc(label)}</span>`;
-      if (b.innerHTML !== html) b.innerHTML = html;
+      // (compared with what was written last: the browser writes the icon back differently)
+      if (b.dataset.label !== kind + label) {
+        b.innerHTML = `${kind === "hide" ? ICONS.eyeOff : ICONS.people}<span>${esc(label)}</span>`;
+        b.dataset.label = kind + label;
+      }
       b.title = tip;
       b.classList.toggle("is-on", on);
     },
@@ -10126,7 +10252,7 @@
       let body = JSON.stringify(data);
       // (the relay takes up to 256 KB: the log goes first if it's ever that long)
       if (body.length > 240000) { data.recentLog = data.recentLog.slice(-10); body = JSON.stringify(data); }
-      const r = await fetch(REPORT_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body, signal: AbortSignal.timeout(20000) });
+      const r = await fetch(REPORT_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body, signal: timeoutSignal(20000) });
       const answer = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(answer.error || t("Couldn't send the report ({status}).", { status: r.status }));
       this.sentAt = Date.now();
@@ -10663,7 +10789,10 @@
           const types = (typeof res === "object" && res.types) || m.types || [];
           if (types.includes("series") && prefixes.length) out.push({ base: a.transportUrl.replace(/\/manifest\.json$/, ""), prefixes });
         }
-      } catch (_) { /* fall back to the public addons below */ }
+      } catch (_) {
+        // the core wasn't ready: asked again next time rather than kept empty for the session
+        return out;
+      }
       return (this.bases = out);
     },
 
@@ -10688,20 +10817,26 @@
       if (this.loading || Date.now() - this.at < 10 * 60 * 1000) return;
       this.at = Date.now();
       this.loading = (async () => {
-        const bases = await this.metaBases();
-        const list = this.librarySeries(bases);
-        let i = 0;
-        const worker = async () => {
-          while (i < list.length) {
-            const item = list[i++];
-            const entry = await this.get(item._id, bases).catch(() => null);
-            if (entry) this.index.set(item._id, { ...entry, lastWatched: item.state.lastWatched, name: item.name, poster: item.poster });
-          }
-        };
-        await Promise.all([worker(), worker(), worker()]);
-        this.version++;
-        this.loading = null;
-        scheduleSync();
+        try {
+          const bases = await this.metaBases();
+          const list = this.librarySeries(bases);
+          let i = 0;
+          const worker = async () => {
+            while (i < list.length) {
+              const item = list[i++];
+              const entry = await this.get(item._id, bases).catch(() => null);
+              if (entry) this.index.set(item._id, { ...entry, lastWatched: item.state && item.state.lastWatched, name: item.name, poster: item.poster });
+            }
+          };
+          await Promise.all([worker(), worker(), worker()]);
+          this.version++;
+        } catch (err) {
+          log("episode list failed", err);
+        } finally {
+          // (an error left it set, and the lists were never refreshed again that session)
+          this.loading = null;
+          scheduleSync();
+        }
       })();
     },
 
@@ -10745,7 +10880,7 @@
       let why = own ? "" : "no addon for this id";
       for (const url of [...new Set(tries)]) {
         try {
-          const r = await fetch(url, { signal: AbortSignal.timeout(10000) });
+          const r = await fetch(url, { signal: timeoutSignal(10000) });
           if (!r.ok) { why = `${new URL(url).host} ${r.status}`; continue; }
           const meta = ((await r.json()) || {}).meta;
           if (meta && Array.isArray(meta.videos) && meta.videos.length) { this.failures.delete(id); return meta; }
@@ -10758,7 +10893,7 @@
         try {
           const tt = await this.imdbForTmdb(tmdb[1]);
           if (tt) {
-            const r = await fetch(`https://v3-cinemeta.strem.io/meta/series/${tt}.json`, { signal: AbortSignal.timeout(10000) });
+            const r = await fetch(`https://v3-cinemeta.strem.io/meta/series/${tt}.json`, { signal: timeoutSignal(10000) });
             const meta = r.ok ? ((await r.json()) || {}).meta : null;
             if (meta && Array.isArray(meta.videos)) { this.failures.delete(id); return { ...meta, id }; }
           } else why += "; no IMDb id on Wikidata";
@@ -10776,7 +10911,7 @@
         if (saved && Date.now() - saved.t < 30 * 86400000) return saved.tt;
       } catch (_) { /* ask again */ }
       const query = `SELECT ?imdb WHERE { ?item wdt:P4983 "${String(n).replace(/\D/g, "")}" ; wdt:P345 ?imdb . } LIMIT 1`;
-      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(query)}`, { headers: { Accept: "application/sparql-results+json" }, signal: timeoutSignal(12000) });
       if (!r.ok) throw new Error(`Wikidata ${r.status}`);
       const tt = ((await r.json()).results.bindings[0] || {}).imdb?.value || null;
       try { localStorage.setItem(key, JSON.stringify({ tt, t: Date.now() })); } catch (_) { /* full */ }
@@ -10971,7 +11106,7 @@
           const out = ep.t <= Date.now();
           const backdrop = e.background || (/^tt/.test(id) ? art.backgroundMedium(id) : e.poster || "");
           // episode stills only exist once an episode is out; the backdrop sits underneath either way
-          const layers = [out && ep.th, backdrop].filter(Boolean).map((u) => `url('${esc(u)}')`).join(", ");
+          const layers = [out && ep.th, backdrop].filter(Boolean).map((u) => esc(cssUrl(u))).join(", ");
           const title = ep.n && !/^episode\s*\d+$/i.test(ep.n) ? ep.n : "";
           return `
           <button class="dxe-air${out ? " is-out" : ""}" data-href="/detail/series/${encodeURIComponent(id)}">
@@ -11020,7 +11155,7 @@
       const cached = readCached(key);
       if (cached && cached.trailer !== undefined) return cached.trailer;
       try {
-        const r = await fetch(`https://v3-cinemeta.strem.io/meta/${info.type}/${imdbId}.json`, { signal: AbortSignal.timeout(8000) });
+        const r = await fetch(`https://v3-cinemeta.strem.io/meta/${info.type}/${imdbId}.json`, { signal: timeoutSignal(8000) });
         const full = r.ok ? ((await r.json()) || {}).meta : null;
         const slim = slimMeta(full);
         if (slim) writeCached(key, slim);
@@ -11397,7 +11532,7 @@
       if (this.shows) return this.shows;
       const cached = this.readLocal("nathflix.afl.shows");
       if (cached) return (this.shows = cached);
-      const r = await fetch(`${AFL}/shows`, { signal: AbortSignal.timeout(12000) });
+      const r = await fetch(`${AFL}/shows`, { signal: timeoutSignal(12000) });
       if (!r.ok) return [];
       const html = await r.text();
       const list = [];
@@ -11433,7 +11568,7 @@
         data = null;
         const slug = await this.match(names).catch(() => null);
         if (slug) {
-          const r = await fetch(`${AFL}/shows/${slug}`, { signal: AbortSignal.timeout(12000) }).catch(() => null);
+          const r = await fetch(`${AFL}/shows/${slug}`, { signal: timeoutSignal(12000) }).catch(() => null);
           if (r && r.ok) {
             const html = await r.text();
             const kinds = {};
@@ -11670,7 +11805,7 @@
       el.className = "dxe-upnext";
       const label = n.skipped ? (n.skipped === 1 ? t("Skipping 1 filler episode") : t("Skipping {n} filler episodes", { n: n.skipped })) : t("Next episode");
       el.innerHTML = `
-        <div class="dxe-upnext-art"${n.thumbnail && /^https:/.test(n.thumbnail) ? ` style="background-image:url('${esc(n.thumbnail)}')"` : ""}>
+        <div class="dxe-upnext-art"${n.thumbnail && /^https:/.test(n.thumbnail) ? ` style="background-image:${esc(cssUrl(n.thumbnail))}"` : ""}>
           <svg class="dxe-ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="is-fill" cx="20" cy="20" r="17" style="animation-duration:${seconds}s"/></svg>
           <span class="dxe-upnext-count">${seconds}</span>
         </div>
@@ -12109,7 +12244,7 @@
     load(url, fallback) {
       if (!this.cache.has(url)) {
         const viaServer = url.includes("/subtitles.vtt?") ? url : `${streamingServerUrl()}/subtitles.vtt?from=${encodeURIComponent(url)}`;
-        const get = (u) => fetch(u, { signal: AbortSignal.timeout(20000) }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
+        const get = (u) => fetch(u, { signal: timeoutSignal(20000) }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))));
         const p = get(viaServer).catch(() => get(fallback || url)).then(parseCues).catch(() => null);
         this.cache.set(url, p);
         if (this.cache.size > 16) this.cache.delete(this.cache.keys().next().value);
@@ -12730,7 +12865,7 @@
       if (!this.probes.has(media)) {
         if (this.probes.size > 20) this.probes.clear();
         this.probes.set(media, null);
-        fetch(`${server}/hlsv2/probe?${new URLSearchParams([["mediaURL", media]])}`, { signal: AbortSignal.timeout(20000) })
+        fetch(`${server}/hlsv2/probe?${new URLSearchParams([["mediaURL", media]])}`, { signal: timeoutSignal(20000) })
           .then((r) => (r.ok ? r.json() : null))
           .then((j) => this.probes.set(media, j && Array.isArray(j.streams) ? j : false))
           .catch(() => this.probes.set(media, false));
@@ -12741,7 +12876,7 @@
     // Torrent numbers from the streaming server (per file, which leaves out peer addresses)
     async torrentStats(server, { ih, idx }) {
       try {
-        const r = await fetch(`${server}/${ih}${idx === null ? "" : `/${idx}`}/stats.json`, { signal: AbortSignal.timeout(4000) });
+        const r = await fetch(`${server}/${ih}${idx === null ? "" : `/${idx}`}/stats.json`, { signal: timeoutSignal(4000) });
         if (!r.ok) return null;
         const j = await r.json();
         const n = (x) => (typeof x === "number" && isFinite(x) ? x : null);
@@ -12896,7 +13031,7 @@
         const ctx = await core().getState("ctx").catch(() => null);
         const addons = ((ctx && ctx.profile && ctx.profile.addons) || []).filter((a) => addonServes(a.manifest, "meta", type, id));
         for (const a of addons) {
-          const j = await fetch(`${addonBase(a)}/meta/${encodeURIComponent(type)}/${encodeURIComponent(id)}.json`, { signal: AbortSignal.timeout(10000) })
+          const j = await fetch(`${addonBase(a)}/meta/${encodeURIComponent(type)}/${encodeURIComponent(id)}.json`, { signal: timeoutSignal(10000) })
             .then((r) => (r.ok ? r.json() : null)).catch(() => null);
           if (j && j.meta) return j.meta;
         }
@@ -12930,7 +13065,7 @@
       const ctx = await core().getState("ctx");
       const addons = ((ctx && ctx.profile && ctx.profile.addons) || []).filter((a) => addonServes(a.manifest, "stream", cur.type, next.id));
       const lists = await Promise.all(addons.map((a) => {
-        return fetch(`${addonBase(a)}/stream/${encodeURIComponent(cur.type)}/${encodeURIComponent(next.id)}.json`, { signal: AbortSignal.timeout(15000) })
+        return fetch(`${addonBase(a)}/stream/${encodeURIComponent(cur.type)}/${encodeURIComponent(next.id)}.json`, { signal: timeoutSignal(15000) })
           .then((r) => (r.ok ? r.json() : null))
           .then((j) => (j && Array.isArray(j.streams) ? j.streams : []))
           .catch(() => []);
@@ -12947,7 +13082,7 @@
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ torrent: { infoHash: ih }, peerSearch: { sources, min: 40, max: 150 } }),
-          signal: AbortSignal.timeout(120000),
+          signal: timeoutSignal(120000),
         }).then((r) => r.ok).catch(() => false);
         if (created && Number.isInteger(stream.fileIdx)) await this.warm(`${server}/${ih}/${stream.fileIdx}`, 8 << 20);
         log("next episode preloaded (torrent)");
@@ -13132,8 +13267,10 @@
         (lib.querySelector('[class*="meta-items-container"]') || lib).before(note);
       }
       if (note) {
+        const text = want ? t("Nothing in your library is watched yet.") : t("You've watched everything in your library.");
+        // (only when it changes: writing it is a change to the page, which runs this again)
         if (!empty) note.remove();
-        else note.textContent = want ? t("Nothing in your library is watched yet.") : t("You've watched everything in your library.");
+        else if (note.textContent !== text) note.textContent = text;
       }
     },
 
@@ -13555,6 +13692,7 @@
     hwConvert.start();
     // Prepare the sounds after the intro so they never compete with it
     setTimeout(() => { if (settings.uiSounds) sfx.ensure(); }, 4500);
+    setTimeout(pruneOld, 30000);
     sync();
     log("ready");
   }

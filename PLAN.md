@@ -75,6 +75,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-015 | Billboard : listes au choix parmi les catalogues des addons (Trakt…), jusqu'à trois mélangées | À valider | P1 | plugin | — | 2026-10-29 |
 | T-016 | Bouton « Reprendre » sur la page d'une série ; attendre toutes les sources avant de lancer | À valider | P1 | plugin | T-012 | 2026-10-29 |
 | T-017 | Menu ⋮ des cartes (Details, Dismiss) resté en anglais | À valider | P2 | plugin | T-014 | 2026-10-29 |
+| T-018 | Revue : plantage du lecteur, gel de la Bibliothèque, faille XSS, écran noir, torrents | À valider | P0 | tv, plugin | — | 2026-10-29 |
+| T-019 | Revue : robustesse du plugin (vieilles WebView, billboard hors ligne, stockage plein…) | À valider | P1 | plugin, tv | — | 2026-10-29 |
+| T-020 | Revue : performances (mesure des rangées, observateur, langue, boutons) | À valider | P2 | plugin, tv | — | 2026-10-29 |
 
 ---
 
@@ -900,6 +903,159 @@ Le son de tous les épisodes que Stremio sait lire, puis une release publiée.
 - Code de stremio-web et traductions vérifiés (commit de `stremio-translations` utilisé par stremio-web).
 - Non vérifié : sur l'appareil.
 
+### T-018 — Revue : plantage, gel, faille, écran noir, torrents
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P0
+- **Cible :** tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Fait une passe de revue de l'app, pour vérifier de potentiels soucis, bugs, optimisation possible, soucis de performances, corrections à apporter, etc. […] Oui, corrige tout
+
+**Critères d'acceptation**
+- [x] Plus de plantage « Session ID must be unique » en passant à l'épisode suivant
+- [x] Bibliothèque triée par Vus / Non vus sans résultat : plus de gel
+- [x] Adresses d'images des addons échappées (plus d'injection possible via `style`)
+- [x] Plus d'écran noir bloqué en relançant un flux laissé en PiP ou en arrière-plan
+- [x] Épisode suivant : le bon flux, jamais celui de l'épisode précédent
+- [x] Torrents :
+  - un torrent remplacé s'arrête ;
+  - un 2ᵉ torrent ne reste pas bloqué derrière le 1ᵉʳ ;
+  - chaque fichier d'un pack a sa propre adresse.
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `PlayerActivity` :
+  - `finishWith()` libère la session et les contrôles tout de suite ; l'id de session est unique (`nathflix-player-<nanoTime>`).
+  - `ownPlayback` : un lecteur remplacé ne renvoie plus ni progression ni fermeture à la page (`ownsPlayback()`).
+  - `closeQuietly(keepTorrent)` arrête son torrent, sauf si le nouveau film lit le même.
+  - `setWakeMode(WAKE_MODE_NETWORK)` en lecture en arrière-plan (permission `WAKE_LOCK`).
+  - `configChanges` gagne `locale|layoutDirection|fontScale|density`.
+  - Le statut du torrent est lu hors du thread principal.
+  - Ouvert depuis la notification sans film, il se ferme sans rien envoyer.
+- `TorrentEngine` :
+  - clé `hash/fichier` : adresse `/t/<hash>/<idx>`, l'ancienne `/t/<hash>` reste lue ;
+  - `close(key)` ne ferme que le torrent de ce lecteur ;
+  - pool de threads en cache au lieu d'un thread unique ;
+  - session en pause quand rien ne joue ;
+  - ancien dossier supprimé en arrière-plan ;
+  - plages `bytes=-N` ;
+  - affectation de `active` sous verrou.
+- `nathflix-tv.js` :
+  - `onRoute` oublie le `handoff` hors du lecteur ;
+  - `startHandoff().catch` retire le voile ;
+  - `forThisRoute()` compare `streamRequest.path.id` au dernier segment de la route ;
+  - `playerClosed` ignore la fermeture d'un autre flux.
+- Plugin :
+  - `libraryWatched` n'écrit son texte que s'il change, et `.dxl-empty` est ignoré par l'observateur ;
+  - `cssUrl()` pour toute image placée dans `url()`.
+- Mineurs :
+  - `Updates` : `isDestroyed`, réessais seulement sur erreur réseau, APK supprimée ensuite ;
+  - `Intro` : son coupé à `onStop`, `Surface` libérée ;
+  - hôte comparé exactement dans `onPageStarted` ;
+  - `PlaybackBus.closed` synchronisé ;
+  - listener vidé après un crash de la page.
+
+**Vérification**
+- Playwright, ancienne version puis nouvelle (`review-test.cjs`) :
+  - Bibliothèque « Vus » vide : page **gelée** avant, réactive (16 ms) après, avec le texte ;
+  - même flux relancé après un retour sans fermer le lecteur : 1 lancement avant, 2 après ;
+  - épisode suivant avec l'état de Stremio en retard d'1,2 s : `tt1` relancé avant, `tt2` après.
+- `cssUrl` : une adresse contenant `"` et `onmouseover=` reste dans `url("…")`.
+- Kotlin : CI `android-dev.yml`. L'API `SessionManager.pause/resume/isPaused` est vérifiée dans les sources de libtorrent4j 2.1.0-39.
+
+### T-019 — Revue : robustesse du plugin
+
+- **Statut :** À valider (test sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (même demande que T-018)
+
+**Critères d'acceptation**
+- [x] Les fiches se chargent sur WebView 100 à 102 (sans `AbortSignal.timeout`)
+- [x] Billboard : nouvel essai une minute après un démarrage hors ligne
+- [x] Les réglages par défaut attendent la copie disque de `store`
+- [x] Pas de rechargement en boucle de la langue ; caches anciens purgés
+- [x] Les petits défauts de la revue sont corrigés
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `timeoutSignal(ms)` remplace les 38 `AbortSignal.timeout` (repli `AbortController` + `setTimeout`).
+- `hero` :
+  - `gen` : un chargement dépassé par un `reset()` n'écrit plus ;
+  - liste vide → `loading = null` dans 60 s ;
+  - les fiches complétées passent par `getMeta` (cache).
+- `profileDefaults.apply()` attend `store.ready`.
+- `langWatch` :
+  - ne recharge que si `nathflix.lang` a bien été écrit ;
+  - au plus une fois par minute (`sessionStorage` `nathflix.langReload`).
+- `pruneOld()`, au démarrage et quand le stockage est plein : `nathflix.age:` et `nathflix.tmdb2imdb.` (30 j), `nathflix.eps.` (7 j).
+- `ages` : une recherche en échec n'est pas enregistrée (`skip`, nouvel essai dans 10 min).
+- `addonTools.open()` : garde `opening`.
+- `reregisterSchema()` : l'effacement et l'enregistrement du schéma passent l'un après l'autre.
+- `catalogChoices.urls()` garde le `?…` des adresses d'addons.
+- `episodePlay` :
+  - revérifie la route avant de cliquer ;
+  - `findEpisode` ne réessaie pas plus d'une fois toutes les 2 s.
+- `episodes.refresh` libère `loading` en `finally` ; `metaBases` ne garde pas une liste vide quand le core n'est pas prêt.
+- `restrict.card` : `.catch`. Les flux en direct sont ignorés par `placeholder`.
+- `nathflix-tv.js` :
+  - boutons Save / Cancel / OK traduits ;
+  - une seule recherche de serveur à la fois, garde sur `ctx` ;
+  - jamais deux fenêtres ;
+  - voile retiré si le toucher est annulé ;
+  - la recherche rend le focus à la première flèche ;
+  - garde sur `document.documentElement`.
+
+**Vérification**
+- Billboard sans `AbortSignal.timeout` : rien avant (erreurs `AbortSignal.timeout is not a function`), les deux titres Trakt après.
+- Tests existants rejoués, résultats identiques à l'ancienne version :
+  - billboard : Trakt, liste vide, addon retiré, deux listes ;
+  - Reprendre : en cours, fini, rien ;
+  - retours T-008 à T-013.
+- Dictionnaire FR : 0 clé manquante.
+
+### T-020 — Revue : performances
+
+- **Statut :** À valider (test sur l'appareil, surtout une clé TV)
+- **Priorité :** P2
+- **Cible :** plugin, tv
+- **Dépend de :** —
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> (même demande que T-018)
+
+**Notes techniques**
+- `updateAllArrows` :
+  - rien sur téléphone (les flèches y sont cachées) ;
+  - ailleurs, il ne mesure que les rangées nouvelles, changées ou mesurées il y a plus de 3 s, et toutes au redimensionnement (`measuredRows`).
+- Observateur `mo` : il ignore les mutations dont tous les nœuds ajoutés ou retirés sont des éléments du plugin (`ownNode`, classes `dx…`).
+- `profileDefaults.watch` avance `next` avant `pending()`, qui relisait `localStorage.profile` à chaque passage.
+- `langWatch` : toutes les 2 s dans Réglages, 15 s ailleurs.
+- `episodePlay` et `hideButton` comparent le libellé enregistré (`data-label`) au lieu d'`innerHTML`.
+- Kotlin :
+  - `Http.client` partagé (`newBuilder()`) ;
+  - `Lang.text` garde son contexte par langue ;
+  - les regex de `TorrentEngine` sont compilées une fois ;
+  - `PieceStream.read()` n'alloue plus rien.
+
+**Vérification**
+- Les tests Playwright de T-018 et T-019 donnent les mêmes résultats.
+- Non vérifié : le gain réel sur une clé TV.
+
 <!--
 ### T-000 — Titre court
 
@@ -977,6 +1133,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-018 à T-020 | Revue complète (rapport), puis corrections à la demande de l'utilisateur ; testées (Playwright avant/après, CI). APK de test publiée |
 | 2026-10-29 | T-016, T-017 | Créées et implémentées : Reprendre sur la page d'une série, attente des sources ; rechargement à tout changement de langue. APK de test publiée |
 | 2026-10-29 | T-014, T-015 | Créées et implémentées : langue de Stremio en `fr-FR` ; billboard depuis les listes des addons (jusqu'à trois). APK de test publiée |
 | 2026-10-29 | T-008 à T-013 | Implémentées et testées (Playwright, CI) ; APK de test publiée ; à valider sur l'appareil |

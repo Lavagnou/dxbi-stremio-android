@@ -8,7 +8,6 @@ import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.File
@@ -32,7 +31,7 @@ object Updates {
     private const val UPDATED_PLUGIN = "nathflix.plugin.js"
 
     private val http by lazy {
-        OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
+        Http.client.newBuilder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     }
 
     /** The plugin to run: the bundled one, or a newer one fetched earlier */
@@ -75,6 +74,8 @@ object Updates {
             val latest = release.optString("tag_name").removePrefix("v")
             val current = BuildConfigVersion.name(activity)
             if (!isNewer(latest, current)) return@thread
+            // the APK an earlier update installed isn't needed any more
+            if (!downloading.get()) File(activity.cacheDir, "updates").deleteRecursively()
             val prefs = activity.getSharedPreferences("updates", Context.MODE_PRIVATE)
             if (prefs.getString("skipped", null) == latest) return@thread
             val assets = release.optJSONArray("assets") ?: return@thread
@@ -84,7 +85,7 @@ object Updates {
             val url = asset.optString("browser_download_url")
             val size = asset.optLong("size", -1)
             activity.runOnUiThread {
-                if (activity.isFinishing) return@runOnUiThread
+                if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                 AlertDialog.Builder(activity)
                     .setTitle(Lang.text(activity, R.string.update_title, latest))
                     .setMessage(Lang.text(activity, R.string.update_message, current))
@@ -123,13 +124,14 @@ object Updates {
             try {
                 val dir = File(activity.cacheDir, "updates").apply { deleteRecursively(); mkdirs() }
                 val apk = File(dir, "nathflix-tv-$version.apk")
-                // A download cut short (slow Wi-Fi, the device sleeping) is tried again before giving up
-                var problem: String? = null
+                // A download cut short (slow Wi-Fi, the device sleeping) is tried again before giving up;
+                // a file that isn't the right one would be the same the next time
+                var problem: Problem? = null
                 for (attempt in 1..3) {
                     problem = fetchApk(url, apk, size, version, activity)
-                    if (problem == null) break
+                    if (problem == null || !problem.retry) break
                 }
-                if (problem != null) throw IllegalStateException(problem)
+                if (problem != null) throw IllegalStateException(problem.text)
                 val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.updates", apk)
                 activity.runOnUiThread {
                     activity.startActivity(Intent(Intent.ACTION_VIEW)
@@ -138,7 +140,7 @@ object Updates {
                 }
             } catch (e: Exception) {
                 activity.runOnUiThread {
-                    if (activity.isFinishing) return@runOnUiThread
+                    if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
                     AlertDialog.Builder(activity)
                         .setTitle(Lang.text(activity, R.string.update_failed_title))
                         .setMessage(Lang.text(activity, R.string.update_failed_message, e.message ?: "",
@@ -157,30 +159,33 @@ object Updates {
      * Downloads the APK and makes sure Android will be able to install it: every byte there, and a
      * readable Nathflix package of the version expected. Returns null when it's good, else what's wrong.
      */
-    private fun fetchApk(url: String, apk: File, size: Long, version: String, activity: MainActivity): String? {
+    /** What went wrong with a download, and whether trying again could help */
+    private class Problem(val text: String, val retry: Boolean)
+
+    private fun fetchApk(url: String, apk: File, size: Long, version: String, activity: MainActivity): Problem? {
         val partial = File(apk.parentFile, apk.name + ".part")
         try {
             http.newCall(Request.Builder().url(url).build()).execute().use { response ->
-                if (!response.isSuccessful) return Lang.text(activity, R.string.update_error_status, response.code)
+                if (!response.isSuccessful) return Problem(Lang.text(activity, R.string.update_error_status, response.code), response.code >= 500)
                 partial.outputStream().use { out -> response.body!!.byteStream().copyTo(out) }
             }
         } catch (e: Exception) {
             partial.delete()
-            return Lang.text(activity, R.string.update_error_interrupted, e.message ?: e.javaClass.simpleName)
+            return Problem(Lang.text(activity, R.string.update_error_interrupted, e.message ?: e.javaClass.simpleName), true)
         }
         if (size > 0 && partial.length() != size) {
             val got = partial.length()
             partial.delete()
-            return Lang.text(activity, R.string.update_error_incomplete, got, size)
+            return Problem(Lang.text(activity, R.string.update_error_incomplete, got, size), true)
         }
         @Suppress("DEPRECATION")
         val info = activity.packageManager.getPackageArchiveInfo(partial.path, 0)
         if (info == null || info.packageName != activity.packageName || info.versionName != version) {
             partial.delete()
-            return Lang.text(activity, R.string.update_error_not_ours, version)
+            return Problem(Lang.text(activity, R.string.update_error_not_ours, version), false)
         }
         apk.delete()
-        if (!partial.renameTo(apk)) return Lang.text(activity, R.string.update_error_save)
+        if (!partial.renameTo(apk)) return Problem(Lang.text(activity, R.string.update_error_save), false)
         return null
     }
 

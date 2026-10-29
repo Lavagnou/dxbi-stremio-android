@@ -62,6 +62,7 @@ Le reste du dépôt :
   - `kind()` renvoie `tv`, `phone` ou `tablet` (tablette si `smallestScreenWidthDp >= 600`).
   - `noun()` donne le nom de l'appareil dans les messages.
   - `thisOne()` et `theOne()` le donnent traduit (« ce téléphone », « la tablette »…).
+- **`Http.kt`** : le client OkHttp partagé (`Http.client.newBuilder()` pour changer les délais).
 - **`Lang.kt`** : langue des écrans de l'app (lecteur, messages, mises à jour), celle de l'interface de Stremio.
   - La page la transmet (`Bridge.setLanguage`), gardée dans les SharedPreferences `nathflix-lang`. Avant cela, c'est la langue de l'appareil qui décide.
   - `Lang.text(ctx, R.string.x, …)` donne un texte ; `Lang.context(ctx, theme)` un contexte pour gonfler des vues.
@@ -113,7 +114,9 @@ Le reste du dépôt :
     - « Next episode » prend la place du bouton Skip pendant le générique ou les 30 dernières secondes ;
     - épisode suivant automatique à la fin.
   - **Routes rendues à la page** : `finishWith(playRoute = …)` renvoie à la page la route où aller (épisode suivant ou épisode choisi), via `PlaybackBus.closed`.
-  - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`).
+  - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`), avec son torrent (sauf s'il lit le même).
+  - **Un lecteur remplacé se tait** : il garde `ownPlayback` (l'`activePlayback` du bus à sa création) et n'envoie progression et fermeture que tant qu'il est celui du bus (`ownsPlayback()`).
+  - **Session média** : id unique à chaque lecteur, et libérée dès `finishWith()`. Media3 refuse deux sessions de même id, et l'épisode suivant démarre souvent avant le `onDestroy` du précédent.
 - **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`, `mc_*.xml`) : contrôles, clone de ceux de Netflix, gonflés dans la langue de Nathflix (`Lang.context`).
   - Haut : retour, titre sur une ligne, PiP.
   - Centre : −10 s, lecture, +10 s.
@@ -125,8 +128,9 @@ Le reste du dépôt :
     - Épisodes : cartes avec image (`Thumbs.kt` : OkHttp, cache mémoire) et résumé.
 - **`PlaybackService.kt`** : `MediaSessionService` (media3-session) qui garde le film en arrière-plan, avec la notification. La session appartient à `PlayerActivity`, qui la passe via `PlaybackService.session`.
 - **`PlaybackBus.kt`** : état de lecture partagé (`activePlayback`, `pendingClose`). Il survit au redémarrage de la page ou de `MainActivity` pendant une lecture.
-- **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>`.
-  - Un seul torrent à la fois, supprimé à l'arrêt.
+- **`TorrentEngine.kt`** : libtorrent en téléchargement séquentiel, servi au lecteur par NanoHTTPD sur `127.0.0.1:<port>/t/<hash>/<fichier>` (clé `hash/fichier` : deux épisodes d'un même pack sont deux téléchargements).
+  - Un seul torrent à la fois, supprimé à l'arrêt. `close(key)` ne ferme que si c'est encore ce torrent-là.
+  - Chaque ouverture a son thread (pool en cache) ; session en pause quand rien ne joue.
   - Désactivé par défaut (réglage `tvTorrents`).
 - **`ServerFinder.kt`** : scanne le /24 local sur le port 11470 pour trouver un serveur de streaming Stremio.
 - **`Updates.kt`** :
@@ -190,7 +194,7 @@ adb logcat -s nathflix nathflix-torrent
 - `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés ; `THIS_DEVICE` / `THE_DEVICE` le donnent traduit.
 - **Langue (français ou anglais)** : elle suit la langue de l'interface de Stremio (`interfaceLanguage`).
   - `LANG` (« fr » ou « en ») et `LOCALE` sont fixés au chargement : la langue vue en dernier dans le core (`localStorage` `nathflix.lang`), sinon le profil Stremio.
-  - `langWatch` (dans `sync()`) recharge la page quand le code de langue de Stremio change (`LANG_CODE`), jamais pendant un film. Tout changement compte : certains textes de Stremio (le menu ⋮ des cartes, mémorisé par `LibItem`) gardent la langue de leur premier affichage.
+  - `langWatch` (dans `sync()`, toutes les 2 s dans Réglages, 15 s ailleurs) recharge la page quand le code de langue de Stremio change (`LANG_CODE`), jamais pendant un film, seulement si `nathflix.lang` a pu être écrit, et au plus une fois par minute. Tout changement compte : certains textes de Stremio (le menu ⋮ des cartes, mémorisé par `LibItem`) gardent la langue de leur premier affichage.
   - **Tout texte visible passe par `t("English text", { vars })`**, avec sa traduction dans `frDictionary()` (en fin de fichier, juste avant `anime4kShaders()`). La clé est le texte anglais exact, et `{nom}` est rempli par `t()`. Un texte absent du dictionnaire reste en anglais.
   - Dates : `LOCALE`. Les libellés écrits en CSS par le thème ont leur variante `html.dx-lang-fr` (bloc « FRENCH » du thème).
 - **Réglages Stremio par défaut** (`profileDefaults`) : interface en français, audio en français, pas de sous-titres, épisodes non vus floutés (`hideSpoilers`). Une seule fois par compte (drapeau `store` `profileDefaults:<id>`).
@@ -234,6 +238,9 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
+- **Requêtes** : `timeoutSignal(ms)`, jamais `AbortSignal.timeout()` (Chrome 103+, alors que l'app accepte une WebView 100).
+- **Images d'addons dans du CSS** : `cssUrl(adresse)` (et `esc(cssUrl(…))` dans un `style="…"` écrit en HTML), jamais `url('${adresse}')` : une adresse fournie par un addon peut contenir des guillemets.
+- **Observateur principal (`mo`)** : il ignore les changements dans les éléments du plugin et l'ajout ou le retrait d'éléments `dx…`. Un élément du plugin qui réécrit son contenu à chaque passage doit comparer avant d'écrire (sinon : boucle sans fin, l'app gèle, comme `.dxl-empty`).
 
 ## App desktop (`app/`)
 

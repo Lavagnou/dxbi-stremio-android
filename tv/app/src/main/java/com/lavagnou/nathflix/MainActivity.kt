@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
         web.webViewClient = object : WebViewClient() {
             override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
                 // Older WebViews can't run a script before the page: run it as early as possible instead
-                if (!injectedAtStart && url != null && url.startsWith(STREMIO_ORIGIN)) view.evaluateJavascript(startScript, null)
+                if (!injectedAtStart && url != null && Uri.parse(url).let { it.scheme == "https" && it.host == STREMIO_HOST }) view.evaluateJavascript(startScript, null)
             }
 
             // The page's engine crashed, or Android took its memory back (TVs with 1.5–2 GB): without
@@ -170,6 +170,12 @@ class MainActivity : AppCompatActivity() {
         if (::web.isInitialized) web.requestFocus()
     }
 
+    // Home during the intro: its sound stops with it
+    override fun onStop() {
+        super.onStop()
+        intro?.takeIf { it.showing }?.skip()
+    }
+
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         // Any key skips the intro (and isn't passed on to the page underneath)
         intro?.takeIf { it.showing }?.let {
@@ -210,6 +216,8 @@ class MainActivity : AppCompatActivity() {
         nathflix.put("splash", false)
         settings.edit().putString("nathflix", nathflix.toString()).commit()
 
+        // the old page is gone: nothing more is sent to it
+        if (PlaybackBus.listener === playbackListener) PlaybackBus.listener = null
         (web.parent as? ViewGroup)?.removeView(web)
         web.destroy()
         if (again) {
@@ -324,6 +332,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val STREMIO_ORIGIN = "https://web.stremio.com"
+        const val STREMIO_HOST = "web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
         // SPLASH_READY in nathflix.plugin.js (Home's rows, a details page, Settings…)

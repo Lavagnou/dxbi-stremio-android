@@ -46,6 +46,7 @@
     "Done": "Terminé",
     "OK": "OK",
     "Cancel": "Annuler",
+    "Save": "Enregistrer",
     "Close": "Fermer",
     "Try again": "Réessayer",
     "Nathflix settings": "Réglages Nathflix",
@@ -128,7 +129,9 @@
     new MutationObserver(fitViewport).observe(document.head, { childList: true });
   });
   if (document.head) new MutationObserver(fitViewport).observe(document.head, { childList: true });
-  else viewportWatch.observe(document.documentElement, { childList: true, subtree: true });
+  // (an older WebView can run this before the page has any element at all)
+  else if (document.documentElement) viewportWatch.observe(document.documentElement, { childList: true, subtree: true });
+  else document.addEventListener("readystatechange", fitViewport, { once: true });
   fitViewport();
 
   // ---------------------------------------------------------------------------
@@ -194,8 +197,8 @@
     // the TV's saved settings, so changes in Nathflix settings never took effect)
     registerSettings: async (plugin, schema) => { schemas[plugin] = schema; },
     onSettingsSaved: (plugin, callback) => { (savedListeners[plugin] = savedListeners[plugin] || []).push(callback); },
-    showAlert: (type, title, message, buttons) => dialog({ title, message, buttons: buttons && buttons.length ? buttons : ["OK"] }),
-    showPrompt: (plugin, title, message, defaultValue) => dialog({ title, message, buttons: ["OK", "Cancel"], input: defaultValue == null ? "" : String(defaultValue) })
+    showAlert: (type, title, message, buttons) => dialog({ title, message, buttons: buttons && buttons.length ? buttons : [t("OK")] }),
+    showPrompt: (plugin, title, message, defaultValue) => dialog({ title, message, buttons: [t("OK"), t("Cancel")], input: defaultValue == null ? "" : String(defaultValue) })
       .then((r) => (r && r.button === 0 ? r.value : null)),
     // Nathflix's "Open in mpv / VLC" goes to the app's own player here
     launchExternalPlayer: async (player, url) => {
@@ -260,6 +263,8 @@
     // One dialog at a time: Stremio's own (a promotion, an addon to install) goes first, since it
     // holds on to the remote's focus while it's open
     while (document.querySelector('[class*="modal-container"]')) await new Promise((r) => setTimeout(r, 400));
+    // (another dialog asked for meanwhile gives way to this one: never two on screen)
+    closeModal();
     return new Promise((resolve) => {
       const el = document.createElement("div");
       el.className = "dxtv-modal";
@@ -306,20 +311,23 @@
   // a computer on the same network has one (it listens on the network), so the app looks for it.
   // ---------------------------------------------------------------------------
   let serversWaiting = null;
+  let scanning = null;
   tv.serversFound = (urls) => {
     if (serversWaiting) serversWaiting(Array.isArray(urls) ? urls : []);
     serversWaiting = null;
   };
-  const scanForServers = () => new Promise((resolve) => {
+  // (Find pressed again while a search runs: the same search answers both)
+  const scanForServers = () => scanning || (scanning = new Promise((resolve) => {
     serversWaiting = resolve;
     setTimeout(() => { if (serversWaiting === resolve) tv.serversFound([]); }, 25000);
     native.findServers();
-  });
+  }).finally(() => { scanning = null; }));
 
   async function useServer(url) {
     const { getState, dispatch } = core();
     if (!getState || !dispatch) return false;
     const ctx = await getState("ctx");
+    if (!ctx || !ctx.profile || !ctx.profile.settings) return false;
     const known = ((ctx && ctx.streamingServerUrls) || []).some((s) => (s && s.url ? s.url : s) === url);
     if (!known) dispatch({ action: "Ctx", args: { action: "AddServerUrl", args: url } });
     dispatch({ action: "Ctx", args: { action: "UpdateSettings", args: { ...ctx.profile.settings, streamingServerUrl: url } } });
@@ -428,7 +436,7 @@
       } else {
         el.style.display = "none";
         openModal = null;
-        const r = await dialog({ title: o.label, message: o.description || "", buttons: ["Save", "Cancel"], input: v || "" });
+        const r = await dialog({ title: o.label, message: o.description || "", buttons: [t("Save"), t("Cancel")], input: v || "" });
         el.style.display = "";
         openModal = { el, dismiss: () => { el.remove(); openModal = null; } };
         if (r && r.button === 0) await api.saveSetting(plugin, o.key, r.value.trim());
@@ -517,7 +525,9 @@
     const link = e.target instanceof Element && e.target.closest('a[href^="#/player/"]');
     if (!link || e.defaultPrevented) return;
     veil(true, true);
-    // the tap may still be turned down (by Stremio or the plugin): never leave the page covered
+    // the tap may still be turned down (by Stremio or the plugin): never leave the page covered.
+    // Their handlers run after this one: whether they cancelled it is known a moment later
+    setTimeout(() => { if (e.defaultPrevented && !/^#\/player\//.test(location.hash)) veil(false); }, 0);
     setTimeout(() => { if (!/^#\/player\//.test(location.hash)) veil(false); }, 1500);
   }, true);
 
@@ -607,6 +617,8 @@
     let known = 0;
     for (let i = 0; i < 60 && location.hash === hash; i++) {
       state = await playerState();
+      // (right after Next episode, Stremio can still hold the previous episode's player for a moment)
+      if (!forThisRoute(state, hash)) { await new Promise((r) => setTimeout(r, 250)); continue; }
       const stream = state && state.selected && state.selected.stream;
       const streamKnown = stream && (stream.url || (state.stream && state.stream.type === "Ready") || stream.infoHash || stream.externalUrl);
       if (streamKnown) {
@@ -725,6 +737,18 @@
     }));
   }
 
+  // Whether Stremio's player state is the one for [hash]: a player route ends with the video's id
+  // (#/player/<stream>/<addon>/<addon>/<type>/<id>/<video>); shorter routes can't be checked
+  function forThisRoute(state, hash) {
+    const parts = hash.replace(/^#\/player\//, "").split(/[?]/)[0].split("/");
+    if (parts.length < 6) return true;
+    let video = parts[parts.length - 1];
+    try { video = decodeURIComponent(video); } catch (_) { /* as is */ }
+    const req = state && state.selected && state.selected.streamRequest;
+    const id = req && req.path && req.path.id;
+    return !id || id === video;
+  }
+
   // Episodes and Next episode for the phone and tablet player: where the page goes for each (the
   // player hands the route back as it closes). The next episode's player when Stremio already knows
   // its stream (same release), otherwise its list of streams, like Stremio's own "play next"
@@ -789,6 +813,8 @@
     if (!raw) return;
     try {
       const c = JSON.parse(raw);
+      // an older film's player (another one has started since): nothing to do on this page
+      if (c.hash && handoff && handoff.hash && c.hash !== handoff.hash) return;
       closeHandoff(c.timeMs, c.durationMs, c.ended, c.error, c.playRoute);
     } catch (err) {
       console.warn("[Nathflix TV] couldn't read how the player closed", err);
@@ -945,7 +971,8 @@
     clearInterval(searchWatch);
     const since = Date.now();
     searchWatch = setInterval(() => {
-      if (!/^#\/search\?search=./.test(location.hash) || Date.now() - since > 4000) {
+      // (an arrow pressed meanwhile: the remote is going somewhere, the search box included)
+      if (!/^#\/search\?search=./.test(location.hash) || Date.now() - since > 4000 || lastArrow > since) {
         clearInterval(searchWatch);
         return;
       }
@@ -961,8 +988,18 @@
 
   function onRoute() {
     ensureSettingsEntry();
-    if (/^#\/player\//.test(location.hash)) startHandoff();
-    else veil(false);
+    if (/^#\/player\//.test(location.hash)) {
+      startHandoff().catch((err) => {
+        console.warn("[Nathflix TV] handoff failed", err);
+        if (handoff && handoff.pending) handoff = null;
+        veil(false);
+      });
+    } else {
+      veil(false);
+      // Off the player screen with the native player still going (picture-in-picture, playing in
+      // the background): the same stream picked again starts a new handoff rather than waiting on this one
+      if (handoff && handoff.hash !== location.hash) handoff = null;
+    }
     if (/^#\/search\?search=./.test(location.hash) && document.activeElement && document.activeElement.tagName !== "INPUT") resultsFirst();
   }
 

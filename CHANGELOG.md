@@ -1,6 +1,15 @@
 # Changelog
 
 ## Unreleased
+- **Nathflix TV: Next episode no longer crashes the player.** Going on to the next episode (or picking one in Episodes) could close Nathflix on phones and tablets, when the new player started before Android had finished closing the last one. It also always plays the episode asked for now: it could start the previous one again.
+- **Library sorted by Watched no longer freezes.** With nothing to show under *Watched* or *Not watched*, Library froze the app.
+- **Nathflix TV: no more black screen after picture-in-picture.** Going back from a film playing in picture-in-picture (or in the background), then picking the same stream again, left a black screen with a spinner.
+- **Nathflix TV: torrents tidy up after themselves.** A torrent replaced by another film while in picture-in-picture stops downloading; a second torrent opened soon after the first no longer fails; another episode from the same season pack plays its own file; and nothing stays connected once playback stops.
+- **Nathflix TV: playing on with the screen off keeps going.** Wi-Fi stays awake for the stream while a film plays in the background, and changing the phone's language or text size no longer closes the film.
+- **Safer pictures from addons.** A picture address supplied by an addon can no longer slip code into the page.
+- **Works on older Android TV web engines.** Titles' details, ratings and the billboard didn't load at all on WebView 100 to 102.
+- **More dependable.** The billboard comes back by itself when a TV starts before its Wi-Fi; Nathflix's French defaults can't overwrite your Stremio settings again when the device's storage is full; a full storage can no longer make the page reload over and over; old cached data is cleared; a failed age-rating lookup isn't kept for a month; *Order & backup* can't open twice; text settings' *Save* and *Cancel* are translated.
+- **Faster, above all on TV sticks.** Home's rows are measured only when they change (never on phones), Nathflix's own changes to the page no longer set off another full pass, and a few checks that ran several times a second now run every few seconds.
 - **Resume a series from its page.** A series' page now has *Resume S1 E3* (or *Play* the next episode, or the first) above the trailer: it opens that episode's streams and plays the first one in the list. *Play episode* now waits a moment for every addon to answer before picking the first stream, so a slower addon's better stream isn't skipped.
 - **Stremio's menus follow a change of language.** Some of Stremio's own texts (the ⋮ menu of a card: Details, Dismiss…) stayed in the language they were first shown in: Nathflix now reloads the page whenever the interface language changes.
 - **Stremio itself in French too.** Nathflix set Stremio's interface language in a form Stremio's menu showed as Français but its own texts didn't recognise, so much of Stremio stayed English. It now uses Stremio's own code, and fixes accounts it set before.

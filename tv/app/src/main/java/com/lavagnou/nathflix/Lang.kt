@@ -13,6 +13,9 @@ import java.util.Locale
 object Lang {
     private const val PREFS = "nathflix-lang"
 
+    // The texts in the current language, kept: the player asks for some every second
+    @Volatile private var texts: Pair<String, Context>? = null
+
     fun set(context: Context, lang: String) {
         val value = if (lang == "fr") "fr" else "en"
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("lang", value).apply()
@@ -33,5 +36,10 @@ object Lang {
     }
 
     /** A text from strings.xml in Nathflix's language */
-    fun text(context: Context, id: Int, vararg args: Any): String = context(context).getString(id, *args)
+    fun text(context: Context, id: Int, vararg args: Any): String {
+        val lang = get(context)
+        val cached = texts?.takeIf { it.first == lang }?.second
+            ?: context(context.applicationContext).also { texts = lang to it }
+        return cached.getString(id, *args)
+    }
 }
