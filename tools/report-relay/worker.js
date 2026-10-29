@@ -11,7 +11,7 @@
 
 const ALLOWED_ORIGINS = new Set(["https://web.stremio.com"]);
 const MAX_BODY = 256 * 1024;
-const WHERE = new Set(["Nathflix app", "Nathflix TV", "Stremio Enhanced plugin"]);
+const WHERE = new Set(["Nathflix app", "Nathflix TV", "Nathflix mobile", "Stremio Enhanced plugin"]);
 
 function cors(request) {
   const origin = request.headers.get("Origin") || "";

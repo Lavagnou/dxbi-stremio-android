@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+- **Nathflix on phones and tablets: signing in works.** Tapping the e-mail or password box now brings up the keyboard: boxes no longer wait for a TV remote's OK button (the remote works as before).
+- **Phones and tablets get their own layout.** The page fits the screen instead of a TV's, with the tabs in a bar along the bottom, three posters per row when the phone is upright, swipeable rows, and Continue Watching's play and remove buttons always showing. The status and navigation bars stay, nothing hides under a notch or behind the keyboard, the screen can go to sleep while you browse, and a tap skips the intro.
+- **Settings and messages made for touch.** Nathflix settings and its dialogs fit a phone's screen, nothing stays highlighted after a tap, hover-card options are left out (there's no hover on a touch screen), and messages say "this phone" or "this tablet" instead of "this TV".
+- **The player fits a phone.** Its title, Skip button and seek feedback are sized for a phone, and stay clear of a notch. TVs look as before.
+
 ## 0.1.0
 - **Nathflix's first version.** Nathflix is based on dx.bi 2.21.0: everything dx.bi does is here, under the name Nathflix (app, TV app, plugin, installers, files and folders). Its data lives in its own folders, so it starts fresh next to dx.bi rather than replacing it.
 - **Updates come from Nathflix's own releases.** The TV app, the desktop app and the plugin only ever update to a Nathflix release.

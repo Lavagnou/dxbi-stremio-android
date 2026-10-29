@@ -61,6 +61,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-001 | Couper les liens du fork avec les serveurs d'origine (mises à jour TV, rapports) | À valider | P1 | tv, plugin | — | 2026-10-28 |
 | T-002 | Renommer le projet en Nathflix, version 0.1.0, tous les liens vers ce dépôt | À valider | P1 | tv, plugin, app, tools, ci, docs | T-001 | 2026-10-28 |
 | T-003 | Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran | À faire | P2 | tv, plugin, app, tools, docs | T-002 | 2026-10-28 |
+| T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
+| T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À faire | P1 | plugin, tv | T-004 | 2026-10-29 |
+| T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À faire | P1 | tv | T-004 | 2026-10-29 |
 
 ---
 
@@ -247,7 +250,7 @@ Faire de dx.bi un nouveau projet, Nathflix. Nouveau nom partout (apps, installeu
 - Version / CHANGELOG : 0.1.0, entrée en tête de `CHANGELOG.md`
 
 **Questions ouvertes**
-- Faut-il ajouter un workflow qui compile l'APK debug à chaque push touchant `tv/` ? Il n'y a aujourd'hui aucune vérification de compilation Android hors release.
+- ~~Faut-il ajouter un workflow qui compile l'APK debug à chaque push touchant `tv/` ?~~ Fait dans T-004 (`android-dev.yml`). Son premier run (commit c8b135f) a compilé le code renommé de T-002 : `BUILD SUCCESSFUL`.
 
 ### T-003 — Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran
 
@@ -290,6 +293,196 @@ Remplacer toutes les images qui montrent encore le logo DX.BI, une fois que l'ut
 
 **Questions ouvertes**
 - —
+
+### T-004 — Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test)
+
+- **Statut :** À valider
+- **Priorité :** P0
+- **Cible :** tv, plugin, ci
+- **Dépend de :** T-002
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** `claude/quirky-cannon-g7e9oy`
+
+**Demande**
+> Ce que je veux commencer par faire sur ce fork, c'est d'ajouter une version android pour téléphone et tablette. Pour le moment ça fonctionne sur AndroidTV donc le chantier n'est pas énorme, l'application s'installe d'ailleurs déjà sur tablette ou téléphone, mais elle n'est pas adapté.
+>
+> (Réponses aux questions) Globalement un peu tout, mais déjà je ne peux pas me connecter car ça n'ouvre pas le clavier android quand je clique sur les champs pour me connecter. Navigation tactile, tailles et mise en page, réglages et fenêtres. Une seule APK. Rotation libre partout. Je testerai les APK sur mon téléphone, sans Android Studio (plus tard en local avec mobile-MCP et des émulateurs).
+
+**Besoin**
+Rendre l'app utilisable au doigt sur téléphone et tablette : pouvoir se connecter, page à la taille de l'écran, navigation tactile, fenêtres adaptées, TV inchangée. Fournir une APK de test téléchargeable sans Android Studio. C'est la base des tâches T-005 (navigation Netflix) et T-006 (lecteur Netflix).
+
+**Critères d'acceptation**
+- [x] Le clavier s'ouvre sur les champs de connexion (plus de verrou au doigt)
+- [x] Mode mobile distinct du mode TV (User-Agent `nathflix-mobile/`, `IN_MOBILE`, `html.dx-mobile`)
+- [x] Page à la largeur de l'écran, onglets en barre du bas, 3 posters par rangée en portrait, pas de commandes qui n'apparaissent qu'au survol
+- [x] Fenêtres et réglages au doigt, libellés selon l'appareil (« this phone »)
+- [x] Barres système visibles, rien sous l'encoche ni sous le clavier, écran qui peut s'éteindre en navigation, tap pour passer l'intro
+- [x] APK de test construite par GitHub Actions (pré-release `dev`)
+- [x] TV inchangée (vérifiée en test Playwright pour la page ; tailles du lecteur TV dans `values-television`)
+- [ ] Testé sur un vrai téléphone par l'utilisateur, avec retours pour T-005
+
+**Plan technique**
+- Plan détaillé approuvé : `/root/.claude/plans/reactive-riding-conway.md` (session cloud du 2026-10-29). Résumé :
+- **Kotlin :**
+  - `Device.kt` (`isMobile`, `kind`, `noun`) ;
+  - `Bridge.deviceKind()` (sans token, comme `isPhone`) ;
+  - `MainActivity` : User-Agent `nathflix-mobile/` ou `nathflix-tv/`. Sur téléphone et tablette :
+    - pas de `FLAG_KEEP_SCREEN_ON` ;
+    - `FLAG_FULLSCREEN` retiré (le thème le met) ;
+    - barres visibles, icônes claires ;
+    - padding des insets `systemBars`, `displayCutout` et `ime` sur la racine ;
+    - `adjustResize` et `smallestScreenSize` dans le manifeste ;
+  - `Intro` : la superposition est cliquable et passe l'intro ;
+  - `PlayerActivity` :
+    - dimens (`values/` pour téléphone et tablette, `values-television/` = valeurs TV d'avant) ;
+    - padding de l'encoche ;
+    - plein écran réappliqué dans `onResume` ;
+    - titre sur une ligne ;
+  - `Updates` : textes selon l'appareil, aucune vérification de mise à jour en build debuggable.
+- **`nathflix-tv.js` :**
+  - viewport `device-width` sur mobile, 1280 sur TV ;
+  - `KIND` / `NOUN` et `tv.deviceKind` ;
+  - classe `dxtv-touch` : surbrillance seulement en `:focus-visible`, feuilles pleine largeur, bouton « Done » collant ;
+  - verrou des champs : sur mobile seulement après une flèche, et toucher un champ verrouillé le libère ;
+  - `NOT_ON_TOUCH` cache les réglages de cartes de survol sur mobile.
+- **Plugin :**
+  - `IN_MOBILE`, `IN_ANDROID`, `DEVICE` ;
+  - deviennent `IN_ANDROID` : nom de la section de réglages, `sync()` du lecteur, bouton Cast, splash natif et sa version légère, `hwConvert` ;
+  - `tvTorrents` passe `androidOnly`, avec un libellé selon l'appareil ;
+  - `report.where()` renvoie « Nathflix mobile » (ajouté aussi à `WHERE` du relais) ;
+  - classe `dx-mobile` ;
+  - `preview.onOver` est ignoré sur mobile (le tap envoie aussi les événements souris).
+- **Thème :** bloc « PHONES AND TABLETS » (`html.dx-mobile`, fin du fichier) :
+  - `--dx-nav-h` 3.5rem ;
+  - onglets en barre fixe en bas (`--dx-tabs-h` 3.75rem), contenu arrêté au-dessus ;
+  - logo plus petit ;
+  - recherche ouverte sur toute la barre ;
+  - colonnes : 3 jusqu'à 600 px, 5 jusqu'à 1050 px ;
+  - flèches et points des rangées masqués ;
+  - play et retirer de Reprendre toujours visibles ;
+  - billboard centré sur toute la largeur, avec une ombre montant du bas.
+- **CI et build :**
+  - `.github/workflows/android-dev.yml` ;
+  - debug `applicationIdSuffix ".dev"` ;
+  - nom « Nathflix Dev » (`src/debug/res`) ;
+  - clé `tv/app/dev.keystore` (mot de passe `nathflix-dev`, exception dans `tv/.gitignore`).
+
+**Étapes**
+- [x] Kotlin (Device, MainActivity, Intro, Player, Updates, manifeste, dimens)
+- [x] Build de test et workflow
+- [x] `nathflix-tv.js`
+- [x] Plugin et thème, bundle
+- [x] Tests Playwright
+- [x] CLAUDE.md, CHANGELOG
+- [ ] Retour de l'utilisateur sur téléphone
+
+**Notes techniques**
+- **Cause du clavier qui ne s'ouvrait pas.** Le verrou « jusqu'à OK » de `nathflix-tv.js` verrouillait tout champ qui prenait le focus plus d'une seconde après un toucher. Stremio met lui-même le curseur dans le champ e-mail, qui restait donc en lecture seule, et le toucher à nouveau ne refocalise pas.
+- **Qualificatifs de ressources.** `values-television` plutôt que `values-sw600dp` : `smallestWidth` passe avant le mode UI, donc une TV en tvdpi (plus de 600dp) prendrait les tailles tablette.
+- **Edge-to-edge.** Avec `targetSdk 35`, Android 15 force l'edge-to-edge : les insets sont gérés à la main (padding), pas par `setDecorFitsSystemWindows(true)`.
+- **Ordre CSS de l'élément racine.** Les variables `--dx-cols` et `--dx-nav-h` sont redéfinies sur `html.dx-mobile`, plus spécifique que `:root`. `--horizontal-nav-bar-size` (défini comme `var(--dx-nav-h)` sur `:root`) suit, car c'est le même élément.
+- **Le CSS mobile est écrit sans voir le vrai web.stremio.com** (bloqué en cloud) : il vise les mêmes sélecteurs que le reste du thème, mais il reste à ajuster d'après les captures de l'utilisateur.
+- **APK de test.** L'APK debug contient aussi les ABI x86 (émulateurs) : environ 35 Mo zippée. La pré-release `dev` est recréée à chaque build (`gh release delete --cleanup-tag` puis `create --target $GITHUB_SHA`), donc l'URL de téléchargement ne change pas.
+
+**Vérification**
+- `node --check` sur le plugin et `nathflix-tv.js`, puis `node tools/bundle-theme.mjs` : OK.
+- CI `android-dev.yml`, run 1 (commit c8b135f, partie Kotlin) : `BUILD SUCCESSFUL in 2m 19s`, APK publiée dans la pré-release `dev`. Avertissements de dépréciation seulement : `databaseEnabled` (déjà là avant) et `FLAG_FULLSCREEN` (supprimé ensuite par `@Suppress`). Le run du commit final est à relire.
+- **Test Playwright, page Stremio de substitution, faux bridge, téléphone** (412×915, tactile, `nathflix-mobile/`) :
+  - viewport `device-width` ; classes `dx-mobile` et `dxtv-touch` ;
+  - e-mail sélectionné automatiquement : modifiable ; tap sur le mot de passe puis sur l'e-mail : modifiables ;
+  - barre d'onglets fixe en bas (60 px, 412 px de large) ; `--dx-cols` = 3 ;
+  - réglages : pas de « Hover previews », « Play torrents on this phone », pas de « Selection highlight » ;
+  - aucune erreur de page.
+- **Même test, TV** (1920×1080, `nathflix-tv/`) :
+  - viewport 1280, classe `dx-tv` ;
+  - e-mail sélectionné automatiquement : verrouillé (comme avant) ; flèche puis focus : verrouillé ; Entrée : déverrouillé ;
+  - réglages TV complets (32 lignes, dont « Hover previews », « Play torrents on this TV » et « Selection highlight ») ;
+  - aucune erreur.
+- **Captures de contrôle** (page de substitution, sans le CSS de Stremio) : barre d'onglets en bas et feuille de réglages pleine largeur, bonnes.
+- **Non vérifié :**
+  - le rendu dans le vrai Stremio ;
+  - le comportement réel du clavier Android et des insets ;
+  - le lecteur au doigt ;
+  - une tablette.
+
+  C'est à l'utilisateur de tester avec `nathflix-dev.apk`.
+
+**Livraison**
+- Commits : « Android on phones and tablets: device detection, system bars, keyboard, player sizes; test builds » et « Phones and tablets: keyboard at sign-in, mobile layout, touch-friendly sheets » sur `claude/quirky-cannon-g7e9oy`
+- PR : —
+- Version / CHANGELOG : entrée « Unreleased » dans `CHANGELOG.md` (numéro à décider à la release)
+
+**Questions ouvertes**
+- Retours sur téléphone (captures) : barre du haut, billboard, rangées, page d'un titre, lecteur.
+
+### T-005 — Téléphones et tablettes : navigation façon Netflix mobile
+
+- **Statut :** À faire
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-004 (et des retours de l'utilisateur sur l'APK de test)
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** —
+
+**Demande**
+> Je voudrais copier le design de Netflix, donc je veux que ça soit visuellement comme sur l'app android de Netflix. Je veux avoir comme Netflix en gros.
+
+**Besoin**
+Sur téléphone et tablette, une navigation qui ressemble à l'app Android de Netflix.
+
+**Critères d'acceptation**
+- [ ] Toucher un poster ouvre une feuille en bas de l'écran (titre, année, note, résumé, Lecture, Ma liste, « Détails »), comme Netflix mobile, au lieu d'ouvrir directement la page
+- [ ] Page d'un titre : grand bouton Lecture pleine largeur, actions (Ma liste, note, partager), liste des épisodes par saison
+- [ ] Accueil : billboard vertical façon Netflix, rangées balayables, Reprendre avec ses boutons ⓘ et ⋮
+- [ ] Barre d'onglets et en-tête façon Netflix (onglets à choisir avec l'utilisateur ; Stremio a Accueil, Découvrir, Bibliothèque, Calendrier, Addons, Réglages)
+- [ ] Mise en page tablette (portrait et paysage)
+- [ ] « Masquer ce titre » et « Ma liste » accessibles au doigt (aujourd'hui seulement dans la carte de survol)
+
+**Plan technique**
+- À préciser avec les captures de T-004. Ces écrans dépendent du DOM réel de Stremio, qui n'est pas visible en cloud : le mieux est de travailler avec mobile-MCP et un émulateur (en local), ou à partir de captures.
+- La feuille du bas peut réutiliser les données de la carte de survol (`preview` dans le plugin), dans une présentation propre à `dx-mobile`.
+
+**Questions ouvertes**
+- Quels onglets en bas (Netflix : Accueil, Nouveautés, Mon Netflix) ?
+
+### T-006 — Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan)
+
+- **Statut :** À faire
+- **Priorité :** P1
+- **Cible :** tv
+- **Dépend de :** T-004
+- **Créée le :** 2026-10-29
+- **Mise à jour :** 2026-10-29
+- **Branche :** —
+
+**Demande**
+> Comme le fork, je voudrais copier le design de Netflix, donc je veux que ça soit visuellement comme sur l'app android de Netflix. (Extras) Picture-in-picture, gestes dans le lecteur, lecture en arrière-plan.
+
+**Besoin**
+Sur téléphone et tablette, un lecteur natif qui ressemble à celui de l'app Android de Netflix, avec ses gestes. La TV garde son lecteur actuel.
+
+**Critères d'acceptation**
+- [ ] Contrôles maison (vues Kotlin sur `PlayerView` sans son contrôleur, en mobile seulement) :
+  - en haut : retour, titre et épisode ;
+  - au centre : −10 s, lecture/pause, +10 s ;
+  - en bas : barre de progression avec temps restant ;
+  - rangée de boutons : Vitesse, Verrouiller, Épisodes, Audio et sous-titres, Épisode suivant
+- [ ] Gestes : tap pour afficher ou masquer, double-tap à gauche ou à droite pour ±10 s, glisser à gauche pour la luminosité et à droite pour le volume
+- [ ] Verrouillage de l'écran (aucun geste ne passe jusqu'au déverrouillage)
+- [ ] Feuille « Audio et sous-titres » façon Netflix (deux colonnes)
+- [ ] Picture-in-picture : `supportsPictureInPicture`, entrée sur `onUserLeaveHint`, actions lecture/pause
+- [ ] Lecture en arrière-plan : `media3-session` (`MediaSessionService`), notification avec contrôles, reprise au retour
+- [ ] Bouton Skip et épisode suivant à la manière de Netflix
+
+**Plan technique**
+- Indépendant du DOM de Stremio : faisable en cloud et vérifiable en CI (`android-dev.yml`), puis testé par l'utilisateur.
+- Garder le chemin TV intact : brancher sur `Device.isMobile` dans `PlayerActivity`.
+- Le passage en arrière-plan doit s'accorder avec `onPause` (qui met en pause aujourd'hui) et avec `PlaybackBus` (progression envoyée à la page).
+
+**Questions ouvertes**
+- Épisode suivant : il faut que la page fournisse l'épisode suivant au lecteur (aujourd'hui seul le flux courant est passé).
 
 <!--
 ### T-000 — Titre court
@@ -342,6 +535,9 @@ Décisions qui dépassent une tâche : architecture, conventions, choix produit.
 
 | Date | Décision | Raison | Tâche |
 |---|---|---|---|
+| 2026-10-29 | Téléphones et tablettes : une seule APK qui s'adapte. Marqueur `nathflix-mobile/` (User-Agent), `IN_MOBILE` / `IN_ANDROID` dans le plugin, `html.dx-mobile` dans le thème. Page à `device-width` ; la TV garde 1280 px. | Choix de l'utilisateur (une seule APK) ; un mode distinct évite de dégrader la TV | T-004 |
+| 2026-10-29 | Rotation libre pour la navigation, vidéo en paysage. | Choix de l'utilisateur | T-004 |
+| 2026-10-29 | APK de test « Nathflix Dev » construite par GitHub Actions (pré-release `dev`, suffixe `.dev`, clé de dev commitée). | L'utilisateur teste sur son téléphone sans Android Studio ; c'est aussi la vérification de compilation Kotlin en cloud | T-004 |
 | 2026-10-28 | Le projet s'appelle Nathflix. Numérotation propre à partir de 0.1.0. Identifiants `com.lavagnou.nathflix` (Android) et `com.lavagnou.nathflix.desktop` (desktop). | Choix de l'utilisateur : nouveau projet, basé sur dx.bi | T-002 |
 | 2026-10-28 | Les préfixes CSS internes `dx-`, `dxe-`, `dxtv-` et `--dx-*` sont gardés. | Invisibles pour l'utilisateur ; les renommer toucherait des milliers de lignes du thème et du plugin pour aucun gain visible | T-002 |
 | 2026-10-28 | Statut Discord et « Report a problem » désactivés tant que Nathflix n'a pas son application Discord ni son relais. | Ils passaient par les services de dx.bi | T-001, T-002 |
@@ -365,6 +561,9 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-29 | T-005, T-006 | Créées : navigation et lecteur façon Netflix mobile |
+| 2026-10-29 | T-004 | Créée et implémentée : clavier à la connexion, mode mobile, mise en page, fenêtres au doigt, APK de test. À valider sur téléphone |
+| 2026-10-29 | T-002 | Compilation Android vérifiée en CI (`android-dev.yml`, run 1) |
 | 2026-10-28 | T-003 | Créée : nouveau logo, en attente du logo de l'utilisateur |
 | 2026-10-28 | T-002 | Créée et implémentée : renommage en Nathflix, 0.1.0, liens et mises à jour vers ce dépôt, Discord désactivé. À valider (compilation Android et desktop, appareil) |
 | 2026-10-28 | T-001 | Créée et implémentée : mises à jour TV et `@updateUrl` vers le fork, rapports de problème coupés. À valider sur appareil |

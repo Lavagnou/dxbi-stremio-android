@@ -269,6 +269,7 @@ class MainActivity : AppCompatActivity() {
     /** A TV shows the page full screen; a phone or tablet keeps its bars (light icons on the dark page) */
     private fun setUpSystemBars() {
         // (the theme is full screen, which would also keep a phone's status bar hidden)
+        @Suppress("DEPRECATION")
         if (mobile) window.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).apply {

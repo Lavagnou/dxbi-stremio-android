@@ -47,15 +47,32 @@ Le reste du dépôt :
 
 ### Fichiers (`tv/app/src/main/java/com/lavagnou/nathflix/`)
 
-- **`MainActivity.kt`** : la WebView sur `https://web.stremio.com/`, mise en page à 1280 px CSS (600 px sur un téléphone tenu droit).
-  - User-Agent desktop suivi de `nathflix-tv/<version>`. C'est ce marqueur qui active `IN_TV` dans le plugin.
+- **`Device.kt`** : TV, téléphone ou tablette.
+  - `isMobile()` : ni mode télévision ni leanback.
+  - `kind()` renvoie `tv`, `phone` ou `tablet` (tablette si `smallestScreenWidthDp >= 600`).
+  - `noun()` donne le nom de l'appareil dans les messages.
+- **`MainActivity.kt`** : la WebView sur `https://web.stremio.com/`.
+  - User-Agent desktop suivi de `nathflix-tv/<version>` sur TV ou `nathflix-mobile/<version>` sur téléphone et tablette. Ces marqueurs activent `IN_TV` ou `IN_MOBILE` dans le plugin.
+  - **Téléphone et tablette** :
+    - barres système visibles ;
+    - la racine reçoit en padding les insets `systemBars`, `displayCutout` et `ime` (page entre les barres, au-dessus du clavier) ;
+    - `adjustResize` ;
+    - pas de `FLAG_KEEP_SCREEN_ON`.
+  - **TV** : plein écran, écran toujours allumé.
   - Injecte `assets/nathflix-tv.js` au démarrage du document.
   - Gère aussi : Back, liens `stremio://`, récupération après crash du renderer (`onRenderProcessGone`), WebView minimale 100.
 - **`assets/nathflix-tv.js`** : tourne dans la page avant les scripts de Stremio.
   - Remplace l'API de Stremio Enhanced (`window.StremioEnhancedAPI` : réglages, alertes, prompts).
   - Charge le plugin.
   - Ajoute les entrées « Nathflix settings », « Streaming server for torrents » et « Report a problem » dans Settings.
-  - Gère le bouton Back de la télécommande et les champs texte verrouillés jusqu'à OK.
+  - Le viewport fait 1280 px CSS sur TV, la largeur de l'écran (`device-width`) sur téléphone et tablette.
+  - `KIND` et `NOUN` adaptent les libellés à l'appareil (« this phone »…).
+  - La classe `dxtv-touch` adapte les fenêtres au doigt.
+  - Gère le bouton Back de la télécommande.
+  - Champs texte verrouillés jusqu'à OK :
+    - sur TV, sauf juste après un toucher ;
+    - sur téléphone et tablette, seulement si une flèche vient d'y mener. Le focus automatique de Stremio ne verrouille jamais (sinon le clavier ne s'ouvre pas à la connexion).
+    - Toucher un champ verrouillé le libère.
   - Fait le **handoff de lecture** (`startHandoff`) : quand Stremio ouvre `#/player/…`, le flux est envoyé au lecteur natif.
 - **`Bridge.kt`** : interface JS `window.NathflixTV`.
   - Chaque méthode `@JavascriptInterface` prend `token` en premier argument et le vérifie avec `allowed()`. `isPhone()` et `version()` font exception.
@@ -107,7 +124,14 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb logcat -s nathflix nathflix-torrent
 ```
 
-- Il faut JDK 17 ou 21 et l'Android SDK 35. Ils ne sont pas installés dans l'environnement cloud de Claude (pas d'`ANDROID_HOME`) : `./gradlew` n'y marchera pas sans installer le SDK.
+- Il faut JDK 17 ou 21 et l'Android SDK 35. Ils ne sont pas installés dans l'environnement cloud de Claude (pas d'`ANDROID_HOME`, `dl.google.com` bloqué).
+- **Build de test « Nathflix Dev »** : le debug, avec `applicationIdSuffix ".dev"`, son nom dans `src/debug/res`, et une clé fixe commitée (`tv/app/dev.keystore`, non secrète).
+  - Elle s'installe à côté de la vraie app et par-dessus la build de test précédente.
+  - Elle ne vérifie aucune mise à jour.
+  - Le workflow `.github/workflows/android-dev.yml` la construit à chaque push touchant `tv/**` ou le plugin, et la publie dans la pré-release `dev` : `releases/download/dev/nathflix-dev.apk`.
+  - **C'est la vérification de compilation Kotlin en session cloud** : pousser, puis lire le run avec les outils GitHub (`actions_list`, `get_job_logs`).
+- **Tailles du lecteur** : `res/values/dimens.xml` pour téléphone et tablette, `res/values-television/dimens.xml` pour la TV (ne pas y toucher sans raison TV).
+- Ne pas ajouter de dossier `values-sw600dp` pour les tailles du lecteur : `smallestWidth` passe avant le mode TV dans l'ordre des qualificatifs, et certaines TV en tvdpi font plus de 600dp, donc la TV en hériterait.
 - Les builds debug s'inspectent depuis `chrome://inspect`.
 - `preBuild` copie `../nathflix.plugin.js` dans les assets générés. Le plugin de la racine est donc toujours celui embarqué dans l'APK.
 
@@ -116,8 +140,11 @@ adb logcat -s nathflix nathflix-torrent
 - Une seule IIFE en `"use strict"`, **sans build ni dépendance**. Il est chargé tel quel par Stremio Enhanced, l'app desktop et la TV.
 - Environnement détecté par le User-Agent :
   - `IN_APP` (`nathflix/`) pour l'app desktop ;
-  - `IN_TV` (`nathflix-tv/`) pour la TV ;
+  - `IN_TV` (`nathflix-tv/`) pour la TV : télécommande et optimisations pour les petites clés TV (`keyNav`, `SCROLL` instantané, `dx-tv`…) ;
+  - `IN_MOBILE` (`nathflix-mobile/`) pour téléphone et tablette : tactile, classe `html.dx-mobile`, pas de cartes de survol ;
+  - `IN_ANDROID` (`IN_TV || IN_MOBILE`) pour tout ce qui tient au lecteur natif et à la WebView : fonctions du lecteur in-page mises de côté, bouton Cast, intro native ;
   - sinon, le plugin dans Stremio Enhanced.
+- `DEVICE` (« TV », « phone », « tablet », lu dans `__nathflixTv.deviceKind`) sert aux libellés.
 - Organisé en sections délimitées par `// ----…` puis un titre. Pour s'y retrouver :
 
 ```bash
@@ -126,8 +153,10 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 
 - **Ajouter un réglage** :
   - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS` ;
-  - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ;
+  - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
+  - s'il n'a pas de sens au doigt, ajouter sa clé au `Set` `NOT_ON_TOUCH` de `nathflix-tv.js` ;
   - s'il ne sert que sur desktop (lecteur in-page), ajouter sa clé au `Set` `DESKTOP_ONLY` de `nathflix-tv.js`. Sinon il apparaîtra dans les réglages TV.
+- **Thème** : le bloc « PHONES AND TABLETS » en fin de `nathflix.theme.css` est gardé par `html.dx-mobile`. Il contient la barre d'onglets en bas, les colonnes de posters et les commandes visibles sans survol. Le bloc « WINDOWS AND TV » ne vaut que pour `dx-tv`.
 - **Sélecteurs** : les classes de Stremio contiennent un hash de build (`meta-row-xtlB1`). Utiliser `[class*="meta-row"]`, jamais le nom complet.
 - **Accès au core Stremio** : `core()` renvoie `getState` / `dispatch` et garde une copie, car `window.core` disparaît sur certaines routes.
 
@@ -158,12 +187,13 @@ Il n'y a pas de suite de tests unitaires. Au minimum :
 node --check nathflix.plugin.js
 node --check tv/app/src/main/assets/nathflix-tv.js
 cd app && npx tsc --noEmit        # si app/ a changé (après npm ci)
-cd tv && ./gradlew assembleDebug  # si tv/ a changé et que le SDK est disponible
+cd tv && ./gradlew assembleDebug  # si tv/ a changé et que le SDK est disponible (sinon : CI android-dev.yml)
 ```
 
 Côté CI :
 - `cross-platform.yml` (push sur main et PR) installe le plugin et lance un vrai Stremio Enhanced sur Windows, macOS et Linux.
 - `mpv-windows.yml` se lance quand `app/` ou le plugin changent.
+- `android-dev.yml` compile l'app Android (debug) à chaque push touchant `tv/**` ou le plugin, et publie la pré-release `dev`.
 - `tv.yml` et `app.yml` ne tournent qu'à la publication d'une release (ou à la main).
 
 ## Conventions

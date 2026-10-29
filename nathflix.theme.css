@@ -4620,3 +4620,148 @@ body[data-dx-kids] #app [class*="vertical-nav-bar"] a[href="#/addons"],
 body[data-dx-kids] #app [class*="vertical-nav-bar"] a[href="#/settings"] {
     display: none !important;
 }
+
+/* =====================================================================
+   PHONES AND TABLETS (Nathflix for Android, html.dx-mobile): the page is laid out at the
+   screen's own width and steered by touch. Tabs move to a bar along the bottom, rows are swiped
+   rather than paged with arrows, and what only showed on hover shows all the time.
+   ===================================================================== */
+
+html.dx-mobile {
+    --dx-nav-h: 3.5rem;
+    --dx-tabs-h: 3.75rem;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Posters per row: three on a phone held upright, more when it's turned or on a tablet */
+@media (max-width: 600px) { html.dx-mobile { --dx-cols: 3; --dx-wide-cols: 1.7; } }
+@media (min-width: 601px) and (max-width: 1050px) { html.dx-mobile { --dx-cols: 5; --dx-wide-cols: 3; } }
+
+/* Top bar: a smaller wordmark, and the buttons big enough for a finger */
+html.dx-mobile #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"] {
+    gap: 0.5rem;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="logo-container"] {
+    width: auto;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="logo-container"]::before {
+    font-size: 1.85rem;
+}
+
+html.dx-mobile #app nav[class*="horizontal-nav-bar"] [class*="buttons-container"] > [class*="button-container"] {
+    height: 2.75rem;
+    min-width: 2.75rem;
+}
+
+/* Search opens across the top bar */
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"] {
+    width: 2.75rem;
+    height: 2.75rem;
+}
+
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:focus-within,
+html.dx-mobile #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"].active {
+    position: absolute;
+    left: var(--dx-gutter);
+    right: var(--dx-gutter);
+    width: auto;
+}
+
+/* Tabs: a bar along the bottom, icon over label, like the phone apps */
+html.dx-mobile #app [class*="main-nav-bars-container"] > nav[class*="vertical-nav-bar"] {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: var(--dx-tabs-h);
+    box-sizing: border-box;
+    padding: 0 0.25rem;
+    gap: 0;
+    justify-content: space-around;
+    align-items: stretch;
+    background: rgba(11, 11, 13, 0.97);
+    box-shadow: 0 -1px 0 var(--dx-line);
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] {
+    display: flex;
+    flex: 1 1 0;
+    text-decoration: none;
+    min-width: 0;
+    padding: 0.4rem 0 0.3rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.2rem;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] svg {
+    display: block;
+    width: 1.45rem;
+    height: 1.45rem;
+    color: var(--dx-text-3);
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"] [class*="label"] {
+    display: block;
+    max-width: 100%;
+    font-size: 0.68rem;
+    color: var(--dx-text-3);
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[href="#/"] [class*="label"]::after {
+    font-size: 0.68rem;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"].selected svg,
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"].selected [class*="label"] {
+    color: #fff;
+}
+
+html.dx-mobile #app nav[class*="vertical-nav-bar"] a[class*="nav-tab-button"]::after {
+    display: none;
+}
+
+/* The pages stop above the tab bar */
+html.dx-mobile #app [class*="main-nav-bars-container"] > [class*="nav-content-container"] {
+    bottom: var(--dx-tabs-h);
+}
+
+/* Rows are swiped: no arrows or page dots */
+html.dx-mobile .dx-arrow,
+html.dx-mobile .dx-row-pages {
+    display: none !important;
+}
+
+/* Continue Watching: play and remove are always there (no hover to bring them up) */
+html.dx-mobile #app [class*="meta-item-container"] [class*="play-icon-layer"],
+html.dx-mobile #app [class*="meta-item-container"] [class*="dismiss-icon-layer"] {
+    opacity: 1;
+    transform: none;
+}
+
+/* Billboard: the text across the picture's width, centred, over a shade that rises from the bottom */
+html.dx-mobile .dx-hero-content {
+    right: var(--dx-gutter);
+    width: auto;
+    align-items: center;
+    text-align: center;
+}
+
+html.dx-mobile .dx-hero-shade {
+    background:
+        linear-gradient(0deg, var(--dx-bg) 0%, rgba(11, 11, 13, 0.85) 22%, rgba(11, 11, 13, 0.2) 55%, transparent 70%),
+        linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0%, transparent 22%);
+}
+
+@media (max-width: 600px) {
+    html.dx-mobile .dx-hero-desc {
+        -webkit-line-clamp: 3;
+    }
+}

@@ -31,14 +31,16 @@
   tv.nativeIntro = true;
 
   // ---------------------------------------------------------------------------
-  // Fit the page to the TV: lay it out 1280 CSS pixels wide (a 10-foot size on any screen). A phone
-  // held upright gets a 600-pixel-wide page instead, which Stremio and Nathflix lay out as a column.
+  // Fit the page to the screen. A TV: 1280 CSS pixels wide (a 10-foot size on any screen). A phone or
+  // tablet: the screen's own width, like any app (Nathflix's mobile layout takes it from there).
   // ---------------------------------------------------------------------------
   const PHONE = (() => { try { return !!bridge.isPhone(); } catch (_) { return false; } })();
-  const upright = () => PHONE && window.screen && screen.height > screen.width;
-  let VIEWPORT = "width=1280, user-scalable=no";
+  // "tv", "phone" or "tablet" (older apps only knew phone or not), and its name in messages
+  const KIND = (() => { try { return (bridge.deviceKind && bridge.deviceKind()) || (PHONE ? "phone" : "tv"); } catch (_) { return PHONE ? "phone" : "tv"; } })();
+  const NOUN = KIND === "tv" ? "TV" : KIND;
+  tv.deviceKind = KIND;
+  const VIEWPORT = PHONE ? "width=device-width, initial-scale=1, user-scalable=no" : "width=1280, user-scalable=no";
   function fitViewport() {
-    VIEWPORT = upright() ? "width=600, user-scalable=no" : "width=1280, user-scalable=no";
     let meta = document.querySelector('meta[name="viewport"]');
     if (!meta) {
       if (!document.head) return;
@@ -59,8 +61,6 @@
   if (document.head) new MutationObserver(fitViewport).observe(document.head, { childList: true });
   else viewportWatch.observe(document.documentElement, { childList: true, subtree: true });
   fitViewport();
-  // a phone turned between upright and sideways
-  if (PHONE) window.addEventListener("resize", () => fitViewport());
 
   // ---------------------------------------------------------------------------
   // What Stremio Enhanced provides and Nathflix relies on
@@ -163,8 +163,17 @@
     /* No streaming server runs on the TV itself (debrid streams don't need one): no nagging bar */
     [class*="board-warning-container"] { display: none !important; }
     .dxtv-toast { position: fixed; left: 50%; bottom: 48px; z-index: 2147483600; transform: translateX(-50%); padding: 14px 22px; border-radius: 10px; background: rgba(20,20,20,.94); color: #fff; font: 500 16px Inter, system-ui, sans-serif; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+    /* Phones and tablets (touch): what was tapped last doesn't stay lit up, and sheets fit the screen */
+    .dxtv-touch .dxtv-btn:focus:not(:focus-visible) { background: rgba(255,255,255,.14); color: #fff; transform: none; }
+    .dxtv-touch .dxtv-row:focus:not(:focus-visible) { background: rgba(255,255,255,.06); transform: none; }
+    .dxtv-touch .dxtv-sheet { width: calc(100vw - 24px); max-height: calc(100vh - 24px); padding: 22px 18px; box-sizing: border-box; }
+    .dxtv-touch .dxtv-row { min-height: 52px; }
+    .dxtv-touch .dxtv-btn { min-height: 44px; }
+    .dxtv-touch .dxtv-buttons { position: sticky; bottom: -22px; padding: 12px 0; background: #1c1c1c; }
+    .dxtv-touch .dxtv-toast { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); max-width: calc(100vw - 32px); }
   `;
   function ensureStyle() {
+    if (PHONE) document.documentElement.classList.add("dxtv-touch");
     if (document.getElementById("dxtv-style")) return;
     const style = document.createElement("style");
     style.id = "dxtv-style";
@@ -248,7 +257,7 @@
     return true;
   }
 
-  const serverName = (url) => /\/\/127\.0\.0\.1:/.test(url) ? "This TV (Stremio's app)" : url.replace(/^http:\/\/|\/$/g, "");
+  const serverName = (url) => /\/\/127\.0\.0\.1:/.test(url) ? `This ${NOUN} (Stremio's app)` : url.replace(/^http:\/\/|\/$/g, "");
 
   // Resolves true once a server has been picked
   async function findServer() {
@@ -259,7 +268,7 @@
       if (!urls.length) {
         const again = await dialog({
           title: "No streaming server found",
-          message: "Open Nathflix or Stremio on a computer connected to the same network as this TV, leave it running, then try again.\n\nDebrid streams play without a streaming server.",
+          message: `Open Nathflix or Stremio on a computer connected to the same network as this ${NOUN}, leave it running, then try again.\n\nDebrid streams play without a streaming server.`,
           buttons: ["Try again", "Close"],
         });
         if (again === 0) continue;
@@ -283,7 +292,7 @@
     if (!dx || !dx.report) { toast("Nathflix hasn't finished loading yet. Try again in a moment."); return; }
     const r = await dialog({
       title: "Report a problem",
-      message: "What went wrong, and what were you doing? Nathflix adds its version, this TV's model, your settings, addon names and recent errors. No passwords, keys or stream links are sent.",
+      message: `What went wrong, and what were you doing? Nathflix adds its version, this ${NOUN}'s model, your settings, addon names and recent errors. No passwords, keys or stream links are sent.`,
       buttons: ["Send report", "Cancel"],
       input: "",
     });
@@ -305,9 +314,12 @@
     "convertVideo", "subtitlesStart", "hdrSubtitles", "pictureSound", "streamStats", "preloadNext", "upNext", "skipFiller",
     "rememberPlayback", "playerKeys", "pip", "externalPlayer", "remainingTime", "watchParty", "partyFollow", "partyActivity", "partySounds"]);
 
+  // Hover cards and their trailers: phones and tablets have no hover (a tap opens the title)
+  const NOT_ON_TOUCH = new Set(["previews", "trailers", "trailerDelay"]);
+
   function settingsSheet() {
     const plugin = PLUGIN.replace(/\.plugin\.js$/, "");
-    const schema = (schemas[plugin] || []).filter((o) => !DESKTOP_ONLY.has(o.key));
+    const schema = (schemas[plugin] || []).filter((o) => !DESKTOP_ONLY.has(o.key) && !(PHONE && NOT_ON_TOUCH.has(o.key)));
     ensureStyle();
     closeModal();
     const el = document.createElement("div");
@@ -383,7 +395,7 @@
       entry.addEventListener("click", settingsSheet);
       const server = document.createElement("button");
       server.className = "dxtv-row dxtv-settings-entry dxtv-server-entry";
-      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through Nathflix or Stremio running on a computer on your network, or on this TV if you switch on Play torrents on this TV (Nathflix settings). Debrid streams don't need either</small></span><b>Find</b>`;
+      server.innerHTML = `<span>Streaming server for torrents<small>Torrents play through Nathflix or Stremio running on a computer on your network, or on this ${NOUN} if you switch on Play torrents on this ${NOUN} (Nathflix settings). Debrid streams don't need either</small></span><b>Find</b>`;
       server.addEventListener("click", findServer);
       content.prepend(entry, server);
     }
@@ -514,7 +526,7 @@
     const ready = state.stream && state.stream.type === "Ready" && state.stream.content;
     // (for a torrent, Stremio gives a streaming server address even when none is running)
     let url = (ready && ready.url && (serverUp || !stream.infoHash) ? ready.url : null) || stream.url || null;
-    // A torrent and no streaming server. Nathflix TV can download it itself, but only when that's switched
+    // A torrent and no streaming server. Nathflix for Android can download it itself, but only when that's switched
     // on in Nathflix settings (off by default: debrid, or a computer's streaming server, is the usual way);
     // otherwise the choice is offered for this stream
     let torrent = false;
@@ -523,8 +535,8 @@
       if (!onTv) {
         const choice = await dialog({
           title: "This stream needs a streaming server",
-          message: "It's a torrent, and this TV has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let this TV download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on this TV: Nathflix settings → Play torrents on this TV.",
-          buttons: ["Find one on my network", "Play it on this TV", "Cancel"],
+          message: `It's a torrent, and this ${NOUN} has no streaming server. Use the one in Nathflix or Stremio on a computer on your network, or let this ${NOUN} download it itself (it connects to other people sharing the file).\n\nDebrid streams play without either. To always play torrents on this ${NOUN}: Nathflix settings → Play torrents on this ${NOUN}.`,
+          buttons: ["Find one on my network", `Play it on this ${NOUN}`, "Cancel"],
         });
         if (choice === 1 && location.hash === hash) onTv = true;
         else {
@@ -731,14 +743,28 @@
   // Text boxes (Search, an episode list's search): the TV's keyboard opened the moment the
   // selection reached one and took over the arrows, so the remote seemed stuck. A box is just a
   // stop on the way until OK is pressed on it; then the keyboard opens.
-  // (only for the remote: a tap on a phone or tablet has no OK to press, so it types straight away)
+  // Only for a remote (or a keyboard's arrows): on a phone or tablet a box is only locked when the
+  // arrows just moved to it, never when Stremio puts the cursor in it itself (the sign-in's e-mail
+  // box), and a tap types straight away: there's no OK to press
   const typable = (t) => t && t.tagName === "INPUT" && !/^(checkbox|radio|button|submit|reset|color|file|range|hidden)$/.test(t.type);
   let lastTouch = 0;
-  window.addEventListener("pointerdown", () => { lastTouch = Date.now(); }, true);
+  let lastArrow = 0;
+  window.addEventListener("keydown", (e) => { if (/^Arrow/.test(e.key)) lastArrow = Date.now(); }, true);
+  window.addEventListener("pointerdown", (e) => {
+    lastTouch = Date.now();
+    // a box that's locked (the arrows reached it) opens for typing when it's touched
+    const t = e.target;
+    if (typable(t) && t.dataset.dxtvLocked) {
+      t.readOnly = false;
+      delete t.dataset.dxtvLocked;
+      t.dataset.dxtvTyping = "1";
+    }
+  }, true);
   window.addEventListener("focusin", (e) => {
     const t = e.target;
     if (!typable(t) || t.readOnly || t.dataset.dxtvTyping || t.closest(".dxtv-modal")) return;
     if (Date.now() - lastTouch < 1000) return;
+    if (PHONE && Date.now() - lastArrow > 1000) return;
     t.readOnly = true;
     t.dataset.dxtvLocked = "1";
   }, true);
