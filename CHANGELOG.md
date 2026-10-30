@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **"Who's watching?" in Netflix's heavy lettering on phones too.** An older phone style kept the title in regular weight; it's now as bold and tight as on Netflix, on every screen.
 - **The billboard's "NATHFLIX Series" is text again.** Back to the thin NATHFLIX lettering above the title on the billboard and trailers, instead of the NATH mark.
 
 ## 0.5.0

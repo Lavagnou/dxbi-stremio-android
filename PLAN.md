@@ -1688,7 +1688,8 @@ Puis, avec des captures de Netflix :
 - Pièges :
   - le bouton d'une tuile coupe ce qui dépasse : un anneau extérieur (`box-shadow` hors de l'avatar) était rogné, d'où l'anneau en `inset` ;
   - Stremio fixe la taille des `span` (15 px) : `font: inherit !important` dans les pilules et la case ;
-  - les règles des tuiles de la porte sont plus spécifiques que celles du téléphone : largeurs redonnées sous `html.dx-mobile`.
+  - les règles des tuiles de la porte sont plus spécifiques que celles du téléphone : largeurs redonnées sous `html.dx-mobile` ;
+  - à l'inverse, `html.dx-mobile .dxe-who h1` (graisse 500) gagnait sur le titre : sur téléphone, « Qui est-ce ? » restait en graisse normale (capture de l'utilisateur). Titre en Inter 800, lettres resserrées (-0,025 em), graisse forcée sous `html.dx-mobile`.
 - Une nouvelle tuile de profil se crée depuis la porte : Retour et Enregistrer y reviennent (et non au mode Gérer).
 
 **Vérification**
@@ -1808,6 +1809,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-035 | « Qui est-ce ? » en graisse normale sur téléphone (ancienne règle mobile) : titre en Inter 800 partout |
 | 2026-10-30 | T-003 | Billboard et bandes-annonces : retour au texte « NATHFLIX » (typo fine) à la place du mark NATH, à la demande de l'utilisateur |
 | 2026-10-30 | T-036 | Fait : release v0.5.0 publiée (apps desktop, APK signée avec le nouveau logo et la nouvelle intro) |
 | 2026-10-30 | T-036 | Créée : release 0.5.0 ; version montée, en cours (CI, puis tag) |

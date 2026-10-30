@@ -7990,7 +7990,7 @@
   .dxe-who-top.is-gate .dxe-who-brand { font-size: 2.3rem !important; }
   .dxe-who-actions { display: inline-flex; align-items: center; gap: .5rem; }
   .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-inner { gap: 2.4rem; padding-top: 6rem; }
-  .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font: 700 2.6rem/1.2 Inter, system-ui, sans-serif !important; letter-spacing: -.015em; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font: 800 2.6rem/1.2 Inter, system-ui, sans-serif !important; letter-spacing: -.025em; }
   .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid { gap: 3.3rem; }
   .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile { width: 10.7rem; gap: 1.1rem; color: #b8b8b8; }
   html:not(.dx-mobile) .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid .dxe-who-avatar { width: 10.7rem; height: 10.7rem; }
@@ -8044,7 +8044,8 @@
   html.dx-mobile .dxe-who-top.is-gate { position: sticky; padding: .6rem .8rem .6rem 1.1rem; }
   html.dx-mobile .dxe-who-top.is-gate .dxe-who-brand { font-size: 1.9rem !important; }
   html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-inner { gap: 1.8rem; padding-top: 1rem; }
-  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font-size: 1.6rem !important; }
+  /* (an older phone rule set the titles at 500: Netflix's is heavy) */
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font-size: 1.7rem !important; font-weight: 800 !important; }
   html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid { gap: 1.6rem 1.8rem; }
   html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile { width: 7.2rem; }
   html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-grid { grid-template-columns: repeat(2, 8.4rem); gap: .6rem; }
