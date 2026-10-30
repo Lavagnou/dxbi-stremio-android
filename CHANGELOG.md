@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- **The billboard's "NATHFLIX Series" is text again.** Back to the thin NATHFLIX lettering above the title on the billboard and trailers, instead of the NATH mark.
+
 ## 0.5.0
 - **A new Nathflix logo, everywhere.** The NATHFLIX wordmark (curved like Netflix's) replaces the text logo on the top bar and on Who's watching, and the NATH mark comes before "Series" and "Film" on the billboard and trailers. It follows your accent colour.
 - **New app icons.** The NATH mark on black, like Netflix's icon, for the desktop app (Windows, Mac, Linux) and Android, with an adaptive icon on Android 8 and later. Nathflix TV gets a new banner on the TV's home screen.

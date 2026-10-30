@@ -309,7 +309,7 @@ Puis, le 2026-10-30 :
   - bannière TV `drawable/banner.png` (320×180) et `drawable-xhdpi/banner.png` (640×360)
 - [x] Plugin et thème :
   - wordmark dans la barre du haut et sur « Qui est-ce ? » ;
-  - mark NATH devant « Série » / « Film » (billboard, bandes-annonces) et sur le splash de secours ;
+  - mark NATH sur le splash de secours. Devant « Série » / « Film » (billboard, bandes-annonces) : d'abord le mark, puis de nouveau le texte « NATHFLIX » en Bebas Neue, à la demande de l'utilisateur (« Sur le billboard je préférais la typo fine avec les textes "Nathflix" qu'on avait avant ») ;
   - le tout suit l'accent
 - [x] Intro : le mark NATH lettre par lettre, avec ses plis ; `introVideoData()` et `res/raw/intro.mp4` refaits ; aperçu `screenshots/intro.webp`
 - [x] `screenshots/banner.jpg` (bandeau du README)
@@ -1808,6 +1808,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-003 | Billboard et bandes-annonces : retour au texte « NATHFLIX » (typo fine) à la place du mark NATH, à la demande de l'utilisateur |
 | 2026-10-30 | T-036 | Fait : release v0.5.0 publiée (apps desktop, APK signée avec le nouveau logo et la nouvelle intro) |
 | 2026-10-30 | T-036 | Créée : release 0.5.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-003 | Nouveau logo de l'utilisateur partout : icônes desktop et Android (adaptative), bannière TV, wordmark et mark NATH dans le plugin, intro refaite avec NATH. Captures du README encore à refaire |

@@ -359,7 +359,7 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
     - `screenshots/banner.jpg` et `branding/web/`.
   - Les icônes sont faites comme celles de Netflix : NATH sur fond noir, avec de la marge.
   - `node tools/embed_brand.mjs` met `branding/web/` dans `brandImages()` du plugin (adresses `data:`). `applyAccent()` les pose en `--dx-wordmark`, `--dx-mark` et `--dx-mark-filter` (la teinte de l'accent, comme l'intro), avec la classe `html.dx-brand`. Sans cette classe, le CSS garde le texte « NATHFLIX ».
-  - Wordmark (masque peint dans l'accent) : barre du haut (thème), « Qui est-ce ? ». Mark NATH : devant « Série » / « Film » (billboard, bandes-annonces), splash de secours, intro.
+  - Wordmark (masque peint dans l'accent) : barre du haut (thème), « Qui est-ce ? ». Mark NATH : splash de secours, intro. « NATHFLIX Série / Film » du billboard et des bandes-annonces reste en texte (Bebas Neue), au choix de l'utilisateur.
   - L'intro (`render_intro.py`) anime le mark NATH, découpé en ses quatre lettres. Puis encoder `introVideoData()` (WebM AV1, base64) et `res/raw/intro.mp4` (H.264), commandes dans `tools/README.md`.
   - Pas encore refaites : les captures d'écran du README (sauf `banner.jpg`) montrent encore DX.BI.
 - **Signature Android** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` (alias `nathflix-tv`).

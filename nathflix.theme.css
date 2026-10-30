@@ -1050,17 +1050,6 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     color: var(--dx-accent);
 }
 
-/* The NATH mark before "Series" / "Film", as Netflix puts its N (the text stays for screen readers) */
-html.dx-brand .dx-hero-kicker b {
-    display: block;
-    width: 2.6rem;
-    height: 1.5rem;
-    font-size: 0;
-    color: transparent;
-    background: var(--dx-mark) left center / contain no-repeat;
-    filter: var(--dx-mark-filter);
-}
-
 .dx-hero-logo {
     display: block;
     max-width: min(30rem, 100%);
