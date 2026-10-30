@@ -95,6 +95,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | Terminé | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
 | T-037 | Intro en portrait sur Android | À valider | P2 | tv, tools | T-003 | 2026-10-30 |
+| T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | En cours | P1 | release, tv, plugin | T-037 | 2026-10-30 |
 
 ---
 
@@ -1762,6 +1763,33 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 - Aperçu de 6 images en 360×640 : mark centré dans la largeur, plongée qui remplit la hauteur.
 - Compilation Kotlin : CI `android-dev.yml`.
 
+### T-038 — Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard)
+
+- **Statut :** En cours (2026-10-30, `main`)
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-037
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Tu peux relancer, quand ça sera bon fait une 0.5.1
+
+**Critères d'acceptation**
+- [x] `@version 0.5.1`, section `## 0.5.1` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] Release v0.5.1 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [ ] APK signée par la clé de release, avec `intro_portrait`
+
+**Notes techniques**
+- Le rendu du film portrait a été arrêté une fois par Claude Code (mémoire presque pleine). Relancé à la demande de l'utilisateur : seules les 49 images manquantes ont été rendues (`--frames`), après contrôle des 203 déjà faites.
+- **CI avant la release** : deux échecs sur des commits précédents, sans lien avec le code.
+  - Cross-platform sur `d18b570` (PLAN.md seulement) : sur Windows, l'installeur n'a pas joint le serveur HTTP local du test (« connexion refusée »). Les commits suivants passent.
+  - mpv Windows sur `2239340` : « the video didn't follow the window (3 points changed) ». Le job relancé sur le même commit passe (essai 2) : la mesure par captures d'écran est instable.
+
+**Vérification**
+- À remplir après la release.
+
 <!--
 ### T-000 — Titre court
 
@@ -1841,6 +1869,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-038 | Créée : release 0.5.1 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-037 | Créée et implémentée : film d'intro portrait, choisi selon l'orientation, plein écran sans bandes noires |
 | 2026-10-30 | T-035 | « Qui est-ce ? » en graisse normale sur téléphone (ancienne règle mobile) : titre en Inter 800 partout |
 | 2026-10-30 | T-003 | Billboard et bandes-annonces : retour au texte « NATHFLIX » (typo fine) à la place du mark NATH, à la demande de l'utilisateur |
