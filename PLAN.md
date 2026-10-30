@@ -97,7 +97,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-037 | Intro en portrait sur Android | À valider | P2 | tv, tools | T-003 | 2026-10-30 |
 | T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | Terminé | P1 | release, tv, plugin | T-037 | 2026-10-30 |
 | T-039 | Nathflix rame sur Fire TV : audit de performance, CSS allégé, billboard, télécommande, mode léger, mesure à l'écran | À valider | P0 | plugin | — | 2026-10-30 |
-| T-040 | Release 0.5.2 (performances) | En cours | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
+| T-040 | Release 0.5.2 (performances) | Terminé | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
 
 ---
 
@@ -1871,12 +1871,12 @@ Puis, après le rapport : l'app Stremio ne rame pas du tout sur la même Fire TV
 - Non vérifié : la Fire TV elle-même (pas sur le même réseau que le PC), et le mode léger en Auto (le PC du banc a plus de 4 cœurs).
 
 **Livraison**
-- Commits : —
+- Commits : `f2ae445`
 - Version / CHANGELOG : 0.5.2
 
 ### T-040 — Release 0.5.2 (performances)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P0
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-039
@@ -1889,18 +1889,24 @@ Puis, après le rapport : l'app Stremio ne rame pas du tout sur la même Fire TV
 
 **Critères d'acceptation**
 - [x] `@version 0.5.2`, section `## 0.5.2` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.5.2`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, plugin embarqué en 0.5.2
+- [x] CI verte, tag `v0.5.2`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, plugin embarqué en 0.5.2
 
 **Notes techniques**
 - La Fire TV prend aussi le plugin 0.5.2 seule (`Updates.checkPlugin`) dès la release publiée, sans réinstaller l'APK.
 
 **Vérification**
-- —
+- CI sur `f2ae445` : Cross-platform, mpv Windows et build Android de test verts.
+- Tag `v0.5.2` sur `f2ae445` ; run « Release » 41140080781 : tous les jobs verts du premier coup.
+- `gh release view v0.5.2` : les 11 fichiers attendus.
+- APK :
+  - `apksigner` : `CN=Nathflix, O=lavagnou`, même SHA-256 que les releases précédentes ;
+  - versionCode 502, versionName 0.5.2 ;
+  - plugin embarqué en 0.5.2, avec `perfReadout`.
 
 **Livraison**
-- Commits : —
-- Release : —
+- Commits : `f2ae445` (0.5.2)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.2
 
 <!--
 ### T-000 — Titre court
@@ -1981,6 +1987,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-040 | Fait : release v0.5.2 publiée (11 fichiers, APK signée vérifiée) ; T-039 à valider sur la Fire TV |
 | 2026-10-30 | T-039, T-040 | Audit de performance (rapport) puis corrections : CSS allégé et `sharpen` partout, billboard, télécommande, mode léger, mesure à l'écran ; testées (Playwright avant/après). Release 0.5.2 en cours |
 | 2026-10-30 | T-038 | Fait : release v0.5.1 publiée (dmg Mac x64 refait après une panne réseau du runner) |
 | 2026-10-30 | T-038 | Créée : release 0.5.1 ; version montée, en cours (CI, puis tag) |
