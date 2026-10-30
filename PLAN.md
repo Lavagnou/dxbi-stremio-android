@@ -93,6 +93,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-033 | Continuer à regarder pas à jour sur le 2e appareil sans forcer l'arrêt de l'app | À valider | P1 | plugin | T-031 | 2026-10-30 |
 | T-034 | Choix du profil à l'ouverture, au retour et après un film ; « Ne plus me demander » | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
+| T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | En cours | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
 
 ---
 
@@ -1694,6 +1695,29 @@ Puis, avec des captures de Netflix :
 - Captures Playwright à 1920×920 et 412×870 (`dx-mobile`) : porte, mode Gérer avec le premier profil sélectionné, page Modifier. Comparées aux captures de Netflix données par l'utilisateur.
 - Pas vu sur une vraie TV (focus de la télécommande) : les styles `:focus` sous `.dx-tv` reprennent ceux du survol.
 
+### T-036 — Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix)
+
+- **Statut :** En cours (2026-10-30, `main`)
+- **Priorité :** P1
+- **Cible :** release, tv, plugin, app
+- **Dépend de :** T-003, T-029 à T-035
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Une fois que tu aura terminé, fait moi une nouvelle release.
+
+Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
+
+**Critères d'acceptation**
+- [x] `@version 0.5.0`, section `## 0.5.0` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] Release v0.5.0 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [ ] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`)
+
+**Vérification**
+- À remplir après la release.
+
 <!--
 ### T-000 — Titre court
 
@@ -1773,6 +1797,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-036 | Créée : release 0.5.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-003 | Nouveau logo de l'utilisateur partout : icônes desktop et Android (adaptative), bannière TV, wordmark et mark NATH dans le plugin, intro refaite avec NATH. Captures du README encore à refaire |
 | 2026-10-30 | T-033 à T-035 | Créées et implémentées : bibliothèque Stremio rechargée au retour sur Android, choix du profil à l'ouverture, au retour et après un film (case « Ne plus me demander »), refonte façon Netflix (porte, mode Gérer, pages de profil). Testées (Playwright, captures) ; à valider sur l'appareil |
 | 2026-10-30 | T-030 | CI rouge sur `728507a` (tests sans compte renvoyés vers la connexion) ; corrigée par `nathflix.allowGuest` dans les tests, plus une vérification de la redirection (`106d29c`, CI verte) |
