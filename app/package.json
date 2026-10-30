@@ -1,6 +1,6 @@
 {
 	"name": "nathflix",
-	"version": "0.5.1",
+	"version": "0.5.2",
 	"description": "Nathflix: a Netflix-style desktop app for Stremio, with the Nathflix experience built in.",
 	"main": "./dist/main.js",
 	"scripts": {

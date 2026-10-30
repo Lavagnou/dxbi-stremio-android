@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.2
+- **Smoother on TV sticks, phones and computers.** Nathflix's look made every change on the page several times costlier for the browser to redraw than Stremio alone. Its styles are now matched to Stremio's real class names on every device (only TVs had this so far), and rules meant for other kinds of devices are dropped (a phone's on a TV, the mouse's hover looks on a remote). On phones, tablets and computers a change on a full Home now costs about a quarter of what it did; TVs had part of this already, and gain less from it.
+- **The billboard stops when you're not looking at it.** Scrolled down into the rows, it no longer keeps turning (each turn was a full-screen picture to fetch and draw while you browsed). It starts with one picture instead of eight full-screen ones fetched at once, and loads each of the others just before its turn. On TV, its dots no longer grow smoothly, which was laid out again on every frame.
+- **Remote control: no more measuring rows out of sight.** Finding where an arrow goes no longer measures titles in Home's rows off screen, which made the TV lay those rows out.
+- **Light mode.** Nathflix settings → Performance → Light mode: the billboard holds still, and titles get no rating badges or details cards. *Auto* (the default) switches it on for a modest TV, phone or tablet: four cores or fewer, or 2 GB of memory or less, like most TV sticks.
+- **Performance readout.** Nathflix settings → Performance → Performance readout shows in a corner how long Nathflix takes to answer each key press or tap, and how often it got stuck over the last 10 seconds, to see on the device itself what slows it down.
+
 ## 0.5.1
 - **Nathflix for Android: the intro fills the screen, upright too.** A phone held upright gets its own upright intro film instead of the wide one between black bars, and either film now fills the whole screen.
 - **"Who's watching?" in Netflix's heavy lettering on phones too.** An older phone style kept the title in regular weight; it's now as bold and tight as on Netflix, on every screen.

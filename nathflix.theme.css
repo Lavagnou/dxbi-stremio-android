@@ -4576,6 +4576,11 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     will-change: auto;
 }
 
+/* TV: the billboard's dots change size at once (their growing width was laid out again on every frame) */
+.dx-tv .dx-hero-dot {
+    transition: background-color 0.2s;
+}
+
 .dx-tv #app nav[class*="horizontal-nav-bar"] {
     transition: none !important;
 }

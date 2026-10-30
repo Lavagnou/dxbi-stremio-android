@@ -96,6 +96,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | Terminé | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
 | T-037 | Intro en portrait sur Android | À valider | P2 | tv, tools | T-003 | 2026-10-30 |
 | T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | Terminé | P1 | release, tv, plugin | T-037 | 2026-10-30 |
+| T-039 | Nathflix rame sur Fire TV : audit de performance, CSS allégé, billboard, télécommande, mode léger, mesure à l'écran | À valider | P0 | plugin | — | 2026-10-30 |
+| T-040 | Release 0.5.2 (performances) | En cours | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
 
 ---
 
@@ -1802,6 +1804,104 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 - Commits : `26755ff`, `2239340`, `48ce1d8`, `90608cc` (0.5.1)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.1
 
+### T-039 — Nathflix rame sur Fire TV : audit de performance et corrections
+
+- **Statut :** À valider (sur la Fire TV 4K, puis téléphone et tablette)
+- **Priorité :** P0
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> J'ai testé l'app sur une FireTV 4K, et niveau performance c'est inutilisable, ça lag, ça freeze tout le temps. Sur ma Honor Pad et mon Pixel 7, c'est pas hyper fluide, il y a quelques ralentissement mais c'est pas à ce point, et sur PC ça va aussi, c'est pareil, pas hyper fluide mais utilisable. Fait une analyse profonde des soucis de performances, cherche des pistes d'amélioration et d'optimisation, et fait moi un rapport de l'audit.
+
+Puis, après le rapport : l'app Stremio ne rame pas du tout sur la même Fire TV ; choix « Tout, release comprise » (corrections 1 à 4, mesure à l'écran, mode léger, release).
+
+**Critères d'acceptation**
+- [x] Audit mesuré (banc Playwright, processeur bridé ×6, User-Agent TV) et rapport à l'utilisateur
+- [x] Règles CSS des autres appareils retirées à l'injection (`sharpen.prune`)
+- [x] `sharpen` sur tous les appareils (avant : TV seulement)
+- [x] Billboard : arrêt hors de vue, une seule image au démarrage, plus de recalculs forcés, points sans transition de largeur sur TV
+- [x] `keyNav.inView()` ne mesure plus les rangées hors écran
+- [x] Mode léger (`lightMode`, Auto sur les appareils Android modestes) et mesure à l'écran (`perfOverlay`)
+- [x] Aucune différence visuelle (captures avant/après, PC, téléphone, TV) ; navigation à la télécommande identique
+- [ ] Vérifié sur la Fire TV
+
+**Notes techniques**
+- **Audit** (Chrome bridé ×6, Accueil invité puis Accueil gonflé à environ 3 300 éléments) :
+  - le JavaScript du plugin pèse peu (`sync()` : 60 ms en 30 s) ;
+  - le coût vient du CSS : les sélecteurs `[class*=…]` (538 sur 932 dans le thème) sont testés sur chaque élément à chaque recalcul. Changer une classe sur `#app` coûte environ 0 ms sans le CSS de Nathflix, des dizaines de ms avec ; bien plus sans `sharpen` (téléphones et PC, qui ne l'avaient pas) ;
+  - le billboard tournait même hors de vue (seule condition : la route `board`), forçait deux recalculs (`void offsetWidth`), animait la largeur des points (mise en page à chaque image), et téléchargeait 8 fonds 1920×1080 (550 à 680 Ko chacun) au démarrage. `background/large` et `background/medium` de metahub sont la même image ;
+  - `keyNav.inView()` mesurait tous les focusables, donc mettait en page les rangées hors écran (`content-visibility`) : 43 ms contre 11 ms pour aller sur un titre d'une rangée non dessinée.
+- **Piège du banc** : poser `localStorage` `nathflix.lang` (ou laisser `profileDefaults` passer le profil invité en français) fait recharger la page par `langWatch`, et un plugin injecté à la main disparaît. Le banc sert le plugin depuis une fausse adresse de web.stremio.com (`ctx.route`) et le recharge à chaque `load`, comme l'app Android.
+- **`sharpen`** :
+  - `fill()` et `soon()` ne sont plus réservés à `IN_TV` ; `soon()` abandonne après 200 essais (une feuille de Stremio introuvable relançait toutes les 300 ms pour toujours) ;
+  - `prune()` supprime, avant la réécriture, les sélecteurs qui nomment une classe d'appareil absente (`DEVICE_CLASSES` : `dx-tv`, `dx-mobile`, `dx-app`, `dx-win` ; ce qui est dans `:not()` ne compte pas) et, sur TV, les `:hover` ;
+  - `VERSION` entre dans `stamp()` : les copies gardées par une version précédente sont refaites ;
+  - copies dans `localStorage` (`nathflix.sharp.*`) : environ 230 Ko pour le thème et 70 Ko pour `dx-extras-style`. Stockage plein : rien n'est gardé, c'est refait au démarrage suivant.
+- **Billboard** (`hero`) :
+  - `load()` ne vérifie que la première image ; les autres sont vérifiées juste avant leur tour (`artLoads`, `nextShowable`), et une image qui ne charge pas perd son point ;
+  - le fond n'est posé qu'au tour de la diapositive (`data-bg`, puis `style.backgroundImage` dans `show()`) ;
+  - `IntersectionObserver` (`onScreen`, 20 % visible) : hors de vue, `tick()` s'arrête (`stalled`) ; de retour, `resumeIfStalled()` reprend ;
+  - plus de `void offsetWidth` : le point qui devient actif repart seul ; le même point recliqué repart par `getAnimations()` ; le zoom lent (`kb`) n'est plus posé sur TV ni en mode léger ;
+  - thème : `.dx-tv .dx-hero-dot` sans transition de largeur.
+- **`keyNav.inView()`** : les rangées de l'Accueil hors de l'écran (un rectangle par rangée) sont écartées avec tout ce qu'elles contiennent.
+- **Mode léger** : `lightMode` (`auto` | `on` | `off`), `MODEST_DEVICE` = `IN_ANDROID` et (4 cœurs ou moins, ou `deviceMemory` ≤ 2). Pas sur ordinateur en Auto : les machines de la CI ont 4 cœurs. `light()` ; `ratingsOn()` et `previewsOn()` remplacent `settings.ratings` et `settings.previews` ; `hero.interval()` donne 0.
+- **Mesure à l'écran** (`perfReadout`, réglage `perfOverlay`) : temps de réponse des 20 dernières touches ou touchers (Event Timing, à partir de 16 ms), tâches longues des 10 dernières secondes, nombre d'éléments, état du mode léger. Élément `.dx-perf` ignoré par l'observateur `mo`, réécrit seulement quand le texte change.
+- Groupe de réglages « Performances » (après « Apparence »). Pour tester sans le thème : réglage existant « Apparence Nathflix intégrée ».
+- Pistes non faites (voir le rapport) : charger le plugin par adresse plutôt qu'en texte (cache de compilation, nouvelle APK), index des épisodes allégé sur TV, réécriture des sélecteurs lents les plus fréquents.
+
+**Vérification**
+- `node --check` (plugin, `nathflix-tv.js`), `node tools/profile-sync/test.mjs` : OK.
+- Traductions : aucun texte manquant (`fr-missing.mjs`, hors faux positifs des commentaires).
+- Captures avant/après (Accueil, Découvrir, fiche, Réglages ; PC, téléphone, TV ; images masquées) : identiques, sauf l'heure de « Se termine à ».
+- Télécommande (mode TV, 13 flèches entre billboard, rangées et barre du haut) : même parcours avant et après.
+- Banc avant/après (bridé ×6, médiane de 5 ; valeurs absolues bruitées, comparer les paires) :
+
+  | Mesure | TV avant → après | PC avant → après |
+  |---|---|---|
+  | Classe sur `#app`, Accueil invité | 117 → 71 ms | 343 → 93 ms |
+  | Même chose, Accueil gonflé (3 000+ éléments) | 89 → 79 ms | 1 573 → 397 ms |
+  | Accueil gonflé, toutes les rangées dessinées | 439 → 340 ms | 1 119 → 644 ms |
+  | Repos 12 s (tâches ; mises en page) | 1 074 → 626 ms ; 21 → 1 | 1 236 → 1 117 ms ; 17 → 10 |
+  | Fonds du billboard au démarrage | 10 → 4 | 10 → 5 |
+
+- Non vérifié : la Fire TV elle-même (pas sur le même réseau que le PC), et le mode léger en Auto (le PC du banc a plus de 4 cœurs).
+
+**Livraison**
+- Commits : —
+- Version / CHANGELOG : 0.5.2
+
+### T-040 — Release 0.5.2 (performances)
+
+- **Statut :** En cours
+- **Priorité :** P0
+- **Cible :** release, tv, plugin, app
+- **Dépend de :** T-039
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> (choix « Tout, release comprise » après le rapport d'audit)
+
+**Critères d'acceptation**
+- [x] `@version 0.5.2`, section `## 0.5.2` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.5.2`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, plugin embarqué en 0.5.2
+
+**Notes techniques**
+- La Fire TV prend aussi le plugin 0.5.2 seule (`Updates.checkPlugin`) dès la release publiée, sans réinstaller l'APK.
+
+**Vérification**
+- —
+
+**Livraison**
+- Commits : —
+- Release : —
+
 <!--
 ### T-000 — Titre court
 
@@ -1881,6 +1981,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-039, T-040 | Audit de performance (rapport) puis corrections : CSS allégé et `sharpen` partout, billboard, télécommande, mode léger, mesure à l'écran ; testées (Playwright avant/après). Release 0.5.2 en cours |
 | 2026-10-30 | T-038 | Fait : release v0.5.1 publiée (dmg Mac x64 refait après une panne réseau du runner) |
 | 2026-10-30 | T-038 | Créée : release 0.5.1 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-037 | Créée et implémentée : film d'intro portrait, choisi selon l'orientation, plein écran sans bandes noires |
