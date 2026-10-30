@@ -1,6 +1,7 @@
 package com.lavagnou.nathflix
 
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
@@ -47,15 +48,19 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         accentPaint(settings.optString("accent", "red"))?.let { video.setLayerPaint(it) }
         this.video = video
         box.addView(video, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.CENTER))
-        // The film is 16:9: letterbox it on anything else (a phone held upright)
+        // A phone held upright gets the upright film (9:16), anything else the 16:9 one. Either fills the
+        // screen, cropped a little at the edges rather than with black bars (the mark stays in the middle)
+        val upright = activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
+        val filmW = if (upright) 9 else 16
+        val filmH = if (upright) 16 else 9
         box.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val w = r - l
             val h = b - t
             val lp = video.layoutParams
-            val fitW = if (w * 9 <= h * 16) w else h * 16 / 9
-            if (lp.width != fitW) {
-                lp.width = fitW
-                lp.height = fitW * 9 / 16
+            val coverW = if (w * filmH >= h * filmW) w else h * filmW / filmH
+            if (lp.width != coverW) {
+                lp.width = coverW
+                lp.height = coverW * filmH / filmW
                 video.post { video.layoutParams = lp }
             }
         }
@@ -69,7 +74,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 if (done) return
                 try {
-                    val mp = MediaPlayer.create(activity, R.raw.intro) ?: return finish()
+                    val mp = MediaPlayer.create(activity, if (upright) R.raw.intro_portrait else R.raw.intro) ?: return finish()
                     player = mp
                     mp.setSurface(Surface(texture).also { surface = it })
                     mp.setVolume(volume, volume)

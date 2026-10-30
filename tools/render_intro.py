@@ -2,6 +2,7 @@
 """Render the Nathflix intro as a PNG sequence + WAV.
 
 usage: render_intro.py OUT_DIR [--frames 0,60,120] [--w 1920 --h 1080 --fps 60]
+       (--w 1080 --h 1920 for the portrait film Nathflix for Android plays on phones held upright)
 """
 import argparse
 import math
@@ -57,10 +58,12 @@ def ease_out(x):
 # letters overlap (N runs into A, T's bar covers A's leg), so the cuts follow the drawing: N | A at
 # 25.6 % of the width, T's bar from 49.1 % down to 16.5 % of the height and its stem from 56.5 %, H
 # from 74.4 %. A mask keeps the folds: a darker fold lights less of the accent
-LOGO_PX = int(H * 0.36)                 # mark height on screen at scale 1
 SS = 3                                  # supersampling for the masters
 mark = Image.open(MARK).convert("RGBA")
 mark = mark.crop(mark.getchannel("A").point(lambda v: 255 if v >= 12 else 0).getbbox())
+# mark height on screen at scale 1: a third of the height, but never wider than 56 % of the width
+# (the portrait film, for phones held upright, is cropped a little at the sides to fill the screen)
+LOGO_PX = int(min(H * 0.36, W * 0.56 * mark.height / mark.width))
 mark = mark.resize((round(mark.width * LOGO_PX * SS / mark.height), LOGO_PX * SS), Image.LANCZOS)
 px = np.asarray(mark, np.float32) / 255.0
 cover = px[:, :, 3] * np.clip(px[:, :, 0] / 0.92, 0, 1)

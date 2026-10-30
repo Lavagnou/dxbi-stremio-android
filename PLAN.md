@@ -94,6 +94,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-034 | Choix du profil à l'ouverture, au retour et après un film ; « Ne plus me demander » | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | Terminé | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
+| T-037 | Intro en portrait sur Android | À valider | P2 | tv, tools | T-003 | 2026-10-30 |
 
 ---
 
@@ -1730,6 +1731,37 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 - Commits : `4fc44ec` (logo), `69a4215` (0.5.0)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.0
 
+### T-037 — Intro en portrait sur Android
+
+- **Statut :** À valider (sur un téléphone, debout et couché)
+- **Priorité :** P2
+- **Cible :** tv, tools
+- **Dépend de :** T-003
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> L'intro est très cool avec le Nath animé, mais c'est une vidéo en 16:9 et du coup en portrait sur Android ça s'affiche pas bien avec les bandes noire en haut et en bas, il faudrait que ça s'adapte pour le mod portrait
+
+**Critères d'acceptation**
+- [x] Film portrait 1080×1920 (`res/raw/intro_portrait.mp4`), même animation et même musique
+- [x] `Intro.kt` : le film portrait si le téléphone est tenu droit au lancement, sinon le 16:9
+- [x] Plus de bandes noires : le film remplit l'écran (recadré au centre)
+- [ ] Vérifié sur un téléphone
+
+**Notes techniques**
+- `render_intro.py` : `LOGO_PX = min(H × 0,36, W × 0,56 / format du mark)`. En 16:9, rien ne change (389 px de haut). En portrait, le mark tient dans 56 % de la largeur, ce qui laisse de la marge au recadrage d'un écran 19,5:9.
+- `Intro.kt` :
+  - `upright` vient de `configuration.orientation` au lancement ;
+  - la vue fait la taille du film « en cover », centrée dans la boîte, qui la coupe ;
+  - `MainActivity` gère elle-même la rotation (`configChanges`) : le film en cours continue et se recadre.
+- Encodage portrait direct depuis les images (H.264, niveau 4.2), commandes dans `tools/README.md`.
+
+**Vérification**
+- Aperçu de 6 images en 360×640 : mark centré dans la largeur, plongée qui remplit la hauteur.
+- Compilation Kotlin : CI `android-dev.yml`.
+
 <!--
 ### T-000 — Titre court
 
@@ -1809,6 +1841,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-037 | Créée et implémentée : film d'intro portrait, choisi selon l'orientation, plein écran sans bandes noires |
 | 2026-10-30 | T-035 | « Qui est-ce ? » en graisse normale sur téléphone (ancienne règle mobile) : titre en Inter 800 partout |
 | 2026-10-30 | T-003 | Billboard et bandes-annonces : retour au texte « NATHFLIX » (typo fine) à la place du mark NATH, à la demande de l'utilisateur |
 | 2026-10-30 | T-036 | Fait : release v0.5.0 publiée (apps desktop, APK signée avec le nouveau logo et la nouvelle intro) |

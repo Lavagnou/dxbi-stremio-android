@@ -48,6 +48,10 @@ base64 -w0 intro.webm   # paste into introVideoData() at the bottom of nathflix.
 ffmpeg -i intro.webm -vf format=yuv420p -c:v libx264 -profile:v high -level 4.2 -preset veryslow \
   -crf 20 -x264-params keyint=300 -c:a aac -b:a 128k -movflags +faststart \
   ../tv/app/src/main/res/raw/intro.mp4
+
+# …and an upright one for phones held upright (same score; the mark fits 56 % of the width)
+python3 render_intro.py frames-portrait --w 1080 --h 1920
+ffmpeg -framerate 60 -i frames-portrait/f%04d.png -i score.wav -vf format=yuv420p -c:v libx264 \n  -profile:v high -level 4.2 -preset veryslow -crf 20 -x264-params keyint=300 -c:a aac -b:a 128k \n  -movflags +faststart -shortest ../tv/app/src/main/res/raw/intro_portrait.mp4
 ```
 
 Change `MARK` and `ACCENT` at the top of `render_intro.py` to use another mark and colour (the cuts

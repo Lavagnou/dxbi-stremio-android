@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- **Nathflix for Android: the intro fills the screen, upright too.** A phone held upright gets its own upright intro film instead of the wide one between black bars, and either film now fills the whole screen.
 - **"Who's watching?" in Netflix's heavy lettering on phones too.** An older phone style kept the title in regular weight; it's now as bold and tight as on Netflix, on every screen.
 - **The billboard's "NATHFLIX Series" is text again.** Back to the thin NATHFLIX lettering above the title on the billboard and trailers, instead of the NATH mark.
 

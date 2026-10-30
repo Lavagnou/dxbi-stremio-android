@@ -140,7 +140,9 @@ Le reste du dépôt :
   - met à jour le plugin seul, entre deux releases APK, depuis la dernière release GitHub (stocké dans `filesDir`) ;
   - propose la nouvelle APK ;
   - `forTv()` retire du plugin la vidéo d'intro et les shaders Anime4K.
-- **`Intro.kt`** : film d'intro natif (`res/raw/intro.mp4`, H.264), recoloré selon l'accent choisi.
+- **`Intro.kt`** : film d'intro natif (H.264), recoloré selon l'accent choisi.
+  - `res/raw/intro.mp4` (16:9), ou `res/raw/intro_portrait.mp4` (9:16) pour un téléphone tenu droit au lancement.
+  - Le film remplit l'écran, un peu recadré sur les bords plutôt qu'avec des bandes noires.
 
 ### Sens des communications
 
@@ -360,7 +362,7 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
   - Les icônes sont faites comme celles de Netflix : NATH sur fond noir, avec de la marge.
   - `node tools/embed_brand.mjs` met `branding/web/` dans `brandImages()` du plugin (adresses `data:`). `applyAccent()` les pose en `--dx-wordmark`, `--dx-mark` et `--dx-mark-filter` (la teinte de l'accent, comme l'intro), avec la classe `html.dx-brand`. Sans cette classe, le CSS garde le texte « NATHFLIX ».
   - Wordmark (masque peint dans l'accent) : barre du haut (thème), « Qui est-ce ? ». Mark NATH : splash de secours, intro. « NATHFLIX Série / Film » du billboard et des bandes-annonces reste en texte (Bebas Neue), au choix de l'utilisateur.
-  - L'intro (`render_intro.py`) anime le mark NATH, découpé en ses quatre lettres. Puis encoder `introVideoData()` (WebM AV1, base64) et `res/raw/intro.mp4` (H.264), commandes dans `tools/README.md`.
+  - L'intro (`render_intro.py`) anime le mark NATH, découpé en ses quatre lettres. Puis encoder `introVideoData()` (WebM AV1, base64), `res/raw/intro.mp4` (H.264) et le film portrait `res/raw/intro_portrait.mp4` (`--w 1080 --h 1920`), commandes dans `tools/README.md`.
   - Pas encore refaites : les captures d'écran du README (sauf `banner.jpg`) montrent encore DX.BI.
 - **Signature Android** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` (alias `nathflix-tv`).
   - Sans clé, `tv.yml` ne construit rien, et la release n'a pas d'APK.
