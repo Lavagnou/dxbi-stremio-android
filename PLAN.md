@@ -95,7 +95,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | Terminé | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
 | T-037 | Intro en portrait sur Android | À valider | P2 | tv, tools | T-003 | 2026-10-30 |
-| T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | En cours | P1 | release, tv, plugin | T-037 | 2026-10-30 |
+| T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | Terminé | P1 | release, tv, plugin | T-037 | 2026-10-30 |
 
 ---
 
@@ -1765,7 +1765,7 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 
 ### T-038 — Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard)
 
-- **Statut :** En cours (2026-10-30, `main`)
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-037
@@ -1778,8 +1778,8 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 
 **Critères d'acceptation**
 - [x] `@version 0.5.1`, section `## 0.5.1` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] Release v0.5.1 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
-- [ ] APK signée par la clé de release, avec `intro_portrait`
+- [x] Release v0.5.1 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [x] APK signée par la clé de release, avec `intro_portrait`
 
 **Notes techniques**
 - Le rendu du film portrait a été arrêté une fois par Claude Code (mémoire presque pleine). Relancé à la demande de l'utilisateur : seules les 49 images manquantes ont été rendues (`--frames`), après contrôle des 203 déjà faites.
@@ -1788,7 +1788,19 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
   - mpv Windows sur `2239340` : « the video didn't follow the window (3 points changed) ». Le job relancé sur le même commit passe (essai 2) : la mesure par captures d'écran est instable.
 
 **Vérification**
-- À remplir après la release.
+- Tag `v0.5.1` sur `90608cc` ; run « Release » 41037456339.
+  - Essai 1 : desktop / mac x64 en échec au checkout (« Could not resolve host: github.com », réseau du runner).
+  - Job relancé seul (essai 2) : vert, et le dmg a été ajouté à la release.
+- `gh release view v0.5.1` : les 11 fichiers attendus.
+- APK :
+  - `apksigner` : « Verifies », `CN=Nathflix, O=lavagnou`, même SHA-256 ;
+  - versionCode 501 ;
+  - `intro.mp4` et `intro_portrait.mp4` retrouvés par leur contenu ;
+  - plugin embarqué en 0.5.1, sans le mark sur le billboard.
+
+**Livraison**
+- Commits : `26755ff`, `2239340`, `48ce1d8`, `90608cc` (0.5.1)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.1
 
 <!--
 ### T-000 — Titre court
@@ -1869,6 +1881,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-038 | Fait : release v0.5.1 publiée (dmg Mac x64 refait après une panne réseau du runner) |
 | 2026-10-30 | T-038 | Créée : release 0.5.1 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-037 | Créée et implémentée : film d'intro portrait, choisi selon l'orientation, plein écran sans bandes noires |
 | 2026-10-30 | T-035 | « Qui est-ce ? » en graisse normale sur téléphone (ancienne règle mobile) : titre en Inter 800 partout |
