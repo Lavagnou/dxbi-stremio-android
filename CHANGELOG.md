@@ -1,6 +1,9 @@
 # Changelog
 
 ## Unreleased
+- **A new Nathflix logo, everywhere.** The NATHFLIX wordmark (curved like Netflix's) replaces the text logo on the top bar and on Who's watching, and the NATH mark comes before "Series" and "Film" on the billboard and trailers. It follows your accent colour.
+- **New app icons.** The NATH mark on black, like Netflix's icon, for the desktop app (Windows, Mac, Linux) and Android, with an adaptive icon on Android 8 and later. Nathflix TV gets a new banner on the TV's home screen.
+- **A new intro.** The intro film now builds the NATH mark letter by letter, folds and all, before diving into it.
 - **Sign in first.** Without a Stremio account Nathflix has nothing to show, so it now opens on Stremio's sign-in (or sign-up) and stays there until you're signed in; "Guest login" is gone. Once signed in, your profiles arrive, then "Who's watching?" when there are several.
 - **Your profiles right after signing in.** Signing in to Stremio now brings your synced profiles straight away: before, they only appeared after restarting the app.
 - **Who's watching, like on Netflix.** The profile picker now looks like Netflix's: a red glow from the top, the logo on the left, rounded pictures, a "Manage profiles" pill, and in Manage mode the pictures dimmed under a pencil with the picked profile on a light panel. Profile pages (edit, icons, delete) get the same look. It now comes up when Nathflix opens, when you come back to it and on Home after a film, even with a single profile; tick "Don't ask me again" to stop it (the profile menu's "Switch profile" still opens it).

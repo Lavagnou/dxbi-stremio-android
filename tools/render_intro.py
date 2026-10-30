@@ -9,10 +9,11 @@ import os
 import wave
 
 import numpy as np
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageFilter
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FONT = os.path.join(HERE, "fonts", "BebasNeue-Regular.ttf")
+# The NATH mark (made by hand; tools/make_brand.py makes the app icons from it too)
+MARK = os.path.join(HERE, "..", "branding", "nathflix-mark.png")
 
 ap = argparse.ArgumentParser()
 ap.add_argument("out")
@@ -29,11 +30,10 @@ N = int(DURATION * FPS)
 os.makedirs(args.out, exist_ok=True)
 
 ACCENT = np.array([229, 9, 20], np.float32) / 255.0
-TEXT = "NATHFLIX"
 
 # Timeline (seconds)
 T_LETTERS = 0.22      # first letter starts
-T_LETTER_STEP = 0.075
+T_LETTER_STEP = 0.15  # four letters (N, A, T, H)
 T_LETTER_DUR = 0.55
 T_HIT1 = 1.02         # "ta"
 T_HIT2 = 1.42         # "dum"
@@ -53,32 +53,24 @@ def ease_out(x):
 
 
 # ---------------------------------------------------------------- logo masks
-# Render each letter as its own high-res alpha mask (white on black) so letters can animate.
-LOGO_PX = int(H * 0.30)                 # cap height on screen at scale 1
+# The NATH mark cut into its four letters, each its own high-res mask, so they can animate. The
+# letters overlap (N runs into A, T's bar covers A's leg), so the cuts follow the drawing: N | A at
+# 25.6 % of the width, T's bar from 49.1 % down to 16.5 % of the height and its stem from 56.5 %, H
+# from 74.4 %. A mask keeps the folds: a darker fold lights less of the accent
+LOGO_PX = int(H * 0.36)                 # mark height on screen at scale 1
 SS = 3                                  # supersampling for the masters
-font = ImageFont.truetype(FONT, LOGO_PX * SS)
-spacing = int(LOGO_PX * SS * 0.02)
-glyphs = []
-x = 0
-for ch in TEXT:
-    bbox = font.getbbox(ch)
-    gw = bbox[2] - bbox[0]
-    glyphs.append((ch, x - bbox[0], gw))
-    x += gw + spacing
-total_w = x - spacing
-asc, desc = font.getmetrics()
-master_h = asc + desc
-letter_masks = []
-for ch, ox, gw in glyphs:
-    m = Image.new("L", (total_w, master_h), 0)
-    ImageDraw.Draw(m).text((ox, 0), ch, font=font, fill=255)
-    letter_masks.append(m)
-full_mask = Image.new("L", (total_w, master_h), 0)
-for m in letter_masks:
-    full_mask = Image.fromarray(np.maximum(np.asarray(full_mask), np.asarray(m)))
-bb = full_mask.getbbox()
-letter_masks = [m.crop(bb) for m in letter_masks]
-full_mask = full_mask.crop(bb)
+mark = Image.open(MARK).convert("RGBA")
+mark = mark.crop(mark.getchannel("A").point(lambda v: 255 if v >= 12 else 0).getbbox())
+mark = mark.resize((round(mark.width * LOGO_PX * SS / mark.height), LOGO_PX * SS), Image.LANCZOS)
+px = np.asarray(mark, np.float32) / 255.0
+cover = px[:, :, 3] * np.clip(px[:, :, 0] / 0.92, 0, 1)
+fx = np.arange(cover.shape[1])[None, :] / cover.shape[1]
+fy = np.arange(cover.shape[0])[:, None] / cover.shape[0]
+letter = np.where(fx < 0.256, 0, 1) + np.zeros_like(fy, dtype=int)
+letter = np.where(((fx >= 0.491) & (fy <= 0.165)) | (fx >= 0.565), 2, letter)
+letter = np.where(fx >= 0.744, 3, letter)
+letter_masks = [Image.fromarray((cover * (letter == i) * 255).round().astype(np.uint8)) for i in range(4)]
+full_mask = Image.fromarray((cover * 255).round().astype(np.uint8))
 MW, MH = full_mask.size  # master size (supersampled)
 base_scale = 1.0 / SS     # master px -> screen px at zoom 1
 CX, CY = W / 2, H / 2

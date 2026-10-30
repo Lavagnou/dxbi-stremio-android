@@ -10,7 +10,7 @@ import numpy as np
 
 SR = 48000
 DURATION = 4.2
-T_LETTERS, T_LETTER_STEP = 0.22, 0.075
+T_LETTERS, T_LETTER_STEP = 0.22, 0.15  # the NATH mark: four letters, as in render_intro.py
 T_HIT1, T_HIT2 = 1.02, 1.42
 T_DIVE, T_DIVE_END, T_END = 1.62, 3.45, 4.0
 
@@ -63,12 +63,12 @@ def bandnoise(length, f_lo, f_hi):
     return out / (np.abs(out).max() + 1e-9)
 
 
-# 1) letters landing: five tiny, soft "tk" ticks rising slightly in pitch, panned across the stereo field
-for i in range(5):
+# 1) letters landing: four tiny, soft "tk" ticks (one a letter) rising slightly in pitch, panned across the stereo field
+for i in range(4):
     at = T_LETTERS + i * T_LETTER_STEP + 0.06
     tick = sweep_sine(0.05, 2600 + i * 120, 1700 + i * 90, 90) * env(0.05, 0.0008, 0.012)
     tick += bandnoise(0.05, 3000, 9000) * env(0.05, 0.0005, 0.004) * 0.35
-    add(tick, at, pan=-0.5 + i * 0.25, gain=0.09)
+    add(tick, at, pan=-0.45 + i * 0.3, gain=0.09)
 
 # 2) "ta" — tight, punchy
 ta = sweep_sine(0.6, 190, 92, 26) * env(0.6, 0.002, 0.16)

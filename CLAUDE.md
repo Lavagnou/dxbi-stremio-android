@@ -15,7 +15,7 @@ Un seul plugin JavaScript, `nathflix.plugin.js`, alimente trois cibles :
 | **App desktop** | `app/` | Electron + TypeScript. C'est Stremio Enhanced 1.2.0 renommé, avec le plugin intégré et mpv sur Windows. |
 
 Le reste du dépôt :
-- `tools/` : `bundle-theme.mjs` (étape de release obligatoire), tests de fumée (`smoke-test.mjs`, `mpv-test.mjs`), rendu de l'intro (`render_intro.py`, `intro_audio.py`), `report-relay/` (Cloudflare Worker de « Report a problem »), `profile-sync/` (Cloudflare Worker + D1 de la synchronisation des profils, avec `test.mjs` qui le fait tourner sur `node:sqlite`).
+- `tools/` : `bundle-theme.mjs` (étape de release obligatoire), tests de fumée (`smoke-test.mjs`, `mpv-test.mjs`), rendu de l'intro (`render_intro.py`, `intro_audio.py`), images du logo (`make_brand.py`, `embed_brand.mjs`, à partir de `branding/`), `report-relay/` (Cloudflare Worker de « Report a problem »), `profile-sync/` (Cloudflare Worker + D1 de la synchronisation des profils, avec `test.mjs` qui le fait tourner sur `node:sqlite`).
 - `install.sh` / `install.ps1` : installeurs du plugin pour Stremio Enhanced.
 - `.github/workflows/` : builds de release (`app.yml`, `tv.yml`), tests (`cross-platform.yml`, `mpv-windows.yml`), annonce Discord.
 
@@ -334,7 +334,7 @@ Côté CI :
 
 Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLAN.md`.
 
-- **Noms** : affiché « Nathflix » (« NATHFLIX » pour le logo texte du thème), identifiants en minuscules `nathflix` (fichiers, clés de stockage, `window.__nathflix`, `window.__nathflixTv`, `NathflixTV`, User-Agent `nathflix/` et `nathflix-tv/`, variables `NATHFLIX_*`).
+- **Noms** : affiché « Nathflix », identifiants en minuscules `nathflix` (fichiers, clés de stockage, `window.__nathflix`, `window.__nathflixTv`, `NathflixTV`, User-Agent `nathflix/` et `nathflix-tv/`, variables `NATHFLIX_*`).
 - **Identifiants d'app** : Android `com.lavagnou.nathflix` (package Kotlin `tv/app/src/main/java/com/lavagnou/nathflix/`), desktop `com.lavagnou.nathflix.desktop`. Ils ne doivent plus changer une fois l'app distribuée.
 - **Préfixes CSS internes inchangés** : les classes `dx-`, `dxe-`, `dxtv-` et les variables `--dx-*` viennent de dx.bi. Elles ne sont pas visibles par l'utilisateur et sont gardées telles quelles.
 - **Toutes les mises à jour viennent des releases de ce dépôt** :
@@ -351,7 +351,17 @@ Renommage dx.bi → Nathflix et liens vers ce dépôt : T-001 et T-002 dans `PLA
   - Vide, rien n'est synchronisé et le réglage `profileSync` n'apparaît pas.
 - **Rapports de problème** : `REPORT_ENDPOINT` est vide, donc « Report a problem » est masqué (`report.enabled`, vérifié aussi par `nathflix-tv.js`). Pour le réactiver, déployer `tools/report-relay` (Worker Cloudflare et webhook Discord) et mettre son adresse `/report` dans `REPORT_ENDPOINT`.
 - **Statut Discord (desktop)** : `DISCORD.CLIENT_ID` est vide dans `app/src/constants/index.ts`, donc le statut ne démarre pas et son interrupteur est masqué. Pour l'activer, y mettre l'Application ID d'une application Discord « Nathflix ».
-- **Pas encore renommés (images)** : l'intro (`res/raw/intro.mp4`, `introVideoData()` du plugin), les icônes (`app/images/`, `tv/app/src/main/res/mipmap-*`, `drawable/banner.png`) et les captures d'écran montrent encore le logo DX.BI. À refaire avec le nouveau logo ; `tools/render_intro.py` a déjà `TEXT = "NATHFLIX"`.
+- **Logo** : deux dessins de l'utilisateur dans `branding/`, `nathflix-wordmark.png` (NATHFLIX, déformé comme celui de Netflix) et `nathflix-mark.png` (NATH, avec des plis). Ne jamais retoucher les images produites à la main.
+  - `python3 tools/make_brand.py` fabrique :
+    - les icônes desktop (`app/images/`, png, ico, icns ; `presence/logo.png`) ;
+    - les icônes Android : `mipmap-*/ic_launcher.png`, plus l'icône adaptative (`mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_foreground.png`, fond `@color/ic_launcher_background` noir) ;
+    - la bannière TV (`drawable/` et `drawable-xhdpi/banner.png`) ;
+    - `screenshots/banner.jpg` et `branding/web/`.
+  - Les icônes sont faites comme celles de Netflix : NATH sur fond noir, avec de la marge.
+  - `node tools/embed_brand.mjs` met `branding/web/` dans `brandImages()` du plugin (adresses `data:`). `applyAccent()` les pose en `--dx-wordmark`, `--dx-mark` et `--dx-mark-filter` (la teinte de l'accent, comme l'intro), avec la classe `html.dx-brand`. Sans cette classe, le CSS garde le texte « NATHFLIX ».
+  - Wordmark (masque peint dans l'accent) : barre du haut (thème), « Qui est-ce ? ». Mark NATH : devant « Série » / « Film » (billboard, bandes-annonces), splash de secours, intro.
+  - L'intro (`render_intro.py`) anime le mark NATH, découpé en ses quatre lettres. Puis encoder `introVideoData()` (WebM AV1, base64) et `res/raw/intro.mp4` (H.264), commandes dans `tools/README.md`.
+  - Pas encore refaites : les captures d'écran du README (sauf `banner.jpg`) montrent encore DX.BI.
 - **Signature Android** : release signée par `tv/keystore.properties` (hors git) ou par les secrets `NATHFLIX_TV_KEYSTORE_B64` et `NATHFLIX_TV_KEYSTORE_PASSWORD` (alias `nathflix-tv`).
   - Sans clé, `tv.yml` ne construit rien, et la release n'a pas d'APK.
   - Après avoir ajouté les secrets, lancer « TV app » à la main avec `tag` (par exemple `v0.2.0`) pour joindre l'APK à une release existante.

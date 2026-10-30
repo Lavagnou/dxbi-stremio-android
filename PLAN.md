@@ -60,7 +60,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 |---|---|---|---|---|---|---|
 | T-001 | Couper les liens du fork avec les serveurs d'origine (mises à jour TV, rapports) | À valider | P1 | tv, plugin | — | 2026-10-28 |
 | T-002 | Renommer le projet en Nathflix, version 0.1.0, tous les liens vers ce dépôt | À valider | P1 | tv, plugin, app, tools, ci, docs | T-001 | 2026-10-28 |
-| T-003 | Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran | À faire | P2 | tv, plugin, app, tools, docs | T-002 | 2026-10-28 |
+| T-003 | Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran | À valider | P2 | tv, plugin, app, tools, docs | T-002 | 2026-10-30 |
 | T-004 | Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test) | À valider | P0 | tv, plugin, ci | T-002 | 2026-10-29 |
 | T-005 | Téléphones et tablettes : navigation façon Netflix mobile | À valider | P1 | plugin, tv | T-004 | 2026-10-29 |
 | T-006 | Téléphones et tablettes : lecteur façon Netflix mobile (gestes, PiP, arrière-plan) | À valider | P1 | tv | T-004 | 2026-10-29 |
@@ -283,45 +283,59 @@ Faire de dx.bi un nouveau projet, Nathflix. Nouveau nom partout (apps, installeu
 
 ### T-003 — Nouveau logo Nathflix : icônes, bannière TV, intro, captures d'écran
 
-- **Statut :** À faire
+- **Statut :** À valider (icônes et intro sur les appareils)
 - **Priorité :** P2
 - **Cible :** tv, plugin, app, tools, docs
 - **Dépend de :** T-002
 - **Créée le :** 2026-10-28
-- **Mise à jour :** 2026-10-28
-- **Branche :** —
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
 
 **Demande**
 > Je ferai un nouveau logo plus tard aussi.
 
-**Besoin**
-Remplacer toutes les images qui montrent encore le logo DX.BI, une fois que l'utilisateur aura fourni le logo Nathflix.
+Puis, le 2026-10-30 :
+> J'ai fait deux nouveaux logos pour Nathflix, un logo "Nath" pour tout les icones d'apps et un pour remplacer le texte branding text "Nathflix" qui n'a pas la deformation comme le logo Netflix original. Pour l'icone ajoute un peu de padding sur les bords quand même et un fond pour les icones d'app, fait en sorte que ça soit comme le logo des apps Netflix. Remplace bien tout les logos, icons, et les branding text pour utiliser ces nouveaux. Une fois que tu aura terminé, fait moi une nouvelle release.
+
+> Pour l'intro utilise plutôt le logo Nath que le texte Nathflix entier
 
 **Critères d'acceptation**
-- [ ] Icônes desktop : `app/images/icon*.png`, `icon.ico`, `icon.icns`, `app/images/presence/*`
-- [ ] Icônes Android : `tv/app/src/main/res/mipmap-*/ic_launcher.png`, bannière Android TV `drawable/banner.png` (320×180)
-- [ ] Intro : nouveau rendu (`tools/render_intro.py`, `TEXT = "NATHFLIX"` déjà en place ; vérifier le timing pour 8 lettres). Il faut remplacer `introVideoData()` dans le plugin (AV1/WebM en base64) et `tv/app/src/main/res/raw/intro.mp4` (H.264) ; commandes dans `tools/README.md`.
-- [ ] Captures d'écran du README (`screenshots/`)
-
-**Plan technique**
-- À préciser quand le logo sera fourni (formats source, couleur d'accent si elle change : `ACCENTS` dans le plugin et `Intro.kt`).
-
-**Étapes**
-- [ ] En attente du logo
+- [x] Sources dans `branding/` (`nathflix-wordmark.png`, `nathflix-mark.png`), recadrées sans les pixels presque transparents
+- [x] Icônes desktop : `app/images/icon*.png`, `icon.ico` (16 à 256), `icon.icns`, `presence/logo.png`
+- [x] Icônes Android :
+  - `mipmap-*/ic_launcher.png` ;
+  - icône adaptative (`mipmap-anydpi-v26`, `ic_launcher_foreground.png`, fond noir) ;
+  - bannière TV `drawable/banner.png` (320×180) et `drawable-xhdpi/banner.png` (640×360)
+- [x] Plugin et thème :
+  - wordmark dans la barre du haut et sur « Qui est-ce ? » ;
+  - mark NATH devant « Série » / « Film » (billboard, bandes-annonces) et sur le splash de secours ;
+  - le tout suit l'accent
+- [x] Intro : le mark NATH lettre par lettre, avec ses plis ; `introVideoData()` et `res/raw/intro.mp4` refaits ; aperçu `screenshots/intro.webp`
+- [x] `screenshots/banner.jpg` (bandeau du README)
+- [ ] Autres captures du README (Accueil, Découvrir, aperçu, Accueil TV, réglages « dx.bi Settings ») : encore l'ancien logo
+- [ ] Vérifié sur les appareils (icône du lanceur, bannière TV, intro native)
 
 **Notes techniques**
-- Le logo texte de la barre du haut est en CSS (`content: "NATHFLIX"` dans `nathflix.theme.css`) : il est déjà renommé.
+- `tools/make_brand.py` (Pillow) fabrique toutes les images depuis `branding/` :
+  - icônes : NATH à 64 % sur un carré noir arrondi (22 %), 4 % de marge ;
+  - adaptative : NATH sur 54 dp de large dans 108 dp, pour tenir dans le cercle de 66 dp qu'aucun lanceur ne coupe ;
+  - `branding/web/` : wordmark en masque blanc (PNG, 120 px de haut) et mark en WebP (240 px, net en grand sur le splash).
+- `tools/embed_brand.mjs` met ces deux images dans `brandImages()` (adresses `data:`, environ 48 ko).
+  - `applyAccent()` pose `--dx-wordmark`, `--dx-mark`, `--dx-mark-filter` (le `hue-rotate` d'`accentFilter()`, comme le film) et `html.dx-brand`.
+  - Le CSS ne change le texte en image qu'avec cette classe : le texte reste pour les lecteurs d'écran (taille 0).
+  - Sur « Qui est-ce ? », les règles de taille de la porte sont plus spécifiques : `overflow: hidden` et texte transparent.
+- Intro (`render_intro.py`) :
+  - le mark est découpé en N | A | T | H. Les lettres se chevauchent, d'où des coupes qui suivent le dessin : barre du T en haut à partir de 49,1 %, jambe à partir de 56,5 %, H à partir de 74,4 % ;
+  - la couverture garde les plis (rouge du pixel / 0,92) ;
+  - 4 lettres espacées de 0,15 s (même durée qu'avant) ; `intro_audio.py` a 4 « tic » au même rythme ;
+  - plus besoin de la police Bebas Neue.
+- `Updates.forTv()` retrouve toujours `introVideoData()` (même forme : la version TV du plugin passe de 1,54 Mo à 1,05 Mo).
+- Le message « Error parsing Opus packet header » au décodage du WebM existait déjà avec l'ancienne intro.
 
 **Vérification**
-- —
-
-**Livraison**
-- Commits : —
-- PR : —
-- Version / CHANGELOG : —
-
-**Questions ouvertes**
-- —
+- Planches des images produites (icônes, cercle adaptatif simulé, bannières) et images-clés de l'intro (lettres colorées par découpe, 7 instants).
+- Playwright (web.stremio.com, plugin injecté) : wordmark dans la barre du haut et sur « Qui est-ce ? », « NATH FILM » sur le billboard, splash NATH net.
+- `node --check`, tests du Worker, banc d'essai, dictionnaire FR (pas de nouvelle clé manquante).
 
 ### T-004 — Téléphones et tablettes : bases (connexion, mode mobile, mise en page, APK de test)
 
@@ -1759,6 +1773,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-003 | Nouveau logo de l'utilisateur partout : icônes desktop et Android (adaptative), bannière TV, wordmark et mark NATH dans le plugin, intro refaite avec NATH. Captures du README encore à refaire |
 | 2026-10-30 | T-033 à T-035 | Créées et implémentées : bibliothèque Stremio rechargée au retour sur Android, choix du profil à l'ouverture, au retour et après un film (case « Ne plus me demander »), refonte façon Netflix (porte, mode Gérer, pages de profil). Testées (Playwright, captures) ; à valider sur l'appareil |
 | 2026-10-30 | T-030 | CI rouge sur `728507a` (tests sans compte renvoyés vers la connexion) ; corrigée par `nathflix.allowGuest` dans les tests, plus une vérification de la redirection (`106d29c`, CI verte) |
 | 2026-10-30 | T-029 à T-032 | Créées : retours sur la 0.4.0. T-029 (synchro à la connexion), T-030 (connexion obligatoire) et T-031 (Continuer à regarder par profil, Worker redéployé avec `played:*`) implémentées et testées (banc d'essai, Playwright) ; T-032 (progression séparée) à faire |

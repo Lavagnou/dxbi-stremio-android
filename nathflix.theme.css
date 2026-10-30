@@ -185,6 +185,18 @@ body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][
     transform: translateY(2px);
 }
 
+/* The drawn wordmark (the plugin gives --dx-wordmark and html.dx-brand), painted in the accent */
+html.dx-brand #app nav[class*="horizontal-nav-bar"] [class*="logo-container"]::before {
+    content: "";
+    width: 8.1rem;
+    height: 1.9rem;
+    background: var(--dx-accent);
+    -webkit-mask: var(--dx-wordmark) left center / contain no-repeat;
+    mask: var(--dx-wordmark) left center / contain no-repeat;
+    text-shadow: none;
+    transform: none;
+}
+
 /* Tabs: the stock vertical bar becomes a row of text links beside the logo */
 #app [class*="main-nav-bars-container"] > nav[class*="vertical-nav-bar"] {
     top: 0;
@@ -1038,6 +1050,17 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     color: var(--dx-accent);
 }
 
+/* The NATH mark before "Series" / "Film", as Netflix puts its N (the text stays for screen readers) */
+html.dx-brand .dx-hero-kicker b {
+    display: block;
+    width: 2.6rem;
+    height: 1.5rem;
+    font-size: 0;
+    color: transparent;
+    background: var(--dx-mark) left center / contain no-repeat;
+    filter: var(--dx-mark-filter);
+}
+
 .dx-hero-logo {
     display: block;
     max-width: min(30rem, 100%);
@@ -1837,6 +1860,16 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     transform: translate(-50%, -50%);
     animation: dx-intro-fallback 1.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
     will-change: transform, opacity;
+}
+
+/* …the NATH mark, as in the intro film */
+html.dx-brand .dx-splash-mark {
+    width: clamp(14rem, 42vw, 40rem);
+    aspect-ratio: 1191 / 684;
+    font-size: 0;
+    color: transparent;
+    background: var(--dx-mark) center / contain no-repeat;
+    filter: var(--dx-mark-filter);
 }
 
 @keyframes dx-intro-fallback {
