@@ -93,7 +93,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-033 | Continuer à regarder pas à jour sur le 2e appareil sans forcer l'arrêt de l'app | À valider | P1 | plugin | T-031 | 2026-10-30 |
 | T-034 | Choix du profil à l'ouverture, au retour et après un film ; « Ne plus me demander » | À valider | P1 | plugin | T-025 | 2026-10-30 |
 | T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
-| T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | En cours | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
+| T-036 | Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix) | Terminé | P1 | release, tv, plugin, app | T-003 | 2026-10-30 |
 
 ---
 
@@ -1697,7 +1697,7 @@ Puis, avec des captures de Netflix :
 
 ### T-036 — Release 0.5.0 (nouveau logo, connexion obligatoire, profils façon Netflix)
 
-- **Statut :** En cours (2026-10-30, `main`)
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-003, T-029 à T-035
@@ -1712,11 +1712,22 @@ Numéro : 0.5.0 (nouvelles fonctions depuis la 0.4.0).
 
 **Critères d'acceptation**
 - [x] `@version 0.5.0`, section `## 0.5.0` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] Release v0.5.0 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
-- [ ] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`)
+- [x] Release v0.5.0 : 2 exe, `.blockmap`, 2 dmg, 2 AppImage, 3 `latest*.yml`, `nathflix-tv.apk`, et rien d'autre
+- [x] APK signée par la clé de release (`CN=Nathflix, O=lavagnou`)
 
 **Vérification**
-- À remplir après la release.
+- CI verte sur `56139e4` et `4fc44ec` (logo) avant la release : Cross-platform, Android, mpv Windows.
+- Tag `v0.5.0` sur `69a4215` ; run « Release » 40982733331 vert : publish, android / apk, desktop ×5.
+- `gh release view v0.5.0` : 11 fichiers, exactement ceux attendus.
+- APK :
+  - `apksigner` : « Verifies », `CN=Nathflix, O=lavagnou`, même SHA-256 que la clé ;
+  - `aapt2` : versionCode 500, versionName 0.5.0, icône = l'XML adaptatif ;
+  - nouvelle intro, bannières et calques de l'icône retrouvés par leur contenu (R8 renomme les ressources : `res/JX.mp4`…) ;
+  - plugin embarqué avec `brandImages()`.
+
+**Livraison**
+- Commits : `4fc44ec` (logo), `69a4215` (0.5.0)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.0
 
 <!--
 ### T-000 — Titre court
@@ -1797,6 +1808,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-036 | Fait : release v0.5.0 publiée (apps desktop, APK signée avec le nouveau logo et la nouvelle intro) |
 | 2026-10-30 | T-036 | Créée : release 0.5.0 ; version montée, en cours (CI, puis tag) |
 | 2026-10-30 | T-003 | Nouveau logo de l'utilisateur partout : icônes desktop et Android (adaptative), bannière TV, wordmark et mark NATH dans le plugin, intro refaite avec NATH. Captures du README encore à refaire |
 | 2026-10-30 | T-033 à T-035 | Créées et implémentées : bibliothèque Stremio rechargée au retour sur Android, choix du profil à l'ouverture, au retour et après un film (case « Ne plus me demander »), refonte façon Netflix (porte, mode Gérer, pages de profil). Testées (Playwright, captures) ; à valider sur l'appareil |
