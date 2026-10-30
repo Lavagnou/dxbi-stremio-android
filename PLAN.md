@@ -90,6 +90,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-030 | Connexion obligatoire : sans compte, seulement la page de connexion | À valider | P1 | plugin | — | 2026-10-30 |
 | T-031 | Continuer à regarder propre à chaque profil | À valider | P1 | plugin, tools | T-022, T-027 | 2026-10-30 |
 | T-032 | Progression séparée pour chaque profil | À faire | P2 | plugin, tv | T-031 | 2026-10-30 |
+| T-033 | Continuer à regarder pas à jour sur le 2e appareil sans forcer l'arrêt de l'app | À valider | P1 | plugin | T-031 | 2026-10-30 |
+| T-034 | Choix du profil à l'ouverture, au retour et après un film ; « Ne plus me demander » | À valider | P1 | plugin | T-025 | 2026-10-30 |
+| T-035 | Refonte du choix de profil et des pages de profil, comme Netflix | À valider | P1 | plugin | T-025 | 2026-10-30 |
 
 ---
 
@@ -1574,6 +1577,109 @@ Stremio ne garde qu'une progression par titre pour tout le compte (`libraryItem.
   - sur Android, la position de départ passée au lecteur natif. Attention, l'APK est plus vieille que le plugin : détecter avant usage.
 - À trancher : les épisodes « vus » (champ `watched` du compte), le bouton « Reprendre S1 É3 », le floutage des épisodes non vus.
 
+### T-033 — Continuer à regarder pas à jour sur le 2e appareil sans forcer l'arrêt de l'app
+
+- **Statut :** À valider (sur deux appareils Android)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-031
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Si je passe sur un deuxième appareil, je ne vois pas dans "Continuer à regarder" ce que je viens de regarder sur l'appareil précédent, pour que ça apparaisse je dois forcer la fermeture de l'app et la ré-ouvrir, même si je la ferme normalement(dans les apps android par exemple) et que je la ré-ouvre ça ne suffit pas.
+
+**Critères d'acceptation**
+- [x] Au retour au premier plan, Stremio recharge la bibliothèque du compte
+- [x] La synchro des profils (`played:*`) repart aussi au retour (toutes les 15 s au plus, au lieu d'une minute)
+- [ ] Vérifié sur deux appareils
+
+**Notes techniques**
+- **Cause** (lue dans `main.js` de Stremio Web) : la bibliothèque n'est rechargée (`PullAddonsFromAPI`, `PullUserFromAPI`, `SyncLibraryWithAPI`, `PullNotifications`) qu'au chargement de la page et sur `window` `focus`. Une WebView Android n'envoie pas `focus` au retour au premier plan. Android garde aussi souvent la page en mémoire quand on « ferme » l'app : seul l'arrêt forcé rechargeait la page.
+- **Correctif** : `comeBack.onVisible` (`visibilitychange`). Sur Android (`IN_ANDROID`), il envoie un `focus` à la fenêtre, au plus toutes les 15 s, pour réutiliser le code de Stremio, puis `whoIsWatching.onVisible()`.
+
+**Vérification**
+- Pas de reproduction possible ici (aucun appareil branché, pas de compte de test). Le comportement de Stremio a été vérifié dans son code en ligne. Le passage au premier plan (`visibilitychange`) est testé dans Playwright via T-034.
+
+### T-034 — Choix du profil à l'ouverture, au retour et après un film ; « Ne plus me demander »
+
+- **Statut :** À valider (sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-025
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> Par défault quand on ouvre l'app, ça doit afficher le choix de profil, et on doit rajouter un bouton "Ne plus me demander"
+
+Réponses ensuite :
+- au démarrage, quand on revient sur l'app, et quand on arrête la lecture et qu'on revient sur l'accueil ;
+- aussi avec un seul profil ;
+- « Ne plus me demander » est une case à cocher, pas un bouton.
+
+**Critères d'acceptation**
+- [x] Au démarrage, au retour dans l'app (après plus de 5 s, jamais en sortant du lecteur), sur l'Accueil après un film
+- [x] Aussi avec un seul profil
+- [x] Case « Ne plus me demander » : coupe le réglage tout de suite ; rouverte depuis le menu, elle est cochée et la décocher le remet
+- [x] Menu du profil : « Changer de profil », toujours présent
+- [x] Réglage renommé « Demander qui regarde », avec une nouvelle description
+- [ ] Vérifié sur l'appareil
+
+**Notes techniques**
+- `whoIsWatching.maybeShow({ start })` : plus de minimum de deux profils. Il ne s'ouvre ni par-dessus le lecteur ou la connexion, ni s'il est déjà ouvert. Un profil avec code reste demandé à chaque démarrage, même réglage coupé.
+- `onVisible` retient l'heure et la route au passage en arrière-plan : sur Android, le lecteur natif cache la page pendant la lecture, et la route est alors `player`.
+- `onRoute(route, previous)` est appelé par `updateRoute`. Après une sortie de `player`, la prochaine arrivée sur `board` ouvre le choix.
+- La case (`[data-noask]`) : événement `change`, plus Entrée (OK de la télécommande), qui ne coche pas une case toute seule.
+
+**Vérification**
+- Playwright (web.stremio.com, plugin injecté, fausse session, `document.hidden` simulé) :
+  - absent après 1,5 s d'absence, présent après 5,6 s (un seul profil) ;
+  - absent sur `#/player/…` et sur la fiche du film, présent en arrivant sur l'Accueil ;
+  - case cochée : réglage coupé, rien au retour suivant ;
+  - ouvert depuis le menu : case cochée, la décocher remet le réglage.
+
+### T-035 — Refonte du choix de profil et des pages de profil, comme Netflix
+
+- **Statut :** À valider (sur l'appareil)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-025
+- **Créée le :** 2026-10-30
+- **Mise à jour :** 2026-10-30
+- **Branche :** `main`
+
+**Demande**
+> La page de choix de profil de Netflix est mieux faite que celle de Nathflix, fait une petite refonte graphique pour que ça corresponde au design de Netflix parfaitement
+
+Puis, avec des captures de Netflix :
+- « Il faut aussi ajuster la page de modification de profil » ;
+- le mode Gérer de Netflix : « je veux exactement la même chose » ;
+- « sur Netflix il est circulaire (avec le centre sur le haut de la fenêtre) ».
+
+**Critères d'acceptation**
+- [x] Fond en dégradé rouge circulaire centré en haut ; logo NATHFLIX en haut à gauche ; « Qui est-ce ? »
+- [x] Tuiles arrondies de 160 px, noms en gras gris clair, blancs à la sélection, anneau blanc intérieur
+- [x] « Gérer les profils » : pilule avec crayon ; « Ajouter un profil » : tuile translucide avec un +
+- [x] Mode Gérer : même titre, avatars assombris sous un crayon blanc, panneau clair arrondi sur le profil sélectionné, pas de tuile Ajouter, « Terminé » en pilule blanche avec coche
+- [x] Page Modifier : grand titre, avatar arrondi, champ et réglages sur un panneau sombre arrondi, pilules Enregistrer, Annuler et Supprimer. Sur téléphone : barre du haut (retour, Enregistrer)
+- [x] Icônes et suppression au même style
+- [ ] Vérifié sur l'appareil (TV, téléphone)
+
+**Notes techniques**
+- CSS dans `EXTRAS_CSS`, bloc « Who's watching and its pages ».
+- Pièges :
+  - le bouton d'une tuile coupe ce qui dépasse : un anneau extérieur (`box-shadow` hors de l'avatar) était rogné, d'où l'anneau en `inset` ;
+  - Stremio fixe la taille des `span` (15 px) : `font: inherit !important` dans les pilules et la case ;
+  - les règles des tuiles de la porte sont plus spécifiques que celles du téléphone : largeurs redonnées sous `html.dx-mobile`.
+- Une nouvelle tuile de profil se crée depuis la porte : Retour et Enregistrer y reviennent (et non au mode Gérer).
+
+**Vérification**
+- Captures Playwright à 1920×920 et 412×870 (`dx-mobile`) : porte, mode Gérer avec le premier profil sélectionné, page Modifier. Comparées aux captures de Netflix données par l'utilisateur.
+- Pas vu sur une vraie TV (focus de la télécommande) : les styles `:focus` sous `.dx-tv` reprennent ceux du survol.
+
 <!--
 ### T-000 — Titre court
 
@@ -1653,6 +1759,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-30 | T-033 à T-035 | Créées et implémentées : bibliothèque Stremio rechargée au retour sur Android, choix du profil à l'ouverture, au retour et après un film (case « Ne plus me demander »), refonte façon Netflix (porte, mode Gérer, pages de profil). Testées (Playwright, captures) ; à valider sur l'appareil |
+| 2026-10-30 | T-030 | CI rouge sur `728507a` (tests sans compte renvoyés vers la connexion) ; corrigée par `nathflix.allowGuest` dans les tests, plus une vérification de la redirection (`106d29c`, CI verte) |
 | 2026-10-30 | T-029 à T-032 | Créées : retours sur la 0.4.0. T-029 (synchro à la connexion), T-030 (connexion obligatoire) et T-031 (Continuer à regarder par profil, Worker redéployé avec `played:*`) implémentées et testées (banc d'essai, Playwright) ; T-032 (progression séparée) à faire |
 | 2026-10-29 | T-028 | Fait : release v0.4.0 publiée avec la première APK signée (certificat vérifié) ; T-007 débloquée (reste le son à vérifier sur l'appareil) |
 | 2026-10-29 | T-028 | Créée : release 0.4.0 ; version montée, en cours (CI, puis tag) |

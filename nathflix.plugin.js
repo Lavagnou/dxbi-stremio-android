@@ -456,7 +456,7 @@
     { key: "rememberPlayback", type: "toggle", label: t("Remember volume & speed"), description: t("Every stream starts at the volume and speed you last used."), defaultValue: DEFAULTS.rememberPlayback },
     { key: "playerKeys", type: "toggle", label: t("Extra keyboard shortcuts"), description: t("0–9 jump to 0–90% of the video, and ? shows every shortcut."), defaultValue: DEFAULTS.playerKeys },
     { key: "watchStats", type: "toggle", label: t("Watch stats"), description: t("Counts how long you watch (on this PC only). See them under your profile menu → Your stats."), defaultValue: DEFAULTS.watchStats },
-    { key: "whoIsWatching", type: "toggle", label: t("Who's watching?"), description: t("With more than one viewer, choose who's watching at start. Each viewer has their own library, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
+    { key: "whoIsWatching", type: "toggle", label: t("Ask who's watching"), description: t("Choose your profile when Nathflix opens, when you come back to it and on Home after a film. Each profile has its own library, Continue Watching, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
     { key: "profileLock", type: "select", label: t("Lock profiles after inactivity"), description: t("After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security."), defaultValue: DEFAULTS.profileLock, options: [{ label: t("Never"), value: "off" }, { label: t("After {n} minutes", { n: 5 }), value: "5" }, { label: t("After {n} minutes", { n: 15 }), value: "15" }, { label: t("After {n} minutes", { n: 30 }), value: "30" }, { label: t("After 1 hour"), value: "60" }] },
     { key: "profileSync", type: "toggle", label: t("Sync profiles with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account. They're kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
@@ -918,7 +918,9 @@
   function updateRoute() {
     const route = currentRoute();
     if (document.body.dataset.dxRoute !== route) {
+      const previous = document.body.dataset.dxRoute;
       document.body.dataset.dxRoute = route;
+      whoIsWatching.onRoute(route, previous);
       setScrolled(false);
       preview.close(true);
       if (route === "player") keyNav.exit();
@@ -7673,12 +7675,12 @@
       if (!SYNC_ENDPOINT) return;
       const auth = this.auth();
       this.seenKey = auth ? auth.key : "";
-      // back in front: what other devices did (once a minute at most); going to the back: send now
+      // back in front: what other devices did (every 15 s at most); going to the back: send now
       this.onVisible = () => {
         if (!this.on()) return;
         if (document.hidden) {
           if (this.dirty.size) this.run({ keepalive: true });
-        } else if (Date.now() - this.lastTry > 60000) this.run();
+        } else if (Date.now() - this.lastTry > 15000) this.run();
       };
       document.addEventListener("visibilitychange", this.onVisible);
       setTimeout(() => this.run(), 3000);
@@ -7736,7 +7738,21 @@
     welcome() {
       cloudSync.watch(true)
         .catch(() => { /* offline: the profiles on this device */ })
-        .finally(() => { whoIsWatching.maybeShow().catch(() => { /* nothing to show */ }); });
+        .finally(() => { whoIsWatching.maybeShow({ start: true }).catch(() => { /* nothing to show */ }); });
+    },
+  };
+
+  // Back in front. Stremio pulls the account's library (with addons and notifications) when its window
+  // gets the focus, which Android's WebView never sends: what another device had just watched stayed
+  // out of Continue Watching until the app was killed. Nathflix sends it instead. Then who's watching
+  const comeBack = {
+    last: 0,
+    onVisible: () => {
+      if (!document.hidden && IN_ANDROID && Date.now() - comeBack.last > 15000) {
+        comeBack.last = Date.now();
+        window.dispatchEvent(new Event("focus"));
+      }
+      whoIsWatching.onVisible();
     },
   };
   const onOver = (e) => preview.onOver(e);
@@ -7952,6 +7968,78 @@
   .dxe-who[data-view="gate"] .dxe-who-top .dxe-who-link[data-manage], .dxe-who[data-view="manage"] .dxe-who-top .dxe-who-link[data-done] { display: none; }
   html.dx-mobile .dxe-who[data-view="gate"] .dxe-who-top .dxe-who-link[data-manage], html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-top .dxe-who-link[data-done] { display: inline-flex; }
   html.dx-mobile .dxe-who :is(.dxe-who-inner > [data-manage], .dxe-who-inner > [data-done]) { display: none; }
+  /* Who's watching and its pages, as on Netflix's site: a round red glow from the top middle of the
+     window, the logo on the left, rounded tiles, pill buttons */
+  .dxe-who { background: radial-gradient(circle farthest-corner at 50% 0, #64131b 0%, #4d1017 18%, #330b10 38%, #1d0609 60%, #110405 80%, #0b0203 100%); }
+  .dxe-who:not([data-view="gate"]):not([data-view="manage"]) .dxe-who-top { background: rgba(12,3,4,.55); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  .dxe-who-top.is-gate { position: absolute; left: 0; right: 0; grid-template-columns: auto 1fr; padding: 1.7rem 3.6rem; background: none; }
+  .dxe-who-top.is-gate .dxe-who-brand { font-size: 2.3rem !important; }
+  .dxe-who-actions { display: inline-flex; align-items: center; gap: .5rem; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-inner { gap: 2.4rem; padding-top: 6rem; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font: 700 2.6rem/1.2 Inter, system-ui, sans-serif !important; letter-spacing: -.015em; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid { gap: 3.3rem; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile { width: 10.7rem; gap: 1.1rem; color: #b8b8b8; }
+  html:not(.dx-mobile) .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid .dxe-who-avatar { width: 10.7rem; height: 10.7rem; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) [data-add] .dxe-who-name { white-space: normal; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile:is(:hover, :focus-visible), .dx-tv .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile:focus { color: #fff; }
+  .dxe-who .dxe-who-avatar { border: 0; border-radius: .6rem; transition: box-shadow .15s; }
+  .dxe-who[data-view="gate"] .dxe-who-tile:is(:hover, :focus-visible) .dxe-who-avatar, .dx-tv .dxe-who[data-view="gate"] .dxe-who-tile:focus .dxe-who-avatar { box-shadow: inset 0 0 0 .2rem #fff; }
+  .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-name { font: 600 1.45rem/1.25 Inter, system-ui, sans-serif !important; }
+  .dxe-who[data-view="gate"] .dxe-who-avatar.is-add { background: rgba(255,255,255,.08); color: #b8b8b8; }
+  .dxe-who[data-view="gate"] .dxe-who-avatar.is-add > span { width: 40%; height: 40%; border-radius: 0; background: none; }
+  .dxe-who[data-view="gate"] .dxe-who-avatar.is-add svg { width: 100%; height: 100%; }
+  .dxe-who[data-view="gate"] .dxe-who-tile:is(:hover, :focus-visible) .dxe-who-avatar.is-add, .dx-tv .dxe-who[data-view="gate"] .dxe-who-tile:focus .dxe-who-avatar.is-add { background: rgba(255,255,255,.16); color: #fff; }
+  /* Managing: the same page, the pictures dimmed under a pencil, and the picked profile on a light panel */
+  .dxe-who[data-view="manage"] .dxe-who-grid { gap: .7rem; }
+  .dxe-who[data-view="manage"] .dxe-who-tile { width: auto; padding: 1.3rem; border-radius: .9rem; transition: background .15s; }
+  .dxe-who[data-view="manage"] .dxe-who-name { max-width: 10.7rem; }
+  .dxe-who[data-view="manage"] .dxe-who-tile:is(:hover, :focus-visible), .dx-tv .dxe-who[data-view="manage"] .dxe-who-tile:focus { background: rgba(255,255,255,.1); }
+  .dxe-who[data-view="manage"] .dxe-who-avatar i { background: rgba(0,0,0,.42); }
+  .dxe-who[data-view="manage"] .dxe-who-avatar i svg { width: 2.5rem; height: 2.5rem; padding: 0; border: 0; border-radius: 0; }
+  .dxe-who-pill { display: inline-flex; align-items: center; justify-content: center; gap: .75rem; min-height: 3.4rem; padding: .8rem 1.6rem; box-sizing: border-box; border: 1px solid rgba(255,255,255,.4); border-radius: 999px; background: rgba(0,0,0,.35); color: #fff; font: 700 1.35rem Inter, system-ui, sans-serif !important; cursor: pointer; }
+  .dxe-who-pill svg { width: 1.45rem; height: 1.45rem; }
+  .dxe-who-pill span, .dxe-who-noask span { font: inherit !important; }
+  .dxe-who-pill:is(:hover, :focus-visible), .dx-tv .dxe-who-pill:focus { border-color: #fff; background: rgba(255,255,255,.14); outline: none; }
+  .dxe-who-pill.is-solid { border-color: #fff; background: #fff; color: #000; }
+  .dxe-who-pill.is-solid:is(:hover, :focus-visible), .dx-tv .dxe-who-pill.is-solid:focus { background: #d9d9d9; }
+  /* Don't ask me again: a tick box under the button */
+  .dxe-who-noask { position: relative; display: inline-flex; align-items: center; gap: .65rem; margin-top: -1rem; padding: .4rem .7rem; border-radius: .4rem; color: #b8b8b8; font: 600 1.1rem Inter, system-ui, sans-serif !important; cursor: pointer; user-select: none; }
+  .dxe-who-noask input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+  .dxe-who-box { display: flex; align-items: center; justify-content: center; width: 1.45rem; height: 1.45rem; box-sizing: border-box; border: 2px solid rgba(255,255,255,.6); border-radius: .3rem; color: transparent; transition: background .12s, border-color .12s; }
+  .dxe-who-box svg { width: 1.05rem; height: 1.05rem; stroke-width: 3; }
+  .dxe-who-noask input:checked + .dxe-who-box { border-color: #fff; background: #fff; color: #000; }
+  .dxe-who-noask:hover, .dxe-who-noask:has(input:focus-visible), .dx-tv .dxe-who-noask:has(input:focus) { color: #fff; }
+  .dxe-who-noask:has(input:focus-visible) .dxe-who-box, .dx-tv .dxe-who-noask:has(input:focus) .dxe-who-box { border-color: #fff; box-shadow: 0 0 0 .2rem rgba(255,255,255,.35); }
+  /* A profile's page: a heading, then the icon, the name and the settings on a dark panel */
+  .dxe-edit-h1 { align-self: stretch; margin: 0 !important; text-align: left; font: 700 2.4rem/1.2 Inter, system-ui, sans-serif !important; letter-spacing: -.015em; }
+  .dxe-edit-avatar { border-radius: .6rem; }
+  .dxe-edit-avatar:is(:hover, :focus-visible) .dxe-who-avatar, .dx-tv .dxe-edit-avatar:focus .dxe-who-avatar { box-shadow: inset 0 0 0 .2rem #fff; }
+  .dxe-who .dxe-edit-name { height: 3.2rem; border: 1px solid rgba(255,255,255,.18); border-radius: .5rem; background: rgba(0,0,0,.35); }
+  .dxe-who .dxe-edit-name:focus { border-color: #fff; background: rgba(0,0,0,.5); }
+  .dxe-who .dxe-edit-list { border: 0; border-radius: .8rem; background: rgba(0,0,0,.32); overflow: hidden; }
+  .dxe-who .dxe-edit-row { padding: 1.05rem 1.2rem; border-bottom: 1px solid rgba(255,255,255,.08); }
+  .dxe-who .dxe-edit-row:last-child { border-bottom: 0; }
+  .dxe-who .dxe-edit-row small { color: #a3a3a3; }
+  .dxe-who .dxe-edit-row:is(:hover, :focus-visible), .dx-tv .dxe-who .dxe-edit-row:focus { background: rgba(255,255,255,.08); }
+  .dxe-edit-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; }
+  .dxe-who .dxe-edit-btns .dxe-who-pill { min-height: 3rem; padding: .6rem 1.5rem; font-size: 1.15rem !important; }
+  .dxe-who .dxe-avatar-pick, .dxe-who .dxe-avatar-pick .dxe-who-avatar { border-radius: .55rem; }
+  .dxe-who .dxe-avatar-pick:is(:hover, :focus-visible) .dxe-who-avatar, .dx-tv .dxe-who .dxe-avatar-pick:focus .dxe-who-avatar, .dxe-who .dxe-avatar-pick.is-current .dxe-who-avatar { box-shadow: inset 0 0 0 .2rem #fff; }
+  html:not(.dx-mobile) .dxe-who[data-view="edit"] .dxe-who-top :is([data-save], .dxe-who-title) { display: none; }
+  html:not(.dx-mobile) .dxe-who:is([data-view="edit"], [data-view="delete"]) .dxe-who-top { background: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  html.dx-mobile .dxe-who-top.is-gate { position: sticky; padding: .6rem .8rem .6rem 1.1rem; }
+  html.dx-mobile .dxe-who-top.is-gate .dxe-who-brand { font-size: 1.9rem !important; }
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-inner { gap: 1.8rem; padding-top: 1rem; }
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) h1 { font-size: 1.6rem !important; }
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-grid { gap: 1.6rem 1.8rem; }
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-tile { width: 7.2rem; }
+  html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-grid { grid-template-columns: repeat(2, 8.4rem); gap: .6rem; }
+  html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-tile { width: 8.4rem; padding: .6rem; box-sizing: border-box; }
+  html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-name { max-width: 7.2rem; }
+  html.dx-mobile .dxe-who .dxe-who-avatar { border-radius: .45rem; }
+  html.dx-mobile .dxe-who:is([data-view="gate"], [data-view="manage"]) .dxe-who-name { font-size: 1rem !important; }
+  html.dx-mobile .dxe-who-noask { margin-top: -.6rem; font-size: 1rem !important; }
+  html.dx-mobile :is(.dxe-edit-h1, .dxe-edit-btns [data-save], .dxe-edit-btns [data-editback]) { display: none; }
   /* A profile's page */
   .dxe-edit { gap: 1.4rem; max-width: 34rem; margin: 0; }
   .dxe-edit-avatar { position: relative; padding: 0; border: 0; background: none; cursor: pointer; border-radius: .3rem; }
@@ -10169,14 +10257,15 @@
     // viewer is picked (Back doesn't close it)
     locked: false,
 
-    // Once per app start, after the intro, when more than one person uses this Nathflix (or the
-    // viewer has a PIN: it's asked for at every start)
-    async maybeShow() {
+    // At start (after the intro), when you come back to Nathflix and on Home after a film, as Netflix
+    // does, even with one profile (it offers to add the others), until "Don't ask me again". A viewer
+    // with a PIN is still asked at every start
+    async maybeShow({ start = false } = {}) {
       await store.ready;
       // (never over the sign-in: signInGate shows it once signed in)
-      if (currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return;
+      if (this.el || currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return;
       const pinned = !!viewers.current().pin;
-      if (!pinned && (!settings.whoIsWatching || viewers.list().list.length < 2)) return;
+      if (!settings.whoIsWatching && !(pinned && start)) return;
       const { getState } = core();
       try {
         // Accounts with Stremio's own profiles get Stremio's profile lock screen instead
@@ -10184,7 +10273,40 @@
         if (ctx && Array.isArray(ctx.userProfiles) && ctx.userProfiles.length > 1) return;
       } catch (_) { /* fine: show ours */ }
       for (let i = 0; i < 40 && document.querySelector(".dx-splash"); i++) await new Promise((r) => setTimeout(r, 250));
+      if (this.el || currentRoute() === "player") return;
       this.open({ locked: pinned });
+    },
+
+    // Coming back to Nathflix after a few seconds away (not from the player: Android's own player
+    // covers the page while it plays, and so does going to the background mid-film)
+    hiddenAt: 0,
+    hiddenOn: "",
+    onVisible() {
+      if (document.hidden) {
+        this.hiddenAt = Date.now();
+        this.hiddenOn = currentRoute();
+        return;
+      }
+      const away = this.hiddenAt && Date.now() - this.hiddenAt > 5000 && this.hiddenOn !== "player";
+      this.hiddenAt = 0;
+      if (away) this.maybeShow().catch(() => { /* nothing to show */ });
+    },
+    // Home after a film
+    afterFilm: false,
+    onRoute(route, previous) {
+      if (previous === "player") this.afterFilm = true;
+      if (route === "board" && this.afterFilm) {
+        this.afterFilm = false;
+        this.maybeShow().catch(() => { /* nothing to show */ });
+      }
+    },
+
+    // The "Don't ask me again" box: saved as soon as it's ticked (Nathflix settings → Home has it too,
+    // and the gate still opens from the profile menu, with the box ticked, to untick it)
+    setAsk(on) {
+      settings.whoIsWatching = on;
+      persistSettings();
+      if (API) API.saveSetting("whoIsWatching", on).catch(() => {});
     },
 
     open({ locked = false } = {}) {
@@ -10197,8 +10319,16 @@
       el.addEventListener("keydown", (e) => {
         e.stopPropagation();
         if (e.key === "Escape") this.back();
+        // a remote's OK is Enter, which doesn't tick a box by itself
+        else if (e.key === "Enter" && e.target instanceof Element && e.target.matches("[data-noask]")) {
+          e.preventDefault();
+          e.target.click();
+        }
       });
       el.addEventListener("click", (e) => this.onClick(e));
+      el.addEventListener("change", (e) => {
+        if (e.target instanceof Element && e.target.matches("[data-noask]")) this.setAsk(!e.target.checked);
+      });
       document.body.append(el);
       this.el = el;
       this.show("gate");
@@ -10233,20 +10363,25 @@
           <span class="dxe-who-name">${esc(x.name)}</span>
           ${x.pin && !managing ? `<span class="dxe-who-lock" title="${esc(t("Has a PIN"))}">${ICONS.lock}</span>` : ""}
         </button>`).join("");
-      const add = v.list.length < 8 && !this.locked ? `<button class="dxe-who-tile" data-add><span class="dxe-who-avatar is-add"><span>${ICONS.plus}</span></span><span class="dxe-who-name">${t("Add profile")}</span></button>` : "";
+      // (as on Netflix, managing keeps the same page: the tiles get a pencil, and adding is on the gate)
+      const add = v.list.length < 8 && !this.locked && !managing ? `<button class="dxe-who-tile" data-add><span class="dxe-who-avatar is-add"><span>${ICONS.plus}</span></span><span class="dxe-who-name">${t("Add profile")}</span></button>` : "";
+      // (the logo on the left as on Netflix's site; on phones, Edit goes at the top right)
+      const actions = this.locked ? "" : `
+          ${managing ? `<button class="dxe-who-link" data-done>${t("Done")}</button>` : `<button class="dxe-who-link" data-manage>${ICONS.pencil}<span>${t("Edit")}</span></button>`}
+          <button class="dxe-who-icon" data-close aria-label="${esc(t("Close"))}">${ICONS.close}</button>`;
       return `
-        <div class="dxe-who-top">
-          ${this.locked ? "<span></span>" : `<button class="dxe-who-icon" data-close aria-label="${esc(t("Close"))}">${ICONS.close}</button>`}
+        <div class="dxe-who-top is-gate">
           <span class="dxe-who-brand">NATHFLIX</span>
-          ${this.locked ? "<span></span>" : managing ? `<button class="dxe-who-link" data-done>${t("Done")}</button>` : `<button class="dxe-who-link" data-manage>${ICONS.pencil}<span>${t("Edit")}</span></button>`}
+          <span class="dxe-who-actions">${actions}</span>
         </div>
         <div class="dxe-who-inner">
-          <h1>${managing ? t("Manage profiles") : t("Who's watching?")}</h1>
+          <h1>${t("Who's watching?")}</h1>
           <div class="dxe-who-grid${managing ? " is-managing" : ""}">${tiles}${add}</div>
           ${this.locked ? "" : managing
-            ? `<button class="dxe-who-btn is-solid" data-done>${t("Done")}</button>
+            ? `<button class="dxe-who-pill is-solid" data-done>${ICONS.check}<span>${t("Done")}</span></button>
                <button class="dxe-who-plain" data-pin>${esc(t("Parental PIN: {state}", { state: parentPin.isSet() ? t("On") : t("Off") }))}</button>`
-            : `<button class="dxe-who-btn" data-manage>${t("Manage profiles")}</button>`}
+            : `<button class="dxe-who-pill" data-manage>${ICONS.pencil}<span>${t("Manage profiles")}</span></button>
+               <label class="dxe-who-noask"><input type="checkbox" data-noask${settings.whoIsWatching ? "" : " checked"}><span class="dxe-who-box">${ICONS.check}</span><span>${t("Don't ask me again")}</span></label>`}
         </div>`;
     },
 
@@ -10266,6 +10401,7 @@
           <button class="dxe-who-link is-strong" data-save>${t("Save")}</button>
         </div>
         <div class="dxe-who-inner dxe-edit">
+          <h1 class="dxe-edit-h1">${isNew ? t("Add profile") : t("Edit profile")}</h1>
           <button class="dxe-edit-avatar" data-avatars aria-label="${esc(t("Change the icon"))}">${avatarHtml(d)}<i>${ICONS.pencil}</i></button>
           <input class="dxe-edit-name" type="text" maxlength="20" value="${esc(d.name)}" placeholder="${esc(t("Name"))}" aria-label="${esc(t("Name"))}"${isNew ? " data-autofocus" : ""}>
           <div class="dxe-edit-list">
@@ -10282,7 +10418,11 @@
               <span class="dxe-edit-value">${hiddenCount} ${ICONS.chevronRight}</span>
             </button>` : ""}
           </div>
-          ${viewer && viewers.list().list.length > 1 ? `<button class="dxe-edit-delete" data-delete>${ICONS.trash}<span>${t("Delete profile")}</span></button>` : ""}
+          <div class="dxe-edit-btns">
+            <button class="dxe-who-pill is-solid" data-save>${t("Save")}</button>
+            <button class="dxe-who-pill" data-editback>${t("Cancel")}</button>
+            ${viewer && viewers.list().list.length > 1 ? `<button class="dxe-who-pill" data-delete>${ICONS.trash}<span>${t("Delete profile")}</span></button>` : ""}
+          </div>
         </div>`;
     },
 
@@ -10330,8 +10470,8 @@
           <span class="dxe-who-name">${esc(d.name)}</span>
           <p>${t("This profile's library, Continue Watching, stats and hidden titles will be deleted for good.")}</p>
           <div class="dxe-delete-btns">
-            <button class="dxe-who-btn is-solid" data-deleteyes>${t("Delete profile")}</button>
-            <button class="dxe-who-btn" data-deleteno data-autofocus>${t("Cancel")}</button>
+            <button class="dxe-who-pill is-solid" data-deleteyes>${t("Delete profile")}</button>
+            <button class="dxe-who-pill" data-deleteno data-autofocus>${t("Cancel")}</button>
           </div>
         </div>`;
     },
@@ -10370,7 +10510,8 @@
       }
       if (tile) return this.pick(tile);
       // a profile's page
-      if (at("[data-editback]")) return this.show("manage", this.draft && this.draft.id ? `[data-viewer="${CSS.escape(this.draft.id)}"]` : "[data-add]");
+      // (a new profile is started from the gate, an existing one from Manage profiles)
+      if (at("[data-editback]")) return this.draft && this.draft.id ? this.show("manage", `[data-viewer="${CSS.escape(this.draft.id)}"]`) : this.show("gate", "[data-add]");
       if (at("[data-avatars]")) {
         this.keepName();
         return this.show("avatars");
@@ -10450,13 +10591,14 @@
         return;
       }
       let id = d.id;
+      const isNew = !id;
       if (!id) id = viewers.add(name).id;
       else viewers.rename(id, name);
       viewers.setAvatar(id, d.avatar);
       if ((Number(viewers.list().list.find((x) => x.id === id)?.kids) || 0) !== d.kids) viewers.setKids(id, d.kids || 0);
       this.draft = null;
       navAvatar.ensure();
-      this.show("manage", `[data-viewer="${CSS.escape(id)}"]`);
+      this.show(isNew ? "gate" : "manage", `[data-viewer="${CSS.escape(id)}"]`);
     },
 
     close() {
@@ -11847,7 +11989,7 @@
       };
       const items = [];
       if (settings.watchStats) items.push(make(t("Your stats"), ICONS.chart, () => statsPanel.open()));
-      if (settings.whoIsWatching) items.push(make(t("Who's watching?"), ICONS.people, () => whoIsWatching.open()));
+      items.push(make(t("Switch profile"), ICONS.people, () => whoIsWatching.open()));
       if (report.enabled) items.push(make(t("Report a problem"), ICONS.bug, () => report.open()));
       template.before(...items);
     },
@@ -14933,7 +15075,8 @@
         await new Promise((r) => setTimeout(r, 500));
         subtitlesStart.apply().catch(() => { /* core not ready */ });
       }, 3000);
-      if (!miniPlayer.info) whoIsWatching.maybeShow().catch(() => { /* nothing to show */ });
+      if (!miniPlayer.info) whoIsWatching.maybeShow({ start: true }).catch(() => { /* nothing to show */ });
+      document.addEventListener("visibilitychange", comeBack.onVisible);
       idleLock.start();
       cloudSync.start();
       store.ready.then(() => restrict.apply()).catch(() => { /* next sync */ });
@@ -14995,6 +15138,7 @@
     destroy() {
       idleLock.stop();
       cloudSync.stop();
+      document.removeEventListener("visibilitychange", comeBack.onVisible);
       pinPad.cancel();
       mo.disconnect();
       io.disconnect();
@@ -15263,8 +15407,11 @@ vec4 hook() {
       "0–9 jump to 0–90% of the video, and ? shows every shortcut.": "0–9 vont de 0 à 90 % de la vidéo, et ? affiche tous les raccourcis.",
       "Watch stats": "Statistiques de visionnage",
       "Counts how long you watch (on this PC only). See them under your profile menu → Your stats.": "Compte votre temps de visionnage (sur ce PC uniquement). À voir dans le menu de votre profil → Vos statistiques.",
-      "Who's watching?": "Qui regarde ?",
-      "With more than one viewer, choose who's watching at start. Each viewer has their own library, stats, volume and party name.": "S'il y a plusieurs spectateurs, choisissez qui regarde au démarrage. Chacun a sa bibliothèque, ses statistiques, son volume et son nom dans les soirées.",
+      "Who's watching?": "Qui est-ce ?",
+      "Ask who's watching": "Demander qui regarde",
+      "Choose your profile when Nathflix opens, when you come back to it and on Home after a film. Each profile has its own library, Continue Watching, stats, volume and party name.": "Choisissez votre profil à l'ouverture de Nathflix, quand vous y revenez et sur l'Accueil après un film. Chaque profil a sa bibliothèque, son Continuer à regarder, ses statistiques, son volume et son nom dans les soirées.",
+      "Switch profile": "Changer de profil",
+      "Don't ask me again": "Ne plus me demander",
       "Picture-in-picture": "Image dans l'image",
       "Leaving Nathflix while a video plays keeps it going in a small window over your other apps.": "Si vous quittez Nathflix pendant une vidéo, elle continue dans une petite fenêtre par-dessus vos autres applis.",
       "Keep playing in the background": "Lecture en arrière-plan",

@@ -3,6 +3,8 @@
 ## Unreleased
 - **Sign in first.** Without a Stremio account Nathflix has nothing to show, so it now opens on Stremio's sign-in (or sign-up) and stays there until you're signed in; "Guest login" is gone. Once signed in, your profiles arrive, then "Who's watching?" when there are several.
 - **Your profiles right after signing in.** Signing in to Stremio now brings your synced profiles straight away: before, they only appeared after restarting the app.
+- **Who's watching, like on Netflix.** The profile picker now looks like Netflix's: a red glow from the top, the logo on the left, rounded pictures, a "Manage profiles" pill, and in Manage mode the pictures dimmed under a pencil with the picked profile on a light panel. Profile pages (edit, icons, delete) get the same look. It now comes up when Nathflix opens, when you come back to it and on Home after a film, even with a single profile; tick "Don't ask me again" to stop it (the profile menu's "Switch profile" still opens it).
+- **What you watched on another device shows up when you come back.** On Android, Stremio didn't fetch your library when the app came back to the front, so something just watched on another device stayed out of Continue Watching until the app was killed. Nathflix now asks for it, and syncs profiles again, each time you come back.
 - **Continue Watching is each profile's own.** A profile's Continue Watching only has what that profile started: watching something on another profile no longer puts it in yours, even a title your account had watched before. A show two profiles both watch is in both rows. Progress itself is still shared, as Stremio keeps one per title.
 
 ## 0.4.0

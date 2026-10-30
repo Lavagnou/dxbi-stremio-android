@@ -245,6 +245,13 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - **Barre du haut** : le menu du compte de Stremio est masqué (CSS `menu-button-container`) et remplacé par l'image du profil (`navAvatar`, qui ouvre « Qui regarde ? »). Ses entrées utiles sont dans Réglages, sous le compte (`settingsMenu`, `.dxe-set-menu`).
   - **Croix de Continuer de regarder** masquée (`dismiss-icon-layer`) : « Effacer » reste dans le menu ⋮.
   - **Spectateurs** (`viewers`, `whoIsWatching`) : écrans faits comme ceux de Netflix, et à garder ainsi (demande de l'utilisateur pour tout ce qui touche aux profils). Vues `gate | manage | edit | avatars | hidden | delete`, avec `draft` pour la page d'un profil ;
+    - **style Netflix** (bloc CSS « Who's watching and its pages » de `EXTRAS_CSS`) :
+      - fond en dégradé rouge circulaire, centré en haut de la fenêtre ; logo à gauche ; titre « Qui est-ce ? » ; tuiles arrondies ;
+      - boutons `.dxe-who-pill` ;
+      - mode Gérer : même page et même titre, avatars assombris sous un crayon, profil sélectionné sur un panneau clair, pas de tuile « Ajouter ».
+      - Les tuiles coupent ce qui dépasse : les anneaux de sélection sont en `inset`. Stremio fixe la taille des `span` : forcer `font: inherit`.
+    - **quand le choix s'affiche** (`maybeShow`) : au démarrage, au retour dans l'app après plus de 5 s (`onVisible`, jamais en sortant du lecteur), et sur l'Accueil après un film (`onRoute`). Il s'affiche même avec un seul profil, sauf si le réglage `whoIsWatching` est coupé (case « Ne plus me demander », `setAsk`). Un profil avec code est toujours demandé au démarrage ;
+    - « Changer de profil » (menu du profil) ouvre toujours le choix ;
     - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
     - clavier de code `pinPad` (aussi pour le code parental) ;
     - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
@@ -264,7 +271,8 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
     - **une nouvelle clé se déclare à deux endroits** : `SYNCED` (plugin) et `KEY` (`tools/profile-sync/worker.js`). Il faut redéployer le Worker **avant** de publier le plugin : le Worker refuse toute la requête (400) pour une seule clé inconnue ;
     - `store.set` → `cloudSync.changed()` ; `store.put()` écrit une entrée reçue sans la renvoyer ;
     - fusion : la plus récente gagne. Pour `viewers`, le profil courant reste celui de l'appareil. Pour `stats:*`, le maximum de chaque compteur. Pour `played:*`, la date la plus récente de chaque titre ;
-    - quand synchroniser : au démarrage, au retour au premier plan, et à la connexion (`cloudSync.watch()`, dans `sync()`, au plus toutes les 5 s, ou tout de suite par `signInGate`) ;
+    - **retour au premier plan sur Android** (`comeBack`) : Stremio ne recharge sa bibliothèque (`SyncLibraryWithAPI`…) qu'au chargement et sur l'événement `focus` de la fenêtre, que la WebView n'envoie jamais. Le plugin envoie donc lui-même `focus` (au plus toutes les 15 s) ;
+    - quand synchroniser : au démarrage, au retour au premier plan (au plus toutes les 15 s), et à la connexion (`cloudSync.watch()`, dans `sync()`, au plus toutes les 5 s, ou tout de suite par `signInGate`) ;
     - identité : `profile.auth.key` envoyée au Worker (`Authorization: Stremio <clé>`). Le Worker la vérifie avec `getUser` de l'API Stremio et ne la garde jamais ;
     - un autre compte sur l'appareil : ses profils remplacent ceux du précédent (`nathflix.syncAccount`).
   - Accueil : « Airing this week » (`airing`) vient après Continuer de regarder.
