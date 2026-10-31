@@ -799,6 +799,9 @@
     if (location.hash === hash) return;
     history.pushState(history.state, "", hash);
     window.dispatchEvent(new PopStateEvent("popstate", { state: history.state }));
+    // (pushState sends no hashchange: Nathflix's own pass runs as for one, even when Stremio's page
+    // doesn't change, as a film's streams page with no stream addon)
+    scheduleSync();
   }
 
   // Decode an image ahead of time so showing it later costs nothing; the last few stay in memory
@@ -11542,7 +11545,10 @@
       const parts = (location.hash || "").replace(/^#\/?/, "").split("/").map((p) => decodeURIComponent(p.split("?")[0]));
       const onStreams = parts[0] === "detail" && !!parts[3];
       const onSeries = parts[0] === "detail" && parts[1] === "series" && parts[2] && !parts[3];
-      const box = onStreams || onSeries ? document.querySelector('[class*="metadetails-container"] [class*="meta-preview-container"]') : null;
+      // a film's page without its streams (the billboard's More Info, some addons' catalogs): Play
+      // opens them, then plays as from a series page
+      const onMovie = parts[0] === "detail" && parts[1] === "movie" && parts[2] && !parts[3];
+      const box = onStreams || onSeries || onMovie ? document.querySelector('[class*="metadetails-container"] [class*="meta-preview-container"]') : null;
       const row = box && box.querySelector('[class*="action-buttons-container"]');
       // worked out again on each visit (the episode in progress moves on as you watch)
       if (!onSeries) this.series = null;
@@ -11566,6 +11572,7 @@
           e.stopPropagation();
           const now = (location.hash || "").replace(/^#\/?/, "").split("/").map((p) => decodeURIComponent(p.split("?")[0]));
           if (now[3]) this.playWhenReady(now[3]);
+          else if (now[1] === "movie" && now[2]) this.playMovie(now[2]);
           else if (this.series && this.series.id === now[2] && this.series.videoId) {
             this.pending = { videoId: this.series.videoId, until: Date.now() + 30000 };
             navigate(`/detail/series/${encodeURIComponent(now[2])}/${encodeURIComponent(this.series.videoId)}`);
@@ -11587,9 +11594,10 @@
         this.pending = null;
         this.playWhenReady(parts[3]);
       }
-      const ready = onSeries || (!this.waiting && !!this.firstStream());
+      const ready = onSeries || onMovie || (!this.waiting && !!this.firstStream());
       const label = this.waiting || (onStreams && !ready) ? t("Finding streams…")
         : onSeries ? this.series.label
+        : onMovie ? t("Play")
         : parts[1] === "movie" ? t("Play") : t("Play episode");
       // (compared with what was written last: the browser writes the icon back differently, so
       // comparing innerHTML never matched and the button was rewritten on every sync)
@@ -11599,6 +11607,20 @@
       }
       b.classList.toggle("is-waiting", !ready);
       b.setAttribute("aria-disabled", String(!ready));
+    },
+
+    // A film's streams page, its video being the one Stremio plays by default (most films: the film's
+    // own id), then its first stream once they're in
+    async playMovie(id) {
+      let videoId = id;
+      try {
+        const s = await core().getState("meta_details");
+        const meta = s && s.metaItem && s.metaItem.content && s.metaItem.content.type === "Ready" ? s.metaItem.content.content : null;
+        const hint = meta && meta.id === id && meta.behaviorHints && meta.behaviorHints.defaultVideoId;
+        if (typeof hint === "string" && hint) videoId = hint;
+      } catch (_) { /* the film's own id */ }
+      this.pending = { videoId, until: Date.now() + 30000 };
+      navigate(`/detail/movie/${encodeURIComponent(id)}/${encodeURIComponent(videoId)}`);
     },
 
     // Waits until every addon has answered (or 12 s), and a moment more for the list's sorting, then
@@ -11629,7 +11651,7 @@
           document.querySelectorAll(".dxe-toast").forEach((n) => n.remove());
           const note = document.createElement("div");
           note.className = "dxe-toast";
-          note.textContent = t("No streams found for this episode.");
+          note.textContent = /^#\/?detail\/movie\//.test(location.hash || "") ? t("No streams found for this film.") : t("No streams found for this episode.");
           document.body.append(note);
           setTimeout(() => note.remove(), 5000);
         }
@@ -16313,6 +16335,7 @@ vec4 hook() {
       "Finding streams…": "Recherche des flux…",
       "Play S{s} E{e}": "Lancer S{s} É{e}",
       "No streams found for this episode.": "Aucun flux trouvé pour cet épisode.",
+      "No streams found for this film.": "Aucun flux trouvé pour ce film.",
       "Play episode": "Lancer l'épisode",
       "Hidden": "Masqué",
       "Show it again everywhere": "L'afficher de nouveau partout",

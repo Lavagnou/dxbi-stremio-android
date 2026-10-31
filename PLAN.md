@@ -113,6 +113,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
+| T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
 
 ---
 
@@ -2562,8 +2563,49 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la Fire TV.
 
 **Livraison**
-- Commits : ce commit (`perf: start-up time in the performance readout (from the app's opening with a newer app)`)
+- Commits : `ed1ed1a`
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-065 — Bouton « Lecture » absent des pages de films ouvertes sans leurs flux
+
+- **Statut :** À valider (sur l'appareil, avec un compte et des extensions de flux)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-012
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> Le bouton Lancer n'apparait pas sur les pages des films, sur les pages des séries ça marche mais pas les films, corrige ça
+
+**Critères d'acceptation**
+- [x] « Lecture » sur la page d'un film, quelle que soit la façon de l'ouvrir
+- [x] Le bouton ouvre les flux du film et lance la première source, comme « Reprendre » sur une série
+
+**Notes techniques**
+- **Cause** : `episodePlay.ensure()` ne mettait le bouton que sur une page de flux (`#/detail/<type>/<id>/<vidéo>`) ou sur la page d'une série (`#/detail/series/<id>`). Un film ouvert à `#/detail/movie/<id>`, sans vidéo, n'était ni l'un ni l'autre. C'est l'adresse du bouton « Plus d'infos » du billboard (`data-href="/detail/${type}/${m.id}"`) et de certains catalogues d'extensions ; les cartes Cinemeta donnent `/<id>/<id>`, d'où un bouton présent ou non selon le chemin.
+- **Correction** :
+  - `onMovie` (film sans vidéo dans l'adresse) : le bouton s'affiche, libellé « Lecture » ;
+  - au clic, `playMovie(id)` : la vidéo du film est `behaviorHints.defaultVideoId` de `meta_details` si Stremio la donne, sinon l'id du film ; `pending` est posé, puis `navigate()` ouvre la page des flux, qui lance la première source quand elles sont là (`playWhenReady`, comme pour une série).
+- **Second défaut trouvé en testant** : `navigate()` change l'adresse par `history.pushState` + `popstate`, ce qui n'envoie pas de `hashchange`. La boucle de Nathflix ne repassait donc que si Stremio modifiait la page. Sur la page des flux d'un film sans extension de flux, rien ne bougeait, et la lecture en attente n'était jamais lancée. `navigate()` appelle maintenant `scheduleSync()`.
+- Le message sans source dit « pour ce film » sur la page d'un film (`No streams found for this film.`, traduit) au lieu de « pour cet épisode ».
+
+**Vérification**
+- `node --check` : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus.
+- Dans Chrome (invité, PC et TV ; `play-check.mjs`, scratchpad) :
+
+  | Adresse | Avant | Après |
+  |---|---|---|
+  | `#/detail/movie/<id>/<id>` (cartes) | bouton | bouton |
+  | `#/detail/movie/<id>` | **pas de bouton** | « Lecture » |
+  | Clic sur « Lecture » | — | page des flux, « Recherche des flux… », puis « Aucun flux trouvé pour ce film. » (invité : pas d'extension de flux) |
+
+- Non vérifié : la lecture réelle d'une source (compte avec extensions de flux) ; pas testé sur le compte de l'utilisateur pour ne pas lancer de film à sa place (sa progression changerait).
+
+**Livraison**
+- Commits : ce commit (`Play on a film's page opened without its streams (the billboard's More Info, some catalogs)`)
+- Version / CHANGELOG : 0.6.0 (T-061)
 
 <!--
 ### T-000 — Titre court
@@ -2644,6 +2686,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-065 | Créée et corrigée : « Lecture » sur les pages de films sans vidéo dans l'adresse ; `navigate()` relance la boucle de Nathflix |
 | 2026-10-31 | T-049 | Temps de démarrage dans la mesure à l'écran (`Bridge.launchedAt`) ; bloqué en attendant les photos de la Fire TV |
 | 2026-10-31 | T-050 | Abandonné : l'index des épisodes coûte très peu, même cache vidé ; le départ décalé déplaçait le travail sur les touches. Banc : `--drop` |
 | 2026-10-31 | T-048 | Abandonné : le thème s'applique au même moment sans `@import`, à chaud comme à froid. Banc : `themeMs`, `fontMs`, `--cold` |
