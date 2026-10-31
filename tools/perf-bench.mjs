@@ -7,7 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10]
+//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10] [--cold]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -47,6 +47,8 @@ const login = flag("login");
 const traceOn = flag("trace");
 // after the keys, Down this many times down Home's rows, 700 ms apart: the row reached each time
 const descendN = Math.max(0, parseInt(opt("descend", "0"), 10) || 0);
+// every run starts with an empty HTTP cache (the first start of the day) instead of a warm one
+const cold = flag("cold");
 if (login && lossTest) throw new Error("--loss-test adds profiles: not on a real account (--login)");
 // signed in, "Who's watching?" would cover Home at every load
 if (login && !("whoIsWatching" in benchSettings)) benchSettings.whoIsWatching = false;
@@ -127,6 +129,12 @@ function initScript(cfg) {
       clearInterval(ready);
     }
   }, 50);
+  // when Nathflix's look applies (a variable of its theme shows) and its font has loaded
+  const look = setInterval(() => {
+    if (!bench.themeAt && getComputedStyle(document.documentElement).getPropertyValue("--dx-bg").trim()) bench.themeAt = performance.now();
+    if (!bench.fontAt && document.fonts && document.fonts.check("600 16px Inter") && [...document.fonts].some((f) => f.family.replace(/"/g, "") === "Inter" && f.status === "loaded")) bench.fontAt = performance.now();
+    if ((bench.themeAt && bench.fontAt) || performance.now() > 60000) clearInterval(look);
+  }, 25);
   const inject = () => {
     if (document.getElementById("nathflix.plugin.js")) return;
     const script = document.createElement("script");
@@ -286,10 +294,11 @@ function traceSummary(buffer) {
 async function measure(ctx, trace = false) {
   const errors = [];
   const page = await openPage(ctx, errors, true);
+  if (cold) await (await ctx.newCDPSession(page)).send("Network.clearBrowserCache");
   await page.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 180000 });
   await waitReady(page);
   await closeModals(page);
-  const load = await page.evaluate(() => ({ pageReadyMs: window.__bench.readyAt, pluginLoadMs: window.__bench.pluginLoadMs }));
+  const load = await page.evaluate(() => ({ pageReadyMs: window.__bench.readyAt, pluginLoadMs: window.__bench.pluginLoadMs, themeMs: window.__bench.themeAt, fontMs: window.__bench.fontAt }));
   await sleep(settleMs);
 
   // At rest on Home
@@ -390,6 +399,9 @@ async function measure(ctx, trace = false) {
 
   return {
     pageReadyMs: Math.round(load.pageReadyMs),
+    // from the start of the page (0: not seen)
+    themeMs: Math.round(load.themeMs || 0),
+    fontMs: Math.round(load.fontMs || 0),
     pluginLoadMs: Math.round(load.pluginLoadMs),
     ...counters(before.perf, after.perf),
     longTasks: tasks(idleTasks),
@@ -414,6 +426,8 @@ function summarise(results) {
     runs: results.length,
     throttle,
     pageReadyMs: pick((r) => r.pageReadyMs),
+    themeMs: pick((r) => r.themeMs),
+    fontMs: pick((r) => r.fontMs),
     pluginLoadMs: pick((r) => r.pluginLoadMs),
     sync: { calls: pick((r) => r.sync.calls), ms: round(pick((r) => r.sync.ms)) },
     getState: Object.fromEntries([...models].sort().map((m) => [m, pick((r) => r.getState[m] || 0)])),

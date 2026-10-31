@@ -81,6 +81,7 @@ npx --yes -p playwright@1 node tools/perf-bench.mjs --tv --runs 5 --out tv.json 
 Each run (after one load that warms the caches, so a warm start like a TV's):
 
 - `pageReadyMs`: until Stremio's first title is on screen; `pluginLoadMs`: the plugin's load and first run;
+- `themeMs` and `fontMs`: when Nathflix's look applies and its font has loaded, from the page's start;
 - 15 s to settle (`--settle`), then 30 s at rest on Home (`--idle`): `sync` (the main loop: calls and ms),
   `getState` (core reads by model), `saveLocal` (writes of Nathflix's data), `dispatch` (actions sent to the
   core), `filterMs` (time in the per-viewer library filter: two profiles or more), long tasks, number of
@@ -108,6 +109,8 @@ the main thread's time by kind of work (style, layout, layers, paint…), `trace
 script (Stremio's, Nathflix's). `--descend N` presses Down N times down Home after the keys: `descend`
 says which row was reached each time (a stall is a press that didn't move), how long the presses took
 and how big Home has grown.
+
+`--cold` empties the browser's HTTP cache before every run: a first start of the day rather than a warm one.
 
 `--login` opens a visible window to sign in to Stremio by hand, then measures signed in, with the
 library, Continue Watching and the profiles of a real account. The session stays in that browser's

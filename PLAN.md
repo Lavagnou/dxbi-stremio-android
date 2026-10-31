@@ -105,6 +105,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-045 | Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
 | T-047 | TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger (`html.dx-light`) | Terminé | P1 | plugin, theme | T-039 | 2026-10-31 |
+| T-048 | Polices liées par le plugin, sans `@import` dans le thème intégré | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
@@ -2433,8 +2434,52 @@ Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d
 - Non vérifié : la Fire TV, un téléphone modeste réel.
 
 **Livraison**
-- Commits : ce commit (`perf: TV and light mode drop big soft shadows; TV's lighter effects in light mode too (html.dx-light)`)
+- Commits : `716f0bb`
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-048 — Polices liées par le plugin, sans `@import` dans le thème intégré
+
+- **Statut :** Abandonné (pas de gain mesurable, à chaud ni à froid)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-048)
+
+**Critères d'acceptation**
+- [ ] ~~Thème intégré sans `@import`, polices liées par le plugin~~ : essayé, pas gardé
+- [x] Banc : moment où le thème s'applique et où la police est chargée (`themeMs`, `fontMs`), démarrage à froid (`--cold`)
+
+**Notes techniques**
+- **Essai** (non gardé) :
+  - `tools/bundle-theme.mjs` retirait la ligne `@import url("https://fonts.googleapis.com/…")` de la copie intégrée (le fichier `nathflix.theme.css` la gardait) et refusait une copie qui en contiendrait encore un ;
+  - `ensureFonts()` (dans `start()`, avant `builtInTheme.ensure()`) ajoutait `<link rel="preconnect" href="https://fonts.gstatic.com">` et la feuille des polices (`#dx-fonts`). `display=swap` gardé partout : le `optional` prévu pour la TV laisserait la police système pour toute une session au premier lancement.
+- **Hypothèse** : dans une `<style>`, Chrome n'appliquerait rien du thème tant que la feuille importée de Google n'est pas revenue. **Fausse en pratique** : le thème s'applique au même moment avec ou sans `@import`, cache chaud comme cache vide.
+- **Banc** :
+  - `themeMs` : quand la variable `--dx-bg` du thème devient visible sur `<html>` ; `fontMs` : quand Inter 600 est chargée (`document.fonts`), depuis le début de la page ;
+  - `--cold` : cache HTTP du navigateur vidé avant chaque run (`Network.clearBrowserCache`), comme un premier lancement de la journée.
+
+**Vérification**
+- Banc (invité, bridé ×6, 5 runs de chaque en alternance ; médianes en ms depuis le début de la page) :
+
+  | | Avant | Après (essai) |
+  |---|---|---|
+  | TV, cache chaud : page prête / thème / police | 1 153 / 599 / 694 | 1 281 / 651 / 848 |
+  | PC, cache chaud | 1 316 / 684 / 843 | 1 563 / 778 / 970 |
+  | TV, cache vide (`--cold`) | 1 843 / 1 331 / 1 504 | 1 763 / 1 585 / 1 585 |
+  | PC, cache vide | 1 885 / 1 436 / 1 620 | 2 041 / 1 548 / 1 920 |
+  | Erreurs de Nathflix | 0 | 0 |
+
+  Rien ne s'améliore (les écarts sont dans le bruit, plutôt en défaveur de l'essai) : le code de l'essai est retiré, le banc garde ses nouvelles mesures.
+- Captures avec l'essai : identiques (hors bruit des badges). Sans objet une fois le code retiré.
+
+**Livraison**
+- Commits : ce commit (`bench: when the theme applies and the font loads (themeMs, fontMs), cold starts (--cold); T-048 not kept`)
+- Version / CHANGELOG : —
 
 <!--
 ### T-000 — Titre court
@@ -2515,6 +2560,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-048 | Abandonné : le thème s'applique au même moment sans `@import`, à chaud comme à froid. Banc : `themeMs`, `fontMs`, `--cold` |
 | 2026-10-31 | T-047 | Fait : plus de grandes ombres floues sur TV et en mode léger, effets TV aussi en mode léger (`html.dx-light`) ; dessin −22 % sur TV, −29 % en mode léger sur téléphone |
 | 2026-10-31 | T-054 | Avancée et faite : Accueil TV chargé par paquets de 6 rangées devant la télécommande (7 000 → 4 600 éléments, tâches longues 14,9 → 12,6 s, pire 1,1 → 0,6 s). Banc : `--trace`, `--descend` |
 | 2026-10-31 | T-046 | Fait : banc connecté au compte de l'utilisateur (`--login`, `--vs`) ; au repos Nathflix ne fait rien, la boucle principale coûte surtout dans la mesure des flèches des rangées → mesurées seulement au survol (boucle 2,48 → 1,14 s sur le parcours) |
