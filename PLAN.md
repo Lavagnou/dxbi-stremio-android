@@ -99,6 +99,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-039 | Nathflix rame sur Fire TV : audit de performance, CSS allégé, billboard, télécommande, mode léger, mesure à l'écran | À valider | P0 | plugin | — | 2026-10-30 |
 | T-040 | Release 0.5.2 (performances) | Terminé | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
 | T-041 | Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran | Terminé | P1 | plugin, tools | T-039 | 2026-10-31 |
+| T-042 | `coreMeta` piloté par les événements du cœur (`coreEvents`) | Terminé | P1 | plugin | T-041 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2007,7 +2008,64 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
   - téléphone : le bouton ne bouge pas ; les seules différences sont celles des badges IMDb, RT et Metacritic.
 
 **Livraison**
-- Commits : ce commit (`Play button: same height as its neighbours on the streams page`)
+- Commits : `e503fd1`
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-042 — `coreMeta` piloté par les événements du cœur
+
+- **Statut :** Terminé
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-042)
+
+**Critères d'acceptation**
+- [x] `coreEvents` : la source d'événements du cœur trouvée et branchée, avec repli si elle manque
+- [x] `coreMeta.refresh` ne lit un modèle qu'après un changement, et seulement celui de la route
+- [x] Chemins connus (`collectKnown`) avec la marche récursive en repli
+- [x] Moins de `getState` sur le banc ; badges et billboard identiques (captures)
+
+**Notes techniques**
+- **Source des événements** (web.stremio.com, build du 2026-10-31) :
+  - ni `window.services.core` (`services` n'a que `chromecast`) ni `window.core.transport` (`core` : `init`, `getState`, `dispatch`, `encodeStream`, `decodeStream`, `analytics`) ;
+  - `window.onCoreEvent(e)` existe : `e.name` vaut `"NewState"` (`e.args` = liste des modèles changés, par exemple `["discover"]`, `["local_search"]`) ou `"CoreEvent"`. Stremio relit `window.onCoreEvent` à chaque événement : l'envelopper suffit, et l'enveloppe est restée en place après plusieurs changements de route.
+- **`coreEvents`** (section avant `keptCore`, pour que `core()` puisse l'appeler sans ordre d'initialisation) :
+  - `install()`, appelé par `core()` à chaque fois : enveloppe `window.onCoreEvent` si ce n'est pas déjà la nôtre (`__dxEvents`). Elle est donc refaite si Stremio la remplace. L'original passe d'abord (`try … finally`), et l'enveloppe ne lève jamais ;
+  - `on(model, fn)` ; `touch(models)` regroupe par `requestAnimationFrame` (au plus un appel par modèle et par image) ;
+  - `available` passe à vrai à la première enveloppe posée. Sans `window.onCoreEvent` : comportement d'avant (5 modèles toutes les 4 s ; sur TV et en mode léger, seulement les modèles de la route).
+- **`coreMeta`** :
+  - `dirty` (tous les modèles au départ), rempli par `coreEvents.on` et par `touchRoute()` (appelé par `onHash`, donc aussi au retour au premier plan par `visibilitychange`) ;
+  - `routeModels()` : `board` → `board` et `continue_watching_preview` ; `discover`, `search` et `library` → le leur ; ailleurs, rien (la fiche garde ce qui a été lu avant) ;
+  - un modèle qui se charge catalogue après catalogue est lu au plus toutes les 1,5 s, et son dernier changement est toujours lu (`later`).
+- **Formes vérifiées dans la console** : `board.catalogs[].content` = `{ type: "Ready", content: [...] }` ; `discover.catalog.content` (idem, `catalog` nul hors de Découvrir). `collectKnown` les lit pour `board`, `search` et `discover`. `library` et `continue_watching_preview` gardent la marche récursive : vides en invité, leur forme n'a pas pu être vérifiée.
+
+**Vérification**
+- `node --check` : OK. Aucun texte nouveau.
+- Banc avant/après (bridé ×6, médiane de 5 runs, passés l'un après l'autre ; compteurs sur tout le parcours) :
+
+  | Mesure | TV avant → après | PC avant → après |
+  |---|---|---|
+  | `getState` des 5 modèles de `coreMeta` | 80 → 41 | 77 → 38 |
+  | dont `search` | 10 → 0 | 10 → 0 |
+  | dont `discover` / `library` / `continue_watching_preview` | 14 / 14 / 14 → 6 / 5 / 8 | idem |
+  | dont `board` | 28 → 22 | 25 → 19 |
+  | `ctx` (lu par Stremio) | 220 → 219 | 219 → 220 |
+  | Boucle principale (`sync`) | 19 fois, 214 ms → 18 fois, 211 ms | 20 fois, 440 ms → 20 fois, 282 ms |
+  | Tâches longues | 14, 1 733 ms → 9, 963 ms | 22, 4 580 ms → 20, 2 679 ms |
+  | Touches : médiane / pire | 24 / 72 → 16 / 128 ms | 32 / 88 → 32 / 112 ms |
+  | Erreurs de Nathflix | 0 → 0 | 0 → 0 |
+
+  Ce qui reste sur `board`, `discover` et `library` est lu par Stremio lui-même. Les temps (tâches longues, touches) restent bruités d'un run à l'autre. La pire touche sur 20 en TV monte, mais la médiane baisse.
+- Captures avant/après (Accueil, Découvrir, fiche, Réglages) : PC identique (hors les 738 px connus de la ligne des badges IMDb). TV : 11 et 409 px (lissage du texte, badges RT et Metacritic). Téléphone : 3 850 px sur l'Accueil, uniquement les lignes des badges IMDb, tous présents aux mêmes places (vérifié à l'œil), et 521 px sur la fiche.
+- Non vérifié : les cartes de survol sur PC (non couvertes par les captures ; elles lisent `coreMeta.get`, toujours rempli à l'arrivée sur l'Accueil), un vrai compte (bibliothèque, Continuer à regarder), la Fire TV.
+
+**Livraison**
+- Commits : ce commit (`perf: coreMeta reads a model only when the core says it changed (coreEvents), known paths instead of a recursive walk`)
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
@@ -2089,6 +2147,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-042 | Fait : `coreEvents` (enveloppe de `window.onCoreEvent`), `coreMeta` ne lit plus que les modèles changés de la route : lectures divisées par deux sur le parcours |
 | 2026-10-31 | T-063 | Fait : bouton « Lecture » aligné sur ses voisins (PC, TV) |
 | 2026-10-31 | T-041 | Fait : banc `tools/perf-bench.mjs`, compteurs `perf` et mesure de référence (TV et PC). Chantier performance lancé (`docs/perf/`), T-061 et T-062 réservées aux releases 0.6.0 et 0.7.0 |
 | 2026-10-30 | T-040 | Fait : release v0.5.2 publiée (11 fichiers, APK signée vérifiée) ; T-039 à valider sur la Fire TV |

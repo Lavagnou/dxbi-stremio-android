@@ -156,6 +156,59 @@
     },
   };
 
+  // ---------------------------------------------------------------------------
+  // Core events: Stremio's core tells its UI which models changed through window.onCoreEvent
+  // ({ name: "NewState", args: [models] }), so Nathflix reads a model only after it changed
+  // instead of every few seconds
+  // ---------------------------------------------------------------------------
+
+  const coreEvents = {
+    available: false,
+    listeners: new Map(),
+    pending: new Set(),
+    frame: 0,
+
+    on(model, fn) {
+      if (!this.listeners.has(model)) this.listeners.set(model, new Set());
+      this.listeners.get(model).add(fn);
+    },
+
+    // Listeners run at most once a frame per model, however many events came in between
+    touch(models) {
+      for (const model of models) if (this.listeners.has(model)) this.pending.add(model);
+      if (!this.pending.size || this.frame) return;
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        const models = [...this.pending];
+        this.pending.clear();
+        for (const model of models) {
+          for (const fn of this.listeners.get(model) || []) {
+            try { fn(model); } catch (err) { log("core event listener failed", err); }
+          }
+        }
+      });
+    },
+
+    // Stremio looks window.onCoreEvent up at each event and may set it again: wrapped again whenever
+    // it isn't ours. Stremio's own handler always runs first, and the wrapper never throws
+    install() {
+      const current = window.onCoreEvent;
+      if (typeof current !== "function" || current.__dxEvents) return;
+      const wrapped = function (event) {
+        try {
+          return current.apply(this, arguments);
+        } finally {
+          try {
+            if (event && event.name === "NewState" && Array.isArray(event.args)) coreEvents.touch(event.args);
+          } catch (_) { /* never in Stremio's way */ }
+        }
+      };
+      wrapped.__dxEvents = true;
+      window.onCoreEvent = wrapped;
+      this.available = true;
+    },
+  };
+
   // Stremio Web can drop window.core on some routes (Stremio Enhanced works around the same thing),
   // so keep the first working getState/dispatch we see and fall back to Enhanced's own copy.
   const keptCore = { getState: null, dispatch: null };
@@ -164,6 +217,7 @@
   function core() {
     const live = window.core || (window.services && window.services.core);
     if (live && coreHook && !live.__dxViewers) coreHook(live);
+    if (live) coreEvents.install();
     if (live) {
       if (!keptCore.getState && typeof live.getState === "function") keptCore.getState = live.getState.bind(live);
       if (!keptCore.dispatch && typeof live.dispatch === "function") keptCore.dispatch = live.dispatch.bind(live);
@@ -1570,19 +1624,84 @@
     map: new Map(),
     at: 0,
     loading: null,
+    later: 0,
     MODELS: ["board", "discover", "search", "library", "continue_watching_preview"],
+    // models changed since they were last read (all of them until the first read)
+    dirty: new Set(["board", "discover", "search", "library", "continue_watching_preview"]),
+    listening: false,
+
+    // The models whose titles are on screen on this route
+    routeModels() {
+      const route = currentRoute();
+      if (route === "board") return ["board", "continue_watching_preview"];
+      return this.MODELS.includes(route) ? [route] : [];
+    },
+
+    // A new route (or the app back on screen) reads its models once, event or not
+    touchRoute() {
+      for (const model of this.routeModels()) this.dirty.add(model);
+    },
 
     refresh(force) {
       const { getState } = core();
       if (!getState) return Promise.resolve();
-      if (!force && Date.now() - this.at < 4000) return this.loading || Promise.resolve();
+      if (coreEvents.available && !this.listening) {
+        this.listening = true;
+        for (const model of this.MODELS) coreEvents.on(model, () => this.dirty.add(model));
+      }
+      let models;
+      if (coreEvents.available) {
+        // only what changed and is on screen; a model loading catalog after catalog is read
+        // at most every 1.5 s, its last change always read
+        models = this.routeModels().filter((m) => force || this.dirty.has(m));
+        if (!models.length) return this.loading || Promise.resolve();
+        const wait = this.at + 1500 - Date.now();
+        if (!force && wait > 0) {
+          if (!this.later) this.later = setTimeout(() => { this.later = 0; this.refresh(); }, wait);
+          return this.loading || Promise.resolve();
+        }
+        for (const model of models) this.dirty.delete(model);
+      } else {
+        // no events from this Stremio: every 4 s, as before (only this route's models on a TV
+        // or in light mode)
+        if (!force && Date.now() - this.at < 4000) return this.loading || Promise.resolve();
+        models = IN_TV || light() ? this.routeModels() : this.MODELS;
+      }
       this.at = Date.now();
       this.loading = (async () => {
-        for (const model of this.MODELS) {
-          try { this.collect(await getState(model), 0); } catch (_) { /* model not loaded yet */ }
+        for (const model of models) {
+          try {
+            const state = await getState(model);
+            if (!this.collectKnown(model, state)) this.collect(state, 0);
+          } catch (_) { /* model not loaded yet */ }
         }
       })();
       return this.loading;
+    },
+
+    // Where each model keeps its titles; false when the state doesn't have that shape (a newer
+    // Stremio): the recursive walk then does it
+    collectKnown(model, state) {
+      if (!state || typeof state !== "object") return false;
+      const ready = (loadable) => loadable && loadable.type === "Ready" && Array.isArray(loadable.content) ? loadable.content : null;
+      let lists;
+      if (model === "board" || model === "search") {
+        if (!Array.isArray(state.catalogs)) return false;
+        // catalogs still loading or failed have nothing to read yet
+        lists = state.catalogs.map((c) => ready(c && c.content)).filter(Boolean);
+      } else if (model === "discover") {
+        if (!("catalog" in state)) return false;
+        const list = state.catalog && ready(state.catalog.content);
+        if (state.catalog && !list && !(state.catalog.content && state.catalog.content.type)) return false;
+        lists = list ? [list] : [];
+      } else return false;
+      for (const list of lists) {
+        for (const item of list) {
+          if (!item || typeof item.id !== "string" || typeof item.type !== "string" || typeof item.name !== "string") return false;
+          this.remember(item.id, item);
+        }
+      }
+      return true;
     },
 
     // Walk a state tree and remember anything that looks like a title
@@ -8005,7 +8124,7 @@
   const onOver = (e) => preview.onOver(e);
   const onSheetClick = (e) => titleSheet.onClick(e);
   const onOut = (e) => preview.onOut(e);
-  const onHash = () => { document.body.classList.remove("dx-discover-picked"); updateRoute(); scheduleSync(); };
+  const onHash = () => { document.body.classList.remove("dx-discover-picked"); coreMeta.touchRoute(); updateRoute(); scheduleSync(); };
 
   // Discover selects its first title by itself (for its side panel): it only shows as selected once
   // you've picked one
