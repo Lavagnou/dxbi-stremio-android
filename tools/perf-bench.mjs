@@ -6,8 +6,8 @@
 //
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
-//       [--storage '{"localStorageKey":"value"}'] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"]
+//       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
+//       [--dwell "#/route,#/other"] [--loss-test]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -32,9 +32,13 @@ const outFile = opt("out", "");
 const shotsDir = opt("shots", "");
 const compareDir = opt("compare", "");
 const benchSettings = JSON.parse(opt("settings", "{}"));
-const benchStorage = JSON.parse(opt("storage", "{}"));
+// (or "@file.json": a real export is too long for a command line)
+const storageArg = opt("storage", "{}");
+const benchStorage = JSON.parse(storageArg.startsWith("@") ? readFileSync(storageArg.slice(1), "utf8") : storageArg);
 // after the walk, rest on these routes too (a title's page, the calendar…) and count what happens there
 const dwellRoutes = opt("dwell", "").split(",").filter(Boolean);
+// changes the profile and closes the page 200 ms later, three ways: is the new profile still there?
+const lossTest = flag("loss-test");
 
 const source = readFileSync(pluginPath, "utf8");
 const version = (source.match(/@version\s+(\S+)/) || [])[1] || "?";
@@ -180,6 +184,52 @@ async function closeModals(page) {
   }
 }
 
+// A profile change, then the page closed 200 ms later: when it's written down, the next start has it.
+// "unload": closed normally (beforeunload, pagehide); "hidden": the app goes to the background first
+// (what Android does before it may close an app); "abrupt": the renderer crashes (no event at all)
+async function loss() {
+  const out = {};
+  for (const way of ["unload", "hidden", "abrupt"]) {
+    const ctx = await newContext(benchSettings);
+    const errors = [];
+    let page = await openPage(ctx, errors, false);
+    await page.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 180000 });
+    await waitReady(page);
+    const id = await page.evaluate(async () => {
+      window.__nathflix.viewers.add("Bench");
+      const v = window.__nathflix.viewers.list();
+      return v.list[v.list.length - 1].id;
+    });
+    // the new profile is written down for sure, then the change that's tested
+    await sleep(3000);
+    await page.evaluate((x) => window.__nathflix.viewers.select(x), id);
+    await sleep(200);
+    if (way === "hidden") {
+      await page.evaluate(() => {
+        Object.defineProperty(document, "hidden", { configurable: true, get: () => true });
+        Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    }
+    if (way === "abrupt") {
+      // (closing a page still sends pagehide: a crashed renderer sends nothing)
+      const cdp = await ctx.newCDPSession(page);
+      // (never answers: the page is gone)
+      cdp.send("Page.crash").catch(() => {});
+      await sleep(1000);
+    }
+    await page.close({ runBeforeUnload: way === "unload" }).catch(() => { /* crashed */ });
+    if (way === "unload") await sleep(500);
+    page = await openPage(ctx, errors, false);
+    await page.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 180000 });
+    await waitReady(page);
+    const current = await page.evaluate(() => window.__nathflix.viewers.current().id);
+    out[way] = current === id ? "kept" : "lost";
+    await ctx.close();
+  }
+  return out;
+}
+
 async function measure(ctx) {
   const errors = [];
   const page = await openPage(ctx, errors, true);
@@ -228,6 +278,22 @@ async function measure(ctx) {
   // the whole visit, from the plugin's start: load, rest, keys and walk
   const end = await page.evaluate(() => ({ perf: window.__nathflix.perf(), longTasks: window.__bench.longTasks }));
   const tasks = (list) => ({ count: list.length, totalMs: Math.round(list.reduce((a, t) => a + t.ms, 0)), maxMs: Math.round(list.reduce((a, t) => Math.max(a, t.ms), 0)) });
+  // Two profiles or more (--storage): to another profile and back, as at "Who's watching?"
+  let switching = null;
+  const who = await page.evaluate(() => {
+    const v = window.__nathflix.viewers && window.__nathflix.viewers.list();
+    return v && v.list.length > 1 ? { ids: v.list.map((x) => x.id), current: v.current } : null;
+  });
+  if (who) {
+    const from = await page.evaluate(() => ({ perf: window.__nathflix.perf(), at: performance.now() }));
+    for (const id of [who.ids.find((x) => x !== who.current), who.current]) {
+      await page.evaluate((x) => window.__nathflix.viewers.select(x), id);
+      await sleep(3000);
+    }
+    const to = await page.evaluate(() => ({ perf: window.__nathflix.perf(), at: performance.now(), longTasks: window.__bench.longTasks }));
+    switching = { ...counters(from.perf, to.perf), longTasks: tasks(to.longTasks.filter((t) => t.at >= from.at && t.at < to.at)) };
+  }
+
   // At rest on other routes: counted from 5 s after arriving, for as long as the rest on Home
   const dwell = {};
   for (const route of dwellRoutes) {
@@ -248,6 +314,7 @@ async function measure(ctx) {
     elements: after.elements,
     keys: { median: Math.round(median(keyMs)), p90: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] || 0), worst: Math.round(sorted[sorted.length - 1] || 0), pressed: keyMs.length },
     session: { ...counters({ counts: {}, ms: {} }, end.perf), longTasks: tasks(end.longTasks) },
+    switching,
     dwell,
     errors,
   };
@@ -281,6 +348,14 @@ function summarise(results) {
       filterMs: round(pick((r) => r.session.filterMs)),
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
+    ...(results[0].switching ? {
+      switching: {
+        sync: { calls: pick((r) => r.switching.sync.calls), ms: round(pick((r) => r.switching.sync.ms)) },
+        saveLocal: pick((r) => r.switching.saveLocal),
+        filterMs: round(pick((r) => r.switching.filterMs)),
+        longTasks: { count: pick((r) => r.switching.longTasks.count), totalMs: pick((r) => r.switching.longTasks.totalMs), maxMs: pick((r) => r.switching.longTasks.maxMs) },
+      },
+    } : {}),
     ...(dwellRoutes.length ? {
       dwell: Object.fromEntries(dwellRoutes.map((route) => {
         const at = (r) => r.dwell[route];
@@ -429,6 +504,7 @@ try {
     if (shotErrors.length) report.errors = [...(report.errors || []), ...shotErrors];
     if (compareDir) report.compare = await compare(browser, shotsDir, compareDir);
   }
+  if (lossTest) report.loss = await loss();
 } finally {
   await browser.close();
 }

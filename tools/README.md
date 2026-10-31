@@ -90,11 +90,20 @@ Each run (after one load that warms the caches, so a warm start like a TV's):
   same counters for the whole visit. Any error from Nathflix makes the bench fail;
 - with `--dwell "#/route,#/other"` (a title's page, the calendar…), a rest on each after the walk, as long as the
   rest on Home: `dwell` holds their counters, by route. In Git Bash, set `MSYS_NO_PATHCONV=1` first: it
-  otherwise turns `#/detail/…` into a Windows path.
+  otherwise turns `#/detail/…` into a Windows path;
+- with two profiles or more (in `nathflix.data`, see `--storage`): a switch to another profile and back,
+  3 s each, as at "Who's watching?": `switching` holds its counters.
 
 No Stremio account: guest mode is allowed with `nathflix.allowGuest`, like the CI. `--settings '{"lightMode":"on"}'`
-sets Nathflix's settings, `--storage '{"key":"value"}'` puts entries in localStorage first. Never set
-`nathflix.lang` there: a language change reloads the page.
+sets Nathflix's settings, `--storage '{"key":"value"}'` (or `--storage @file.json`) puts entries in localStorage
+first, at every load. Never set `nathflix.lang` there: a language change reloads the page. Two profiles:
+`{"nathflix.data": "{\"viewers\":{\"t\":1,\"v\":{\"list\":[{\"id\":\"main\",\"name\":\"A\"},{\"id\":\"v2\",\"name\":\"B\"}],\"current\":\"v2\"}}}"}`,
+with `--settings '{"whoIsWatching":false}'` so that "Who's watching?" doesn't cover Home.
+
+`--loss-test` checks that a change survives the page going away: a profile is added, then chosen, and the
+page goes 200 ms later, three ways: closed normally (`unload`), sent to the background first (`hidden`,
+what Android does before it may close an app) and a crashed renderer (`abrupt`). `loss` says, for each,
+whether the next start still has the chosen profile.
 
 Screenshots: `--shots dir` takes Home, Discover, a title's page and Settings, with pictures hidden and the
 billboard held still; `--compare refdir` compares them with an earlier set pixel by pixel and gives the

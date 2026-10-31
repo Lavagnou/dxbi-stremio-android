@@ -102,6 +102,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-042 | `coreMeta` piloté par les événements du cœur (`coreEvents`) | Terminé | P1 | plugin | T-041 | 2026-10-31 |
 | T-043 | « Se termine à » et calendrier mémorisés | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-044 | Filtre de la bibliothèque par profil allégé | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
+| T-045 | Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2156,7 +2157,64 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Captures avec l'essai (deux profils) : identiques, hors bruit des badges. Sans objet une fois le code retiré.
 
 **Livraison**
-- Commits : ce commit (`perf: time the per-viewer library filter (filterMs in the bench); T-044 not kept`)
+- Commits : `3c1b543`
+- Version / CHANGELOG : —
+
+### T-045 — Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s
+
+- **Statut :** Abandonné (pas de gain mesurable sur le banc ; à reprendre si la Fire TV montre beaucoup d'enregistrements)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-045)
+
+**Critères d'acceptation**
+- [ ] ~~`store.saveLocal` différé d'une seconde, statistiques toutes les 60 s~~ : essayé, pas gardé
+- [x] Banc : changement de profil mesuré (`switching`), test de perte (`--loss-test`), `--storage @fichier`
+
+**Notes techniques**
+- **Essai** (non gardé) :
+  - `store.saveLocal()` planifiait l'écriture à 1 s (`localTimer`) ; `saveLocalNow()` écrivait (et comptait `saveLocal`) ; `flush()` écrivait d'abord la copie locale ;
+  - filets : `onLeave` aussi sur `pagehide`, et `onHidden` (`visibilitychange` quand la page est cachée) ;
+  - `stats` : `flush()` toutes les 60 s de lecture au lieu de 30, et sur `pause` et `ended` de la vidéo.
+- **Pourquoi pas gardé** :
+  - sur le banc (invité, ou deux profils avec 140 Ko de données réalistes), Nathflix écrit très peu : 2 fois au chargement et au parcours, 1 fois par changement de profil. Les changements de profil sont espacés : le délai d'une seconde n'en regroupe aucun ;
+  - aucune tâche longue autour d'une écriture, même avec 140 Ko (bridé ×6) ;
+  - il crée un cas de perte : un plantage du renderer dans la seconde qui suit un changement le perd (`--loss-test`, cas `abrupt`).
+- **Le cas où il aiderait** : la synchronisation des profils avec un compte (`cloudSync`, une `store.put` par clé reçue, donc une écriture complète par clé : une douzaine d'un coup au démarrage ou au retour). Le banc ne peut pas le reproduire sans compte. **À reprendre** si la ligne « Enregistrements par minute » de la mesure à l'écran, sur la Fire TV avec un compte, est élevée.
+- **Banc** :
+  - avec deux profils ou plus, aller-retour vers un autre profil (`viewers.select`, 3 s chacun), compteurs dans `switching` ;
+  - `--loss-test` : un profil ajouté puis choisi, et la page qui disparaît 200 ms après, de trois façons : fermée normalement (`unload`), passée en arrière-plan d'abord (`hidden` : `visibilitychange` simulé), renderer planté (`abrupt` : `Page.crash` par CDP, sans attendre de réponse, qui ne vient jamais). Fermer une page envoie encore `pagehide` : seul le plantage est vraiment abrupt ;
+  - `--storage @fichier.json` : une vraie exportation est trop longue pour la ligne de commande (`Argument list too long`).
+
+**Vérification**
+- Banc TV (deux profils, `nathflix.data` de 140 Ko : 600 titres attribués, 400 lancés par profil, statistiques ; bridé ×6, médiane de 5 runs) :
+
+  | Mesure | Avant | Après (essai) |
+  |---|---|---|
+  | Écritures (`saveLocal`) sur le chargement et le parcours | 2 | 1 |
+  | Écritures pour un aller-retour de profil | 2 | 2 |
+  | Tâches longues pendant l'aller-retour | 0 | 0 |
+  | Erreurs de Nathflix | 0 | 0 |
+
+- Test de perte (TV) :
+
+  | Façon | Avant | Après (essai) |
+  |---|---|---|
+  | Fermée normalement | gardé | gardé |
+  | Passée en arrière-plan | gardé | gardé |
+  | Renderer planté | gardé | **perdu** |
+
+- Une écriture de moins par visite, contre un nouveau cas de perte : pas gardé, le code du plugin est retiré.
+- Machine chargée pendant ces mesures (Android Studio, WSL : environ 1,2 Go de RAM libre) : les temps ne sont pas comparés, seulement les comptes.
+
+**Livraison**
+- Commits : ce commit (`bench: profile switch (switching), loss test, --storage @file; T-045 not kept`)
 - Version / CHANGELOG : —
 
 <!--
@@ -2238,6 +2296,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-045 | Abandonné : une écriture de moins par visite sur le banc, et une perte possible si le renderer plante ; à reprendre si la Fire TV montre beaucoup d'enregistrements. Banc : `switching`, `--loss-test` |
 | 2026-10-31 | T-044 | Abandonné : le filtre par profil coûte quelques ms par minute (27 → 20 ms en TV bridée, 8 → 10 ms sur PC). Gardé : son chronomètre (`filterMs`) |
 | 2026-10-31 | T-043 | Abandonné : « Se termine à » et calendrier ne lisent le cœur que pendant `sync()`, qui ne tourne pas au repos ; mémo sans gain mesurable (9 → 8 lectures sur le parcours). Banc : `--dwell`, reprise des runs |
 | 2026-10-31 | T-042 | Fait : `coreEvents` (enveloppe de `window.onCoreEvent`), `coreMeta` ne lit plus que les modèles changés de la route : lectures divisées par deux sur le parcours |
