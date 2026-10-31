@@ -106,6 +106,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
 | T-047 | TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger (`html.dx-light`) | Terminé | P1 | plugin, theme | T-039 | 2026-10-31 |
 | T-048 | Polices liées par le plugin, sans `@import` dans le thème intégré | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
+| T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
@@ -2478,7 +2479,50 @@ Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d
 - Captures avec l'essai : identiques (hors bruit des badges). Sans objet une fois le code retiré.
 
 **Livraison**
-- Commits : ce commit (`bench: when the theme applies and the font loads (themeMs, fontMs), cold starts (--cold); T-048 not kept`)
+- Commits : `45c10d5`
+- Version / CHANGELOG : —
+
+### T-050 — Index des épisodes allégé sur TV et en mode léger
+
+- **Statut :** Abandonné (pas de gain mesurable)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-050)
+
+**Critères d'acceptation**
+- [ ] ~~Index des épisodes allégé sur TV et en mode léger~~ : essayé, pas gardé
+- [x] Banc : cache à reconstruire à chaque run (`--drop`)
+
+**Notes techniques**
+- **Essai** (non gardé), `lightIndex()` = `IN_TV || light()` :
+  - `librarySeries()` : les 30 séries vues en dernier au lieu de 80 ;
+  - `refresh()` : une requête à la fois au lieu de trois ; le premier `refresh()` sans `force` attendait 20 s après la première demande (le calendrier, qui demande avec `force`, n'attendait pas) ;
+  - `get()` : la réponse traitée quand le navigateur est libre (`requestIdleCallback`, 1 s au plus).
+- **Pourquoi aucun gain** : construire l'index coûte très peu au fil principal, même avec la bibliothèque de l'utilisateur et le cache vidé : 0 tâche longue au repos dans les deux cas. Le départ décalé de 20 s tombait pendant les touches du banc (après 10 s de stabilisation et 10 s de repos) : il déplace le travail sans le supprimer, et les touches en ont souffert.
+- **Banc** : `--drop "nathflix.eps."` retire à chaque chargement les clés de `localStorage` qui commencent ainsi (ici le cache de l'index, gardé 6 h), pour mesurer un index à reconstruire.
+
+**Vérification**
+- Banc connecté au compte de l'utilisateur, TV bridée ×6, cache de l'index vidé à chaque run, 5 runs de chaque en alternance :
+
+  | | Avant | Après (essai) |
+  |---|---|---|
+  | Tâches longues au repos (10 s) | 0 | 0 |
+  | Tâches longues sur le parcours | 38, 7,23 s | 40, 7,12 s |
+  | 20 touches : médiane / p90 / pire | 32 / 48 / 72 ms | 40 / 104 / 168 ms |
+  | Page prête | 1 894 ms | 1 879 ms |
+  | Erreurs de Nathflix | 0 | 0 |
+
+  Le code de l'essai est retiré.
+- Les tâches longues du parcours (≈ 7 s) ne se comparent pas aux mesures de T-046 à T-047 (12 à 15 s) : ces runs vident le cache des épisodes, ce qui change aussi l'état de l'Accueil, et l'état du compte a pu changer entre-temps.
+
+**Livraison**
+- Commits : ce commit (`bench: a cache to rebuild at every run (--drop); T-050 not kept`)
 - Version / CHANGELOG : —
 
 <!--
@@ -2560,6 +2604,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-050 | Abandonné : l'index des épisodes coûte très peu, même cache vidé ; le départ décalé déplaçait le travail sur les touches. Banc : `--drop` |
 | 2026-10-31 | T-048 | Abandonné : le thème s'applique au même moment sans `@import`, à chaud comme à froid. Banc : `themeMs`, `fontMs`, `--cold` |
 | 2026-10-31 | T-047 | Fait : plus de grandes ombres floues sur TV et en mode léger, effets TV aussi en mode léger (`html.dx-light`) ; dessin −22 % sur TV, −29 % en mode léger sur téléphone |
 | 2026-10-31 | T-054 | Avancée et faite : Accueil TV chargé par paquets de 6 rangées devant la télécommande (7 000 → 4 600 éléments, tâches longues 14,9 → 12,6 s, pire 1,1 → 0,6 s). Banc : `--trace`, `--descend` |

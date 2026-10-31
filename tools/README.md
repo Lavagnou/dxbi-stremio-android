@@ -110,7 +110,8 @@ script (Stremio's, Nathflix's). `--descend N` presses Down N times down Home aft
 says which row was reached each time (a stall is a press that didn't move), how long the presses took
 and how big Home has grown.
 
-`--cold` empties the browser's HTTP cache before every run: a first start of the day rather than a warm one.
+`--drop nathflix.eps.` takes the localStorage keys starting with it out at every load (a cache to rebuild,
+here the episode index). `--cold` empties the browser's HTTP cache before every run: a first start of the day rather than a warm one.
 
 `--login` opens a visible window to sign in to Stremio by hand, then measures signed in, with the
 library, Continue Watching and the profiles of a real account. The session stays in that browser's

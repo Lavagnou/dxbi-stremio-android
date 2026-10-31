@@ -7,7 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10] [--cold]
+//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10] [--cold] [--drop prefix]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -49,6 +49,8 @@ const traceOn = flag("trace");
 const descendN = Math.max(0, parseInt(opt("descend", "0"), 10) || 0);
 // every run starts with an empty HTTP cache (the first start of the day) instead of a warm one
 const cold = flag("cold");
+// localStorage keys starting with this are taken out at every load (a cache to rebuild: "nathflix.eps.")
+const dropPrefix = opt("drop", "");
 if (login && lossTest) throw new Error("--loss-test adds profiles: not on a real account (--login)");
 // signed in, "Who's watching?" would cover Home at every load
 if (login && !("whoIsWatching" in benchSettings)) benchSettings.whoIsWatching = false;
@@ -112,6 +114,7 @@ function initScript(cfg) {
   try {
     localStorage.setItem("nathflix.allowGuest", "1");
     for (const [k, v] of Object.entries(cfg.storage)) localStorage.setItem(k, v);
+    if (cfg.drop) for (const k of Object.keys(localStorage)) if (k.startsWith(cfg.drop)) localStorage.removeItem(k);
   } catch (_) { /* no storage */ }
   const bench = (window.__bench = { settings: cfg.settings, longTasks: [], events: [], presses: [], readyAt: 0, pluginLoadMs: 0 });
   try {
@@ -599,7 +602,7 @@ async function newContext(settings) {
   if (login && signedInCtx) return signedInCtx;
   const ctx = await browser.newContext(DEVICES[mode]);
   await ctx.route(PLUGIN_URL, (route) => route.fulfill({ status: 200, contentType: "application/javascript; charset=utf-8", body: bodies[serving] }));
-  await ctx.addInitScript(initScript, { settings, storage: benchStorage, ready: READY, pluginUrl: PLUGIN_URL });
+  await ctx.addInitScript(initScript, { settings, storage: benchStorage, drop: dropPrefix, ready: READY, pluginUrl: PLUGIN_URL });
   if (login) {
     await signIn(ctx);
     signedInCtx = ctx;
