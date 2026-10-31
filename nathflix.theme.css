@@ -4479,23 +4479,56 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
 /* Chromium on Windows can leave stale copies of a scrolled panel on screen when it has a blurred
    (backdrop-filter) background: the streams list then looks like rows drawn over each other.
    Solid backgrounds instead (Nathflix's plugin adds .dx-win on Windows). TVs (.dx-tv, Nathflix TV) get the
-   same, since their graphics are far weaker than a computer's. */
+   same, since their graphics are far weaker than a computer's, and so does light mode (.dx-light, the
+   plugin's "Light mode" setting: modest Android devices by default). */
 .dx-win #app *,
 .dx-win body > *,
 .dx-tv #app *,
-.dx-tv body > * {
+.dx-tv body > *,
+.dx-light #app *,
+.dx-light body > * {
     backdrop-filter: none !important;
 }
 
 .dx-win #app [class*="metadetails-content"] [class*="streams-list-container"],
-.dx-tv #app [class*="metadetails-content"] [class*="streams-list-container"] {
+.dx-tv #app [class*="metadetails-content"] [class*="streams-list-container"],
+.dx-light #app [class*="metadetails-content"] [class*="streams-list-container"] {
     background: rgb(19, 19, 23) !important;
 }
 
 .dx-win #app [class*="menu-container"]:not([class*="buttons-menu-container"]),
 .dx-win .context-menu-portal [class*="menu-container"],
-.dx-tv #app [class*="menu-container"]:not([class*="buttons-menu-container"]) {
+.dx-tv #app [class*="menu-container"]:not([class*="buttons-menu-container"]),
+.dx-light #app [class*="menu-container"]:not([class*="buttons-menu-container"]) {
     background: rgb(22, 22, 27) !important;
+}
+
+/* TV and light mode: no big soft shadows. Each is a blur painted again whenever what it surrounds
+   changes, the selected poster's at every press of the remote: a fine line instead (the selection
+   keeps its ring), and the billboard's text keeps a short shadow to stay readable */
+html.dx-tv,
+html.dx-light {
+    --dx-shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --dx-shadow-2: 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.dx-tv body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][data-dx-scrolled],
+.dx-light body #app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"][data-dx-scrolled] {
+    box-shadow: 0 1px 0 var(--dx-line);
+}
+
+.dx-tv .dx-btn:focus-visible,
+.dx-light .dx-btn:focus-visible,
+.dx-tv #app [class*="meta-item-container"] [class*="dismiss-icon-layer"],
+.dx-light #app [class*="meta-item-container"] [class*="dismiss-icon-layer"] {
+    box-shadow: none;
+}
+
+.dx-tv .dx-hero-title,
+.dx-light .dx-hero-title,
+.dx-tv .dx-hero-desc,
+.dx-light .dx-hero-desc {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* THE NATHFLIX APP: the top bar's fullscreen button repeats the window's own buttons (F11 still
@@ -4562,17 +4595,19 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     box-shadow: inset 0 0 0 3px var(--dx-focus, #fff);
 }
 
-/* TV: a stick's graphics chip redraws whatever moves or is blurred, every frame, and the remote
-   waits behind it. The billboard's slow zoom, the rows' faded edges (each row drawn twice) and the
-   blurred Continue Watching backdrops are left out. */
-.dx-tv .dx-hero-backdrop {
+/* TV (and light mode): a stick's graphics chip redraws whatever moves or is blurred, every frame, and
+   the remote waits behind it. The billboard's slow zoom, the rows' faded edges (each row drawn twice)
+   and the blurred Continue Watching backdrops are left out. */
+.dx-tv .dx-hero-backdrop,
+.dx-light .dx-hero-backdrop {
     animation: none !important;
 }
 
 /* TV: only the billboard picture on show (and one fading out) is kept on the graphics chip: each of
    the others was a full-screen layer held in memory. The top bar turns solid at once, as its fade
    was redrawn in full on every frame of the jump down into the rows. */
-.dx-tv .dx-hero-backdrop {
+.dx-tv .dx-hero-backdrop,
+.dx-light .dx-hero-backdrop {
     will-change: auto;
 }
 
@@ -4592,7 +4627,8 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     contain-intrinsic-size: auto 380px;
 }
 
-.dx-tv #app [class*="meta-row"] > [class*="meta-items-container"] {
+.dx-tv #app [class*="meta-row"] > [class*="meta-items-container"],
+.dx-light #app [class*="meta-row"] > [class*="meta-items-container"] {
     -webkit-mask-image: none !important;
     mask-image: none !important;
 }
@@ -4600,7 +4636,8 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
 /* TV: a title's lift (a 3D move) and the rows' rise kept every poster and row on a layer of its
    own, well over 200 on Home, all reworked with each press: flat cards and rows instead (the
    selected title keeps its ring) */
-.dx-tv #app .animation-fade-in {
+.dx-tv #app .animation-fade-in,
+.dx-light #app .animation-fade-in {
     animation: none !important;
 }
 
@@ -4609,12 +4646,15 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     scale: none !important;
 }
 
-/* TV: badges appear as they are, rather than fading in together (a row's worth at a time) */
-.dx-tv .dx-badge {
+/* TV (and light mode): badges appear as they are, rather than fading in together (a row's worth at
+   a time) */
+.dx-tv .dx-badge,
+.dx-light .dx-badge {
     animation: none;
 }
 
-.dx-tv .dx-wide-blur {
+.dx-tv .dx-wide-blur,
+.dx-light .dx-wide-blur {
     filter: brightness(0.45);
 }
 
@@ -4624,9 +4664,11 @@ body[data-dx-route="player"] > [class*="seek-tooltip"] {
     scroll-behavior: auto !important;
 }
 
-/* TV: the hover card's glow and soft shadow are big blurred layers redrawn as it opens */
+/* TV (and light mode): the hover card's glow and soft shadow are big blurred layers redrawn as it opens */
 .dx-tv .dx-preview-aura,
-.dx-tv .dx-preview::before {
+.dx-tv .dx-preview::before,
+.dx-light .dx-preview-aura,
+.dx-light .dx-preview::before {
     display: none;
 }
 

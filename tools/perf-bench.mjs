@@ -480,9 +480,14 @@ async function shots(ctx, dir) {
   mkdirSync(dir, { recursive: true });
   const errors = [];
   const page = await openPage(ctx, errors, false);
+  // at every load: a reload (Stremio's language, now and then) dropped a style added once
+  await page.addInitScript((css) => {
+    const style = document.createElement("style");
+    style.textContent = css;
+    document.documentElement.append(style);
+  }, HIDE);
   await page.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 120000 });
   await waitReady(page);
-  await page.addStyleTag({ content: HIDE });
   for (const [name, route] of Object.entries(SCREENS)) {
     await page.evaluate((r) => { location.hash = r; }, route);
     await sleep(8000);

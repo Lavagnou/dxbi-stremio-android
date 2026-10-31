@@ -104,6 +104,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-044 | Filtre de la bibliothèque par profil allégé | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-045 | Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
+| T-047 | TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger (`html.dx-light`) | Terminé | P1 | plugin, theme | T-039 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
@@ -2381,7 +2382,58 @@ Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d
 - Non vérifié : la Fire TV.
 
 **Livraison**
-- Commits : ce commit (`perf: Home's rows on TV load ahead of the remote, six at a time, not all at once`)
+- Commits : `86f571d`
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-047 — TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger
+
+- **Statut :** Terminé
+- **Priorité :** P1
+- **Cible :** plugin, theme
+- **Dépend de :** T-039
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-047)
+
+**Critères d'acceptation**
+- [x] Classe `html.dx-light` quand le mode léger est actif (posée au chargement et à chaque sauvegarde des réglages)
+- [x] Les effets coûteux déjà retirés sur TV le sont aussi en mode léger
+- [x] TV et mode léger : plus de grandes ombres floues
+- [x] Rien ne change sur PC ni sur téléphone hors mode léger (captures)
+
+**Notes techniques**
+- **Déjà fait sur TV avant cette tâche** (T-039 et avant) : verre dépoli (`backdrop-filter`), flous d'images (aura et ombre de la carte de survol, fonds flous de Continuer à regarder), zoom du billboard, bords estompés des rangées, relief des cartes, fondus.
+- **Plugin** : `applyLight()` met `html.dx-light` d'après `light()`, seulement si la valeur change (une classe sur `<html>` restyle toute la page). Appelée avec `applyAccent()` aux trois endroits de `loadSettings()` (copie en cache, réglages lus, `onSettingsSaved`). `dx-light` n'est pas dans `DEVICE_CLASSES` de `sharpen.prune` : le mode peut changer sans rechargement.
+- **Thème** (bloc « WINDOWS AND TV », puis `node tools/bundle-theme.mjs`) :
+  - les règles d'effets de `.dx-tv` valent aussi pour `.dx-light` : `backdrop-filter`, fonds pleins de la liste des flux et des menus, zoom et `will-change` du billboard, masques des rangées, `.animation-fade-in`, fondu des badges, flou de `.dx-wide-blur`, aura et ombre de la carte de survol ;
+  - nouveau : sur `html.dx-tv` et `html.dx-light`, `--dx-shadow-1` et `--dx-shadow-2` deviennent un trait fin. `--dx-shadow-2` (50 px de flou) entourait l'**affiche sélectionnée**, redessinée à chaque flèche, ainsi que la liste des flux, les menus, les fenêtres, les toasts et l'aperçu de Découvrir ;
+  - plus d'ombre floue sur la barre du haut défilée, les boutons du billboard au focus et la croix de Continuer à regarder ; le titre et le texte du billboard gardent une ombre courte (3 px) pour rester lisibles ;
+  - les anneaux et traits intérieurs (`inset`, 1 à 3 px), dont l'anneau de sélection TV, sont gardés.
+- **Pas fait, du plan** : le plafond universel des transitions (`#app *` à 150 ms). Une règle sur tous les éléments ajoute du coût de style à chacun, et elle couperait le fondu du billboard.
+
+**Vérification**
+- `node --check`, `node tools/bundle-theme.mjs` : OK. Aucun texte nouveau.
+- Banc connecté au compte de l'utilisateur, TV bridée ×6, 5 runs de chaque en alternance, trace sur le premier :
+
+  | | Avant | Après |
+  |---|---|---|
+  | Trace : couches + peinture + pré-peinture | 1 005 + 628 + 516 = 2 149 ms | 702 + 545 + 422 = 1 669 ms |
+  | Trace : calcul des styles / mise en page | 1 586 / 1 264 ms | 1 388 / 1 125 ms |
+  | Tâches longues sur le parcours | 12,5 s | 11,8 s |
+  | 20 touches : médiane / p90 / pire | 32 / 56 / 168 ms | 32 / 48 / 144 ms |
+  | Descente de 10 rangées : médiane / pire, blocages | 44 / 120 ms, 0 | 44 / 56 ms, 0 |
+  | Erreurs de Nathflix | 0 | 0 |
+
+- Téléphone en mode léger (`lightMode: "on"`, invité, 5 runs de chaque) : couches + peinture + pré-peinture 393 + 240 + 209 = 842 → 254 + 186 + 162 = 602 ms ; styles 630 → 507 ms ; tâches longues trop bruitées sur un si petit Accueil (médiane 1,24 → 1,10 s).
+- Captures avant/après (invité, réglages par défaut) : PC et téléphone identiques, hors bruit connu (le mode léger n'y est pas actif) ; TV : seules les ombres autour de la liste des flux et de l'aperçu de Découvrir deviennent un trait fin.
+- Banc : le style qui masque les images des captures est reposé à chaque chargement (`addInitScript`) ; posé une fois, il disparaissait si la page se rechargeait, et une capture « avant » sur PC montrait les images.
+- Non vérifié : la Fire TV, un téléphone modeste réel.
+
+**Livraison**
+- Commits : ce commit (`perf: TV and light mode drop big soft shadows; TV's lighter effects in light mode too (html.dx-light)`)
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
@@ -2463,6 +2515,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-047 | Fait : plus de grandes ombres floues sur TV et en mode léger, effets TV aussi en mode léger (`html.dx-light`) ; dessin −22 % sur TV, −29 % en mode léger sur téléphone |
 | 2026-10-31 | T-054 | Avancée et faite : Accueil TV chargé par paquets de 6 rangées devant la télécommande (7 000 → 4 600 éléments, tâches longues 14,9 → 12,6 s, pire 1,1 → 0,6 s). Banc : `--trace`, `--descend` |
 | 2026-10-31 | T-046 | Fait : banc connecté au compte de l'utilisateur (`--login`, `--vs`) ; au repos Nathflix ne fait rien, la boucle principale coûte surtout dans la mesure des flèches des rangées → mesurées seulement au survol (boucle 2,48 → 1,14 s sur le parcours) |
 | 2026-10-31 | T-064 | Créée et corrigée : cache noir pendant que « Qui est-ce ? » se prépare (Accueil visible 0 ms au lieu de ≈ 0,4 s sur PC) ; à valider sur la Fire TV |
