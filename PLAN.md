@@ -98,6 +98,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-038 | Release 0.5.1 (intro portrait, titre en gras, texte NATHFLIX du billboard) | Terminé | P1 | release, tv, plugin | T-037 | 2026-10-30 |
 | T-039 | Nathflix rame sur Fire TV : audit de performance, CSS allégé, billboard, télécommande, mode léger, mesure à l'écran | À valider | P0 | plugin | — | 2026-10-30 |
 | T-040 | Release 0.5.2 (performances) | Terminé | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
+| T-041 | Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran | Terminé | P1 | plugin, tools | T-039 | 2026-10-31 |
+| T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
+| T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 
 ---
 
@@ -1908,6 +1911,70 @@ Puis, après le rapport : l'app Stremio ne rame pas du tout sur la même Fire TV
 - Commits : `f2ae445` (0.5.2)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.5.2
 
+### T-041 — Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran
+
+- **Statut :** Terminé
+- **Priorité :** P1
+- **Cible :** plugin, tools
+- **Dépend de :** T-039
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> Lire `docs/perf/2026-10-31-plan-performance.md` et l'audit, puis exécuter le plan tâche par tâche : T-041 à T-051 puis release 0.6.0, T-052 à T-057 puis release 0.7.0, T-058 à T-060 seulement après les avoir proposées une par une. T-041 d'abord (banc et compteurs), puis une mesure de référence sur main notée dans la fiche. Aucune autre tâche avant.
+
+**Besoin**
+Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâche du chantier performance avant et après (spec : `docs/perf/2026-10-31-audit-performance.md`, plan : `docs/perf/2026-10-31-plan-performance.md`, commités avec cette tâche).
+
+**Critères d'acceptation**
+- [x] Compteurs `perf` dans le plugin (`getState:<modèle>`, `sync`, `saveLocal`, `dispatch`), lisibles par `window.__nathflix.perf()`
+- [x] Trois lignes de plus dans la mesure à l'écran (lectures du cœur, boucle principale, enregistrements, par minute), traduites
+- [x] `tools/perf-bench.mjs` : JSON des médianes, parcours de contrôle, échec sur erreur de Nathflix, captures et comparaison au pixel
+- [x] Mesure de référence TV et PC, 5 runs, ci-dessous
+- [x] Rien de visible ne change (captures `main` / T-041, PC, téléphone, TV)
+
+**Notes techniques**
+- **Plugin** : section « Performance counters » juste avant `keptCore` (`perf` : `count`, `time`, `snapshot`, `reset`). Des incréments d'entiers, toujours actifs.
+  - `getState:<modèle>` est compté dans l'enveloppe de `viewerLibrary.patch` (lectures de Stremio **et** de Nathflix : on ne peut pas les séparer) et dans `core()` quand seul `__permanentCore` répond ;
+  - `dispatch` dans l'enveloppe de `viewerLibrary.patch` ; `sync` (nombre et ms) autour des étapes de `sync()` ; `saveLocal` dans `store.saveLocal()`.
+  - `perfReadout.counters(now)` : par minute depuis `perf.since`, les 5 modèles les plus lus.
+- **Banc** (`tools/README.md`, section « Performance bench ») :
+  - Playwright par `npx --yes -p playwright@1 node tools/perf-bench.mjs …`, trouvé par `createRequire` dans le `node_modules` de npx (dans le `PATH`). Sans le Chromium de Playwright, il prend le Chrome installé (`channel: "chrome"`).
+  - Le plugin est servi à `https://web.stremio.com/__nathflix/plugin.js` dans l'enveloppe `StremioEnhancedAPI`, réinjecté à chaque `load`. Un premier chargement de chauffe par contexte (cache chaud, comme une TV), et les fenêtres d'annonce de Stremio sont fermées.
+  - TV : UA desktop + ` nathflix-tv/<version>`, 1280×720, DPR 1,5. PC : 1600×900. Téléphone : ` nathflix-mobile/<version>`, 412×915, DPR 2, tactile.
+  - Captures : images, vidéos et fonds masqués, billboard figé (`billboardInterval: "0"`), « Se termine à » et la mesure masqués.
+- **Ce que montre la référence** :
+  - Sur l'Accueil invité, **Nathflix ne fait rien au repos** : 0 `sync`, 0 `getState`, 0 tâche longue en 30 s. Les gains se verront dans les compteurs du parcours (`session`), les touches, et sur la Fire TV avec un vrai compte (Continuer à regarder, profils).
+  - `ctx` (219 lectures pendant le parcours) est lu par Stremio lui-même à chaque événement du cœur.
+  - **Bruit** : le critère « ±20 % entre runs » du plan n'est pas tenu pour les temps (chargement du plugin 0,4 à 1,2 s, touches médianes 28 à 64 ms en TV ; un run PC à 9,6 s de démarrage). Les compteurs, eux, sont stables d'un run à l'autre. D'où la méthode retenue pour les tâches suivantes : l'ancienne et la nouvelle build passées l'une après l'autre (`--plugin`), comparées par paire, plutôt que contre ces chiffres seuls.
+  - Bruit des captures entre deux prises d'une même build : quelques centaines de pixels (badges IMDb, RT et Metacritic qui arrivent plus ou moins vite, lissage du texte sur PC).
+
+**Vérification**
+- `node --check` (plugin, banc) : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus (`{n} episodes`, `…`).
+- Banc sur ce commit (bridé ×6, médiane de 5 runs, Accueil invité ; repos de 30 s après 15 s de stabilisation) :
+
+  | Mesure | TV | PC |
+  |---|---|---|
+  | Page prête (premier titre affiché) | 3 528 ms | 4 227 ms |
+  | Chargement du plugin | 859 ms | 1 059 ms |
+  | Repos 30 s : `sync`, `getState`, `saveLocal`, tâches longues | 0, 0, 0, 0 | 0, 0, 0, 0 |
+  | Éléments sur l'Accueil | 908 | 863 |
+  | 20 touches : médiane / p90 / pire | 56 / 88 / 104 ms | 60 / 136 / 264 ms |
+  | Parcours : `sync` | 23 fois, 566 ms | 23 fois, 622 ms |
+  | Parcours : `getState` | ctx 219, streaming_server 35, local_search 30, board 28, continue_watching_preview 14, discover 14, library 14, search 10, meta_details 9, live_tv_continue_watching 4, calendar 3, data_export 2, live_tv_guide 2 | idem, board 25 |
+  | Parcours : tâches longues | 27, 5 483 ms (pire 801) | 36, 6 315 ms (pire 810) |
+  | Erreurs de Nathflix | 0 | 0 |
+
+  `dispatch`, ajouté juste après la référence : 135 pendant le parcours (TV, 1 run), 0 au repos.
+
+- Captures `main` → T-041 (Accueil, Découvrir, fiche, Réglages) : identiques, hors bruit connu. PC : Accueil 738 px sur la ligne des badges IMDb. TV : fiche 2 795 px sur les badges RT et Metacritic. Téléphone : Accueil 967 px sur la ligne des badges IMDb. Les autres écrans : 0 px.
+- Non mesuré : la Fire TV (pas d'adb ; photos de la mesure à l'écran demandées à l'utilisateur avant la release 0.6.0).
+
+**Livraison**
+- Commits : ce commit (`perf: measurement bench (tools/perf-bench.mjs) and core/sync counters in the performance readout`)
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
 <!--
 ### T-000 — Titre court
 
@@ -1987,6 +2054,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-041 | Fait : banc `tools/perf-bench.mjs`, compteurs `perf` et mesure de référence (TV et PC). Chantier performance lancé (`docs/perf/`), T-061 et T-062 réservées aux releases 0.6.0 et 0.7.0 |
 | 2026-10-30 | T-040 | Fait : release v0.5.2 publiée (11 fichiers, APK signée vérifiée) ; T-039 à valider sur la Fire TV |
 | 2026-10-30 | T-039, T-040 | Audit de performance (rapport) puis corrections : CSS allégé et `sharpen` partout, billboard, télécommande, mode léger, mesure à l'écran ; testées (Playwright avant/après). Release 0.5.2 en cours |
 | 2026-10-30 | T-038 | Fait : release v0.5.1 publiée (dmg Mac x64 refait après une panne réseau du runner) |

@@ -63,3 +63,45 @@ Preview a few frames quickly with `--w 960 --h 540 --frames 60,120,180`.
 `profile-sync/` is the Cloudflare Worker (with a D1 database) that keeps each person's Nathflix profiles
 in step across their devices, filed under their Stremio account. Its README has the set-up steps;
 `node tools/profile-sync/test.mjs` checks it without Cloudflare.
+
+## Performance bench
+
+`perf-bench.mjs` loads web.stremio.com in Chromium with a slowed-down processor (×6 by default), runs
+Nathflix in it the way the apps do (the plugin served from a made-up web.stremio.com address, inside the
+same `StremioEnhancedAPI` wrapper as the desktop app, added again after every reload), and prints a JSON
+of what it measured: the median of the runs. Run it before and after a change, on the same machine.
+
+Playwright isn't a dependency of the repository; npx brings it. The bench uses the installed Chrome when
+Playwright's own Chromium isn't downloaded (`npx --yes playwright@1 install chromium`).
+
+```bash
+npx --yes -p playwright@1 node tools/perf-bench.mjs --tv --runs 5 --out tv.json   # or --pc, --phone
+```
+
+Each run (after one load that warms the caches, so a warm start like a TV's):
+
+- `pageReadyMs`: until Stremio's first title is on screen; `pluginLoadMs`: the plugin's load and first run;
+- 15 s to settle (`--settle`), then 30 s at rest on Home (`--idle`): `sync` (the main loop: calls and ms),
+  `getState` (core reads by model), `saveLocal` (writes of Nathflix's data), `dispatch` (actions sent to the
+  core), long tasks, number of elements;
+- 20 arrow keys 400 ms apart: `keys` (median, p90 and worst answer, from Event Timing; under 16 ms counts as 0);
+- the control walk (Discover, Library, Calendar, Settings, Home, a title's page, Home): `session` holds the
+  same counters for the whole visit. Any error from Nathflix makes the bench fail.
+
+No Stremio account: guest mode is allowed with `nathflix.allowGuest`, like the CI. `--settings '{"lightMode":"on"}'`
+sets Nathflix's settings, `--storage '{"key":"value"}'` puts entries in localStorage first. Never set
+`nathflix.lang` there: a language change reloads the page.
+
+Screenshots: `--shots dir` takes Home, Discover, a title's page and Settings, with pictures hidden and the
+billboard held still; `--compare refdir` compares them with an earlier set pixel by pixel and gives the
+number of pixels that differ and where. Rating badges that arrive late and text smoothing on a computer
+make a few hundred pixels differ between two runs of the same build. `--no-measure` takes only the
+screenshots.
+
+On guest Home nothing changes at rest, so the rest counters are usually 0: the `session` counters and the
+keys are the ones that move. Times vary a lot from one run to the next (the plugin's load from 0.4 to 1.2 s):
+to compare two builds, run both one after the other, the old one with `--plugin` (for example
+`git show HEAD:nathflix.plugin.js > old.js`).
+
+The counters are in the plugin (`perf`, `window.__nathflix.perf()`), and the performance readout setting
+shows them on the device as reads, main-loop runs and saves a minute.

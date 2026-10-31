@@ -130,6 +130,32 @@
   };
 
 
+  // ---------------------------------------------------------------------------
+  // Performance counters: how often Nathflix reads the core, runs its main loop and saves its data,
+  // for the performance readout and the measurement bench (tools/perf-bench.mjs). Plain counts, cheap
+  // enough to keep on all the time
+  // ---------------------------------------------------------------------------
+
+  const perf = {
+    since: performance.now(),
+    counts: {},
+    ms: {},
+    count(name) {
+      this.counts[name] = (this.counts[name] || 0) + 1;
+    },
+    time(name, ms) {
+      this.ms[name] = (this.ms[name] || 0) + ms;
+    },
+    snapshot() {
+      return { since: this.since, counts: { ...this.counts }, ms: { ...this.ms } };
+    },
+    reset() {
+      this.since = performance.now();
+      this.counts = {};
+      this.ms = {};
+    },
+  };
+
   // Stremio Web can drop window.core on some routes (Stremio Enhanced works around the same thing),
   // so keep the first working getState/dispatch we see and fall back to Enhanced's own copy.
   const keptCore = { getState: null, dispatch: null };
@@ -143,8 +169,13 @@
       if (!keptCore.dispatch && typeof live.dispatch === "function") keptCore.dispatch = live.dispatch.bind(live);
     }
     const perm = window.__permanentCore || {};
+    // (reads through the wrapped core are counted by viewerLibrary.patch)
+    const permGetState = perm.getState && ((model, ...rest) => {
+      perf.count("getState:" + model);
+      return perm.getState(model, ...rest);
+    });
     return {
-      getState: keptCore.getState || perm.getState || null,
+      getState: keptCore.getState || permGetState || null,
       dispatch: keptCore.dispatch || perm.dispatch || null,
     };
   }
@@ -7512,6 +7543,22 @@
       } catch (_) { /* this WebView doesn't report long tasks */ }
     },
 
+    // What Nathflix itself did, a minute at a time since the counters started
+    counters(now) {
+      const minutes = Math.max((now - perf.since) / 60000, 1 / 60);
+      const rate = (n) => Math.round(n / minutes);
+      const reads = Object.entries(perf.counts)
+        .filter(([k]) => k.startsWith("getState:"))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([k, n]) => `${k.slice(9)} ${rate(n)}`);
+      return [
+        t("Core reads a minute: {list}", { list: reads.length ? reads.join(", ") : "0" }),
+        t("Main loop: {n} times a minute, {ms} ms a minute", { n: rate(perf.counts.sync || 0), ms: rate(perf.ms.sync || 0) }),
+        t("Saves a minute: {n}", { n: rate(perf.counts.saveLocal || 0) }),
+      ];
+    },
+
     paint() {
       if (!this.el) return;
       const now = performance.now();
@@ -7529,6 +7576,7 @@
           longest: this.stalls.reduce((a, s) => Math.max(a, s.ms), 0),
         }),
         t("Page: {n} elements", { n: document.getElementsByTagName("*").length }),
+        ...this.counters(now),
       ];
       const text = lines.join("\n");
       // (written only when it changes: every write is a change to the page)
@@ -7563,9 +7611,12 @@
       steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, () => homeArrange.apply(), updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
     }
     // One failing step must never stop the others
+    const started = performance.now();
     for (const step of steps) {
       try { step(); } catch (err) { log("sync step failed", err); }
     }
+    perf.count("sync");
+    perf.time("sync", performance.now() - started);
   }
 
   // One of Nathflix's own elements (dx-…, dxe-…, dxm-… classes)
@@ -10064,6 +10115,7 @@
     },
 
     saveLocal() {
+      perf.count("saveLocal");
       try { localStorage.setItem(DATA_LOCAL, JSON.stringify(this.data)); } catch (_) { /* storage full: disk copy still saves */ }
     },
 
@@ -10328,11 +10380,13 @@
       const dispatch = live.dispatch.bind(live);
       this.dispatchRaw = dispatch;
       live.getState = async (model) => {
+        perf.count("getState:" + model);
         const state = await getState(model);
         try { if (this.on() && state && typeof state === "object") this.filter(model, state); } catch (err) { log("viewer library filter failed", err); }
         return state;
       };
       live.dispatch = (action, ...rest) => {
+        perf.count("dispatch");
         try {
           // kept with a single viewer too: a profile added later then doesn't get their titles
           const played = this.launched(action);
@@ -15344,6 +15398,8 @@
 
   const api = {
     settings,
+    // counters for the measurement bench (tools/perf-bench.mjs) and anyone curious in the console
+    perf: () => perf.snapshot(),
     // the language Nathflix speaks ("fr" or "en") and its texts, for Nathflix for Android's own screens
     lang: LANG,
     t,
@@ -16329,6 +16385,9 @@ vec4 hook() {
       "Answer to keys and taps: press a key": "Réponse aux touches : appuyez sur une touche",
       "Stuck over the last 10 s: {count} times, {total} ms in all, {longest} ms the longest": "Blocages ces 10 dernières secondes : {count}, {total} ms en tout, {longest} ms le plus long",
       "Page: {n} elements": "Page : {n} éléments",
+      "Core reads a minute: {list}": "Lectures du cœur par minute : {list}",
+      "Main loop: {n} times a minute, {ms} ms a minute": "Boucle principale : {n} fois par minute, {ms} ms par minute",
+      "Saves a minute: {n}": "Enregistrements par minute : {n}",
     };
   }
 
