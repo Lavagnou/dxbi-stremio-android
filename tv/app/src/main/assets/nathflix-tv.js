@@ -22,6 +22,7 @@
     torrentUrl: (json) => (bridge.torrentUrl ? bridge.torrentUrl(TOKEN, json) : ""),
     deviceInfo: () => { try { return JSON.parse(bridge.deviceInfo ? bridge.deviceInfo(TOKEN) : "{}"); } catch (_) { return {}; } },
     setLanguage: (lang) => { if (bridge.setLanguage) bridge.setLanguage(TOKEN, lang); },
+    launchedAt: () => { try { return bridge.launchedAt ? Number(bridge.launchedAt(TOKEN)) || 0 : 0; } catch (_) { return 0; } },
   };
 
   // Nathflix speaks French or English, as Stremio's interface does: read the way the plugin reads it
@@ -96,6 +97,8 @@
   tv.deviceInfo = () => native.deviceInfo();
   // the app plays the intro film itself (Intro.kt): the plugin's splash stays out of the way
   tv.nativeIntro = true;
+  // when the app was opened (ms since 1970; 0 from an older app): the performance readout's start-up time
+  tv.launchedAt = native.launchedAt();
 
   // ---------------------------------------------------------------------------
   // Fit the page to the screen. A TV: 1280 CSS pixels wide (a 10-foot size on any screen). A phone or

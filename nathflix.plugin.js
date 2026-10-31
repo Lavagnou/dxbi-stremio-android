@@ -7652,6 +7652,28 @@
   // on the device itself what slows it down, with no computer to inspect it from
   // ---------------------------------------------------------------------------
 
+  // How long the start took, until the page had a screen to show (SPLASH_READY, what the intro waits
+  // for): from the app's opening when Nathflix for Android says when that was (a newer app), otherwise
+  // from the page's own start. Watched from the start whether or not the readout is on
+  const startup = {
+    ms: 0,
+    fromApp: false,
+
+    watch() {
+      const tv = window.__nathflixTv;
+      const opened = tv && typeof tv.launchedAt === "number" ? tv.launchedAt : 0;
+      // (only the first page of the app counts from its opening: not one reloaded later)
+      const fromApp = opened > 0 && performance.timeOrigin - opened >= 0 && performance.timeOrigin - opened < 30000;
+      const poll = setInterval(() => {
+        if (document.querySelector(SPLASH_READY)) {
+          clearInterval(poll);
+          this.ms = Math.round(fromApp ? Date.now() - opened : performance.now());
+          this.fromApp = fromApp;
+        } else if (performance.now() > 60000) clearInterval(poll);
+      }, 50);
+    },
+  };
+
   const perfReadout = {
     el: null,
     timer: null,
@@ -7723,6 +7745,7 @@
         t("Core reads a minute: {list}", { list: reads.length ? reads.join(", ") : "0" }),
         t("Main loop: {n} times a minute, {ms} ms a minute", { n: rate(perf.counts.sync || 0), ms: rate(perf.ms.sync || 0) }),
         t("Saves a minute: {n}", { n: rate(perf.counts.saveLocal || 0) }),
+        ...(startup.ms ? [startup.fromApp ? t("Start-up: {ms} ms from the app's opening", { ms: startup.ms }) : t("Start-up: {ms} ms from the page's start", { ms: startup.ms })] : []),
       ];
     },
 
@@ -15532,6 +15555,7 @@
     const loading = loadSettings();
     splash();
     loading.finally(scheduleSync);
+    startup.watch();
     mo.observe(document.getElementById("app") || document.body, { childList: true, subtree: true });
     const titleEl = document.querySelector("title");
     if (titleEl) onTitle.observe(titleEl, { childList: true, characterData: true, subtree: true });
@@ -16597,6 +16621,8 @@ vec4 hook() {
       "Core reads a minute: {list}": "Lectures du cœur par minute : {list}",
       "Main loop: {n} times a minute, {ms} ms a minute": "Boucle principale : {n} fois par minute, {ms} ms par minute",
       "Saves a minute: {n}": "Enregistrements par minute : {n}",
+      "Start-up: {ms} ms from the app's opening": "Démarrage : {ms} ms depuis l'ouverture de l'app",
+      "Start-up: {ms} ms from the page's start": "Démarrage : {ms} ms depuis le début de la page",
     };
   }
 

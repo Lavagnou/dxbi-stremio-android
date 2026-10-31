@@ -46,8 +46,13 @@ class MainActivity : AppCompatActivity() {
     private val mobile by lazy { Device.isMobile(this) }
     private val debuggable by lazy { applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0 }
 
+    /** When this screen was opened (ms since 1970): the plugin's performance readout counts the start from it */
+    var launchedAt = 0L
+        private set
+
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
+        launchedAt = System.currentTimeMillis()
         super.onCreate(savedInstanceState)
         // A TV has no screen timeout worth keeping while browsing; a phone does (the player keeps it on)
         if (!mobile) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

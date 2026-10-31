@@ -45,6 +45,10 @@ class Bridge(private val activity: MainActivity) {
     }
 
     /** The language picked for Stremio's interface ("fr" or "en"): Nathflix's own screens follow it */
+    /** When the app's screen was opened (ms since 1970), for the plugin's start-up time */
+    @JavascriptInterface
+    fun launchedAt(token: String): Long = if (!allowed(token)) 0L else activity.launchedAt
+
     @JavascriptInterface
     fun setLanguage(token: String, lang: String) {
         if (!allowed(token)) return

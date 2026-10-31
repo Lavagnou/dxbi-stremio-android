@@ -106,6 +106,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
 | T-047 | TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger (`html.dx-light`) | Terminé | P1 | plugin, theme | T-039 | 2026-10-31 |
 | T-048 | Polices liées par le plugin, sans `@import` dans le thème intégré | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
+| T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | Bloqué | P1 | plugin, tv | T-041 | 2026-10-31 |
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
@@ -2522,8 +2523,47 @@ Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d
 - Les tâches longues du parcours (≈ 7 s) ne se comparent pas aux mesures de T-046 à T-047 (12 à 15 s) : ces runs vident le cache des épisodes, ce qui change aussi l'état de l'Accueil, et l'état du compte a pu changer entre-temps.
 
 **Livraison**
-- Commits : ce commit (`bench: a cache to rebuild at every run (--drop); T-050 not kept`)
+- Commits : `4f8d7f0`
 - Version / CHANGELOG : —
+
+### T-049 — Démarrage Android
+
+- **Statut :** Bloqué (attend des photos de la mesure à l'écran sur la Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-049)
+
+Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appareil se font par des photos de la mesure à l'écran (« Mesure des performances »), au choix de l'utilisateur.
+
+**Critères d'acceptation**
+- [x] Temps de démarrage dans la mesure à l'écran (étape 1 du plan, adaptée aux photos)
+- [ ] Référence sur la Fire TV (build Nathflix Dev), 5 lancements à chaud
+- [ ] Étapes 2 à 5 du plan essayées une à une, gardées seulement si la photo montre un gain
+
+**Notes techniques**
+- **Ligne « Démarrage »** (`startup`, juste avant `perfReadout`) : `startup.watch()` (dans `start()`) sonde toutes les 50 ms, 60 s au plus, jusqu'à ce que la page ait un écran à montrer (`SPLASH_READY`, ce qu'attend l'intro). Elle tourne même si la mesure à l'écran est coupée.
+  - Nouvelle APK : « Démarrage : N ms depuis l'ouverture de l'app », de `MainActivity.onCreate` (`launchedAt`, par le bridge) à la page prête. Seulement pour la première page de l'app (page commencée moins de 30 s après l'ouverture), pas pour une page rechargée plus tard ;
+  - APK plus ancienne (pas de `bridge.launchedAt`) : « Démarrage : N ms depuis le début de la page ».
+- **Bridge** (nouvelle méthode, les quatre points de CLAUDE.md) : `Bridge.launchedAt(token): Long` (`@JavascriptInterface`, jeton vérifié), `native.launchedAt()` dans `nathflix-tv.js` (détectée : `bridge.launchedAt ? … : 0`), règles ProGuard déjà en place pour les méthodes annotées. `nathflix-tv.js` la pose une fois dans `__nathflixTv.launchedAt` ; le plugin vérifie que c'est un nombre.
+- **Pas encore fait, et pourquoi** :
+  - étape 3 (mises à jour vérifiées après la page) : la build Dev ne vérifie jamais les mises à jour (`!debuggable`), donc l'effet ne se mesure pas avant une release. À essayer en comparant les photos d'une release ;
+  - étapes 2 (priorité du renderer), 4 (préchauffage de la WebView) et 5 (intro 720p) : chacune demande des démarrages mesurés sur l'appareil, avant et après.
+
+**Vérification**
+- `node --check` (plugin, `nathflix-tv.js`) : OK. Traductions : les deux nouveaux textes sont dans `frDictionary()` (`fr-missing.mjs` : seulement les deux faux positifs connus).
+- Dans Chrome (TV, invité, mesure à l'écran activée) : « Start-up: 1994 ms from the page's start » s'affiche (Stremio en anglais pour l'invité).
+- Kotlin : compilé par la CI `android-dev.yml` (voir le journal).
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : ce commit (`perf: start-up time in the performance readout (from the app's opening with a newer app)`)
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
 ### T-000 — Titre court
@@ -2604,6 +2644,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-049 | Temps de démarrage dans la mesure à l'écran (`Bridge.launchedAt`) ; bloqué en attendant les photos de la Fire TV |
 | 2026-10-31 | T-050 | Abandonné : l'index des épisodes coûte très peu, même cache vidé ; le départ décalé déplaçait le travail sur les touches. Banc : `--drop` |
 | 2026-10-31 | T-048 | Abandonné : le thème s'applique au même moment sans `@import`, à chaud comme à froid. Banc : `themeMs`, `fontMs`, `--cold` |
 | 2026-10-31 | T-047 | Fait : plus de grandes ombres floues sur TV et en mode léger, effets TV aussi en mode léger (`html.dx-light`) ; dessin −22 % sur TV, −29 % en mode léger sur téléphone |
