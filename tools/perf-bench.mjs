@@ -7,7 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"] [--loss-test]
+//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -39,6 +39,13 @@ const benchStorage = JSON.parse(storageArg.startsWith("@") ? readFileSync(storag
 const dwellRoutes = opt("dwell", "").split(",").filter(Boolean);
 // changes the profile and closes the page 200 ms later, three ways: is the new profile still there?
 const lossTest = flag("loss-test");
+// a second build, measured in the same browser, runs alternating with the first: { a, b } in the report
+const vsPath = opt("vs", "") ? resolve(opt("vs", "")) : "";
+// a visible window to sign in to Stremio first (by hand, in that window); the session lives in memory only
+const login = flag("login");
+if (login && lossTest) throw new Error("--loss-test adds profiles: not on a real account (--login)");
+// signed in, "Who's watching?" would cover Home at every load
+if (login && !("whoIsWatching" in benchSettings)) benchSettings.whoIsWatching = false;
 
 const source = readFileSync(pluginPath, "utf8");
 const version = (source.match(/@version\s+(\S+)/) || [])[1] || "?";
@@ -72,7 +79,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The plugin inside the same StremioEnhancedAPI wrapper as the desktop app's modController.loadPlugin,
 // with its settings kept in memory
-const pluginBody = `(function () {
+const wrap = (source) => `(function () {
   const saved = (window.__bench && window.__bench.settings) || {};
   const StremioEnhancedAPI = {
     logger: { info: (m) => console.log("[bench]", m), warn: (m) => console.warn("[bench]", m), error: (m) => console.error("[bench]", m) },
@@ -90,6 +97,8 @@ ${source}
   }
 })();
 `;
+const bodies = [wrap(source), ...(vsPath ? [wrap(readFileSync(vsPath, "utf8"))] : [])];
+let serving = 0;
 
 // Runs in every document before Stremio's scripts: the guest flag, the counters, and the plugin added
 // again after each load (a reload would drop a plugin added by hand)
@@ -148,6 +157,8 @@ function counters(a, b) {
     dispatch: (b.counts.dispatch || 0) - (a.counts.dispatch || 0),
     // time in the per-viewer library filter (only with two profiles or more)
     filterMs: round((b.ms.filter || 0) - (a.ms.filter || 0)),
+    // a build that times each step of sync() ("sync:<step>" in perf().ms): ms by step
+    syncSteps: Object.fromEntries(Object.keys(b.ms).filter((k) => k.startsWith("sync:")).map((k) => [k.slice(5), round(b.ms[k] - (a.ms[k] || 0))])),
   };
 }
 
@@ -278,9 +289,10 @@ async function measure(ctx) {
   // the whole visit, from the plugin's start: load, rest, keys and walk
   const end = await page.evaluate(() => ({ perf: window.__nathflix.perf(), longTasks: window.__bench.longTasks }));
   const tasks = (list) => ({ count: list.length, totalMs: Math.round(list.reduce((a, t) => a + t.ms, 0)), maxMs: Math.round(list.reduce((a, t) => Math.max(a, t.ms), 0)) });
-  // Two profiles or more (--storage): to another profile and back, as at "Who's watching?"
+  // Two profiles or more (--storage): to another profile and back, as at "Who's watching?" (never on
+  // a real account: the profiles are synced to it)
   let switching = null;
-  const who = await page.evaluate(() => {
+  const who = login ? null : await page.evaluate(() => {
     const v = window.__nathflix.viewers && window.__nathflix.viewers.list();
     return v && v.list.length > 1 ? { ids: v.list.map((x) => x.id), current: v.current } : null;
   });
@@ -346,6 +358,7 @@ function summarise(results) {
       saveLocal: pick((r) => r.session.saveLocal),
       dispatch: pick((r) => r.session.dispatch),
       filterMs: round(pick((r) => r.session.filterMs)),
+      syncSteps: Object.fromEntries([...new Set(results.flatMap((r) => Object.keys(r.session.syncSteps)))].map((k) => [k, round(pick((r) => r.session.syncSteps[k] || 0))]).filter(([, ms]) => ms).sort((x, y) => y[1] - x[1])),
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
     ...(results[0].switching ? {
@@ -451,15 +464,46 @@ async function compare(browser, dir, refDir) {
 const { chromium } = await playwright();
 let browser;
 try {
-  browser = await chromium.launch();
+  browser = await chromium.launch({ headless: !login });
 } catch (err) {
   // no Playwright Chromium downloaded: the installed Chrome will do
-  browser = await chromium.launch({ channel: "chrome" });
+  browser = await chromium.launch({ channel: "chrome", headless: !login });
 }
+
+// --login: the person signs in to Stremio in the window; the bench only checks that someone is signed in
+// (never reads the session key), then measures in that same context
+async function signIn(ctx) {
+  const page = await openPage(ctx, [], false);
+  await page.goto(`${ORIGIN}/#/intro`, { waitUntil: "load", timeout: 180000 });
+  console.error("Sign in to Stremio in the window that opened (and pick a profile without a code if Nathflix asks). The bench goes on by itself.");
+  const signedIn = () => page.evaluate(() => {
+    try {
+      const p = JSON.parse(localStorage.getItem("profile") || "null");
+      return !!(p && p.auth && p.auth.key);
+    } catch (_) { return false; }
+  }).catch(() => false);
+  const until = Date.now() + 15 * 60000;
+  while (!(await signedIn())) {
+    if (Date.now() > until) throw new Error("nobody signed in within 15 minutes");
+    await sleep(2000);
+  }
+  console.error("Signed in: measuring. Leave the window alone until the bench closes it.");
+  // the library, Continue Watching and the profiles come in
+  await sleep(15000);
+  await page.close();
+}
+
+let signedInCtx = null;
 async function newContext(settings) {
+  // signed in once: every measure and the screenshots then share that session
+  if (login && signedInCtx) return signedInCtx;
   const ctx = await browser.newContext(DEVICES[mode]);
-  await ctx.route(PLUGIN_URL, (route) => route.fulfill({ status: 200, contentType: "application/javascript; charset=utf-8", body: pluginBody }));
+  await ctx.route(PLUGIN_URL, (route) => route.fulfill({ status: 200, contentType: "application/javascript; charset=utf-8", body: bodies[serving] }));
   await ctx.addInitScript(initScript, { settings, storage: benchStorage, ready: READY, pluginUrl: PLUGIN_URL });
+  if (login) {
+    await signIn(ctx);
+    signedInCtx = ctx;
+  }
   // One load to warm the HTTP cache and Nathflix's own caches: the runs measure a warm start
   const warm = await openPage(ctx, [], false);
   await warm.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 180000 });
@@ -474,9 +518,12 @@ const report = {};
 try {
   if (!flag("no-measure")) {
     const ctx = await newContext(benchSettings);
-    const results = [];
+    // with --vs, each run measures both builds, one after the other, in turn first
+    const results = bodies.map(() => []);
     let retries = 0;
-    for (let i = 0; i < runs; i++) {
+    for (let i = 0, k = 0; i < runs; ) {
+      const which = bodies.length > 1 ? (i % 2 ? 1 - k : k) : 0;
+      serving = which;
       let r;
       try {
         r = await measure(ctx);
@@ -487,14 +534,24 @@ try {
         retries++;
         for (const p of ctx.pages()) await p.close().catch(() => {});
         console.error(`run ${i + 1}/${runs}: the page reloaded, run taken again`);
-        i--;
         continue;
       }
-      console.error(`run ${i + 1}/${runs}: ready ${r.pageReadyMs} ms, sync ${r.sync.calls}× ${r.sync.ms} ms, long tasks ${r.longTasks.totalMs} ms, keys ${r.keys.median} ms${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
-      results.push(r);
+      console.error(`run ${i + 1}/${runs}${bodies.length > 1 ? ` (${"ab"[which]})` : ""}: ready ${r.pageReadyMs} ms, sync ${r.sync.calls}× ${r.sync.ms} ms, long tasks ${r.longTasks.totalMs} ms, keys ${r.keys.median} ms${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
+      results[which].push(r);
+      if (bodies.length > 1 && k === 0) k = 1;
+      else { k = 0; i++; }
+      // what's measured so far, in case the bench is stopped before the end
+      if (outFile) {
+        const partial = bodies.length > 1 ? { a: results[0].length ? summarise(results[0]) : null, b: results[1].length ? summarise(results[1]) : null } : summarise(results[0]);
+        writeFileSync(outFile, JSON.stringify({ partial: true, runsDone: i, ...partial }, null, 2) + "\n");
+      }
     }
-    Object.assign(report, summarise(results), { retries });
-    await ctx.close();
+    if (bodies.length > 1) {
+      const a = summarise(results[0]), b = summarise(results[1]);
+      Object.assign(report, { mode, version, commit, runs, throttle, signedIn: login, retries, a: { plugin: pluginPath, ...a }, b: { plugin: vsPath, ...b }, errors: [...new Set([...a.errors, ...b.errors])] });
+    } else Object.assign(report, summarise(results[0]), { signedIn: login, retries });
+    serving = 0;
+    if (!login) await ctx.close();
   }
   if (shotsDir) {
     // the billboard holds still for pictures (its slide would change between two builds)

@@ -100,6 +100,15 @@ first, at every load. Never set `nathflix.lang` there: a language change reloads
 `{"nathflix.data": "{\"viewers\":{\"t\":1,\"v\":{\"list\":[{\"id\":\"main\",\"name\":\"A\"},{\"id\":\"v2\",\"name\":\"B\"}],\"current\":\"v2\"}}}"}`,
 with `--settings '{"whoIsWatching":false}'` so that "Who's watching?" doesn't cover Home.
 
+`--vs other.plugin.js` measures a second build in the same browser, the two in turn at each run (a, then
+b, then b, then a…): `a` and `b` in the report. Steadier than two benches one after the other.
+
+`--login` opens a visible window to sign in to Stremio by hand, then measures signed in, with the
+library, Continue Watching and the profiles of a real account. The session stays in that browser's
+memory: nothing is written to disk and the bench never reads the session key (it only checks that
+someone is signed in). "Who's watching?" is turned off, and nothing that changes the account runs
+(no profile switch, `--loss-test` refused): pick a profile without a code if Nathflix asks.
+
 `--loss-test` checks that a change survives the page going away: a profile is added, then chosen, and the
 page goes 200 ms later, three ways: closed normally (`unload`), sent to the background first (`hidden`,
 what Android does before it may close an app) and a crashed renderer (`abrupt`). `loss` says, for each,

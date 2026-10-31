@@ -1543,32 +1543,39 @@
     }
   }
 
-  // Measure every row first, then write: interleaving the two forced a full style recalculation
-  // per row (over a second on a big Home)
   // Each row's titles when it was last measured, and when (Stremio draws a new list when a row changes)
   const measuredRows = new WeakMap();
   const rowTrack = (row) => row.querySelector(':scope > [class*="meta-items-container"]');
 
+  // The row the mouse is on: the only one whose arrows and page dots can be seen (the theme shows them
+  // on hover), so the only one measured. Measuring makes the browser lay out the whole page: every row
+  // of a big Home, every few seconds, was over half of the main loop's time on a TV (which has no mouse)
+  let hoverRow = null;
   function updateAllArrows(force) {
     // Phones and tablets swipe their rows: no arrows (the theme hides them), nothing to measure
     if (IN_MOBILE) return;
     const rows = [...carouselRows()];
     rows.forEach(enhanceRow);
-    // Only new rows, rows whose titles changed, and the rest every few seconds (wide art can change a
-    // row's length), plus every row on a resize: measuring makes the browser lay out the whole page,
-    // and this runs on every sync (scrolling a row updates its own)
-    const now = Date.now();
-    const todo = force === true ? rows : rows.filter((row) => {
-      const track = rowTrack(row);
-      const last = track && measuredRows.get(track);
-      return track && (!last || last.count !== track.childElementCount || now - last.at > 3000);
-    });
-    const sizes = todo.map(measureRow);
-    todo.forEach((row, i) => {
-      applyArrows(row, sizes[i]);
-      const track = rowTrack(row);
-      if (track) measuredRows.set(track, { count: track.childElementCount, at: now });
-    });
+    if (!hoverRow || !hoverRow.isConnected || !rows.includes(hoverRow)) return;
+    // again when its titles changed, every few seconds (wide art can change a row's length) and on a
+    // resize (scrolling a row updates its own)
+    const track = rowTrack(hoverRow);
+    const last = track && measuredRows.get(track);
+    if (!track || (force !== true && last && last.count === track.childElementCount && Date.now() - last.at <= 3000)) return;
+    applyArrows(hoverRow, measureRow(hoverRow));
+    measuredRows.set(track, { count: track.childElementCount, at: Date.now() });
+  }
+
+  // The mouse comes onto a row: its arrows and page dots are right before they show (same event)
+  function arrowsHover(e) {
+    if (IN_MOBILE) return;
+    const row = e.target.closest && e.target.closest('[class*="meta-row-container"]');
+    if (row === hoverRow) return;
+    hoverRow = row && row.querySelector(":scope > .dx-arrow") ? row : null;
+    if (!hoverRow) return;
+    const track = rowTrack(hoverRow);
+    applyArrows(hoverRow, measureRow(hoverRow));
+    if (track) measuredRows.set(track, { count: track.childElementCount, at: Date.now() });
   }
 
   function page(row, dir) {
@@ -8121,7 +8128,10 @@
       whoIsWatching.onVisible();
     },
   };
-  const onOver = (e) => preview.onOver(e);
+  const onOver = (e) => {
+    arrowsHover(e);
+    preview.onOver(e);
+  };
   const onSheetClick = (e) => titleSheet.onClick(e);
   const onOut = (e) => preview.onOut(e);
   const onHash = () => { document.body.classList.remove("dx-discover-picked"); coreMeta.touchRoute(); updateRoute(); scheduleSync(); };

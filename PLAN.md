@@ -103,6 +103,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-043 | « Se termine à » et calendrier mémorisés | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-044 | Filtre de la bibliothèque par profil allégé | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-045 | Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
+| T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2261,7 +2262,67 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Non vérifié : la Fire TV.
 
 **Livraison**
-- Commits : ce commit (`Who's watching? shows straight after the intro, without Home for a moment first`)
+- Commits : `cf8d198`
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-046 — Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte
+
+- **Statut :** Terminé
+- **Priorité :** P0
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-046 : `sync()` ciblé par zone)
+>
+> Tu peux me laisser me connecter sur le banc ? Comme ça tu peux tester sur un compte connecté
+
+**Critères d'acceptation**
+- [x] Banc connecté au compte de l'utilisateur, sans garder la session
+- [x] Coût de chaque étape de `sync()` mesuré sur ce compte
+- [x] L'étape la plus chère réduite, sans changement visible (survol des flèches identique, captures)
+- [ ] ~~`sync()` découpé par zone~~ : remplacé, voir les notes
+
+**Notes techniques**
+- **Banc connecté** (`--login`) : fenêtre visible, l'utilisateur se connecte lui-même. Contexte Chromium privé (en mémoire, rien sur le disque). Le banc vérifie seulement qu'un `profile.auth.key` existe dans `localStorage`, sans jamais le lire ni le renvoyer. « Qui regarde ? » coupé (`whoIsWatching: false`), rien qui modifie le compte (`switching` sauté, `--loss-test` refusé). Les autres ajouts :
+  - `--vs autre.plugin.js` : deux builds dans la même session, en alternance (a, b, puis b, a…), `a` et `b` dans le rapport ;
+  - `syncSteps` : temps par étape de `sync()` quand le build les chronomètre (`perf.time("sync:<étape>")`, copie de diagnostic non commitée) ;
+  - résultats enregistrés après chaque run (`partial`), pour ne pas tout perdre si le banc est arrêté.
+- **Ce que montre le vrai compte** (TV bridée ×6, médiane de 5 runs) :
+  - l'Accueil compte environ 7 000 éléments (908 en invité) ;
+  - **au repos, rien du tout** (30 s sur l'Accueil, la fiche d'un film, le calendrier : 0 passage de `sync`, 0 lecture, 0 tâche longue). La lenteur vient des moments où la page change ;
+  - sur le parcours : `sync` 30 fois, 2,5 s ; tâches longues 42, 14,6 s (pire 1,06 s) ; `board` lu 90 fois (surtout par Stremio) ; filtre par profil 0,25 s ;
+  - T-042 sur ce compte (avant → après) : lectures de `discover`, `library` et `continue_watching_preview` 15, 14, 15 → 6, 4, 8 ; les temps restent dans le bruit.
+- **Coût des étapes de `sync()`** sur ce compte (parcours, 3 runs) : `updateAllArrows` 1 600 ms (60 %), `syncCards` 600 ms (22 %), `communitySync` 151 ms, `episodePlay` 103 ms, le reste (23 étapes) ≈ 330 ms.
+- **Pourquoi pas le découpage par zone du plan** : deux étapes font 82 % du coût. Les traiter directement rapporte presque tout, sans le risque du découpage (point de vigilance 1 : une zone mal classée fait disparaître un élément). Le découpage n'aurait plus à gagner que ≈ 1 s sur le parcours.
+- **`updateAllArrows`** : les flèches et les traits de page ne se voient qu'au survol de la souris (thème : opacité 0, `:hover`). Le plugin mesurait pourtant toutes les rangées (`scrollWidth`, `offsetTop`…), une fois toutes les 3 s à chaque passage de `sync`. Chaque mesure force la mise en page de toute la page. Maintenant :
+  - `hoverRow` : la rangée sous la souris, posée par `arrowsHover` (dans `onOver`, au `mouseover`) qui la mesure dans le même événement, avant l'affichage des flèches ;
+  - `updateAllArrows` crée toujours les flèches de toutes les rangées (`enhanceRow`), mais ne mesure plus que `hoverRow` (titres changés, toutes les 3 s, redimensionnement) ;
+  - le défilement d'une rangée la mesure comme avant (`arrowsSoon`).
+- **Restent à voir** : `syncCards` (550 ms, réparti sur des centaines de cartes) et surtout les tâches longues hors de Nathflix-JS (≈ 12 s sur le parcours : rendu de Stremio et recalculs de style) → T-047, T-048, T-054.
+
+**Vérification**
+- `node --check` (plugin, banc) : OK. Aucun texte nouveau.
+- Banc connecté au compte de l'utilisateur, TV bridée ×6, 5 runs de chaque en alternance, chronomètre par étape dans les deux :
+
+  | Sur tout le parcours | Avant | Après |
+  |---|---|---|
+  | `updateAllArrows` | 1 370 ms | 82 ms |
+  | Boucle principale (`sync`) | 30 fois, 2,48 s | 31 fois, 1,14 s |
+  | Tâches longues | 43, 14,8 s (pire 1,07 s) | 39, 13,3 s (pire 1,06 s) |
+  | Tâches longues, run par run | 15,2 / 15,8 / 14,2 / 14,7 / 14,8 s | 15,1 / 13,3 / 12,2 / 14,3 / 13,2 s |
+  | Touches : médiane / pire | 40 / 56 ms | 40 / 56 ms |
+  | Erreurs de Nathflix | 0 | 0 |
+
+- Survol sur PC (`arrows-check.mjs`, scratchpad) : état des flèches et des traits (cachées, opacité, `top`, `height`, nombre de traits, trait actif) identique avant et après sur trois rangées, et après un clic sur « suivant ».
+- Captures avant/après (invité ; Accueil, Découvrir, fiche, Réglages) : TV identique ; PC et téléphone : seulement le bruit connu des badges (le téléphone ne passe même pas par ce code).
+- Non vérifié : la Fire TV (photo de la mesure à l'écran à demander avant la release 0.6.0).
+
+**Livraison**
+- Commits : ce commit (`perf: row arrows measured only for the row under the mouse; bench signed in to a real account (--login, --vs)`)
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
@@ -2343,6 +2404,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-046 | Fait : banc connecté au compte de l'utilisateur (`--login`, `--vs`) ; au repos Nathflix ne fait rien, la boucle principale coûte surtout dans la mesure des flèches des rangées → mesurées seulement au survol (boucle 2,48 → 1,14 s sur le parcours) |
 | 2026-10-31 | T-064 | Créée et corrigée : cache noir pendant que « Qui est-ce ? » se prépare (Accueil visible 0 ms au lieu de ≈ 0,4 s sur PC) ; à valider sur la Fire TV |
 | 2026-10-31 | T-045 | Abandonné : une écriture de moins par visite sur le banc, et une perte possible si le renderer plante ; à reprendre si la Fire TV montre beaucoup d'enregistrements. Banc : `switching`, `--loss-test` |
 | 2026-10-31 | T-044 | Abandonné : le filtre par profil coûte quelques ms par minute (27 → 20 ms en TV bridée, 8 → 10 ms sur PC). Gardé : son chronomètre (`filterMs`) |
