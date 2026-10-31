@@ -7,6 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}'] [--shots dir] [--compare refdir] [--no-measure]
+//       [--dwell "#/route,#/other"]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -32,6 +33,8 @@ const shotsDir = opt("shots", "");
 const compareDir = opt("compare", "");
 const benchSettings = JSON.parse(opt("settings", "{}"));
 const benchStorage = JSON.parse(opt("storage", "{}"));
+// after the walk, rest on these routes too (a title's page, the calendar…) and count what happens there
+const dwellRoutes = opt("dwell", "").split(",").filter(Boolean);
 
 const source = readFileSync(pluginPath, "utf8");
 const version = (source.match(/@version\s+(\S+)/) || [])[1] || "?";
@@ -222,8 +225,18 @@ async function measure(ctx) {
   } else errors.push("control walk: no title on Home");
   // the whole visit, from the plugin's start: load, rest, keys and walk
   const end = await page.evaluate(() => ({ perf: window.__nathflix.perf(), longTasks: window.__bench.longTasks }));
-  await page.close();
   const tasks = (list) => ({ count: list.length, totalMs: Math.round(list.reduce((a, t) => a + t.ms, 0)), maxMs: Math.round(list.reduce((a, t) => Math.max(a, t.ms), 0)) });
+  // At rest on other routes: counted from 5 s after arriving, for as long as the rest on Home
+  const dwell = {};
+  for (const route of dwellRoutes) {
+    await page.evaluate((r) => { location.hash = r; }, route);
+    await sleep(5000);
+    const from = await page.evaluate(() => ({ perf: window.__nathflix.perf(), at: performance.now() }));
+    await sleep(idleMs);
+    const to = await page.evaluate(() => ({ perf: window.__nathflix.perf(), at: performance.now(), longTasks: window.__bench.longTasks }));
+    dwell[route] = { ...counters(from.perf, to.perf), longTasks: tasks(to.longTasks.filter((t) => t.at >= from.at && t.at < to.at)) };
+  }
+  await page.close();
 
   return {
     pageReadyMs: Math.round(load.pageReadyMs),
@@ -233,6 +246,7 @@ async function measure(ctx) {
     elements: after.elements,
     keys: { median: Math.round(median(keyMs)), p90: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] || 0), worst: Math.round(sorted[sorted.length - 1] || 0), pressed: keyMs.length },
     session: { ...counters({ counts: {}, ms: {} }, end.perf), longTasks: tasks(end.longTasks) },
+    dwell,
     errors,
   };
 }
@@ -263,6 +277,18 @@ function summarise(results) {
       dispatch: pick((r) => r.session.dispatch),
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
+    ...(dwellRoutes.length ? {
+      dwell: Object.fromEntries(dwellRoutes.map((route) => {
+        const at = (r) => r.dwell[route];
+        return [route, {
+          sync: { calls: pick((r) => at(r).sync.calls), ms: round(pick((r) => at(r).sync.ms)) },
+          getState: Object.fromEntries([...new Set(results.flatMap((r) => Object.keys(at(r).getState)))].sort().map((m) => [m, pick((r) => at(r).getState[m] || 0)])),
+          saveLocal: pick((r) => at(r).saveLocal),
+          dispatch: pick((r) => at(r).dispatch),
+          longTasks: { count: pick((r) => at(r).longTasks.count), totalMs: pick((r) => at(r).longTasks.totalMs), maxMs: pick((r) => at(r).longTasks.maxMs) },
+        }];
+      })),
+    } : {}),
     errors: [...new Set(results.flatMap((r) => r.errors))],
     perRun: results.map((r) => ({ pageReadyMs: r.pageReadyMs, pluginLoadMs: r.pluginLoadMs, idleSyncMs: r.sync.ms, sessionSyncMs: r.session.sync.ms, sessionLongTasksMs: r.session.longTasks.totalMs, keysMedian: r.keys.median, elements: r.elements })),
   };
@@ -369,12 +395,25 @@ try {
   if (!flag("no-measure")) {
     const ctx = await newContext(benchSettings);
     const results = [];
+    let retries = 0;
     for (let i = 0; i < runs; i++) {
-      const r = await measure(ctx);
+      let r;
+      try {
+        r = await measure(ctx);
+      } catch (err) {
+        // the page reloaded under the bench (it happens now and then while Stremio starts): that run
+        // is taken again, twice at most, and the report says so
+        if (retries >= 2 || !/context was destroyed|navigat/i.test(String(err && err.message))) throw err;
+        retries++;
+        for (const p of ctx.pages()) await p.close().catch(() => {});
+        console.error(`run ${i + 1}/${runs}: the page reloaded, run taken again`);
+        i--;
+        continue;
+      }
       console.error(`run ${i + 1}/${runs}: ready ${r.pageReadyMs} ms, sync ${r.sync.calls}× ${r.sync.ms} ms, long tasks ${r.longTasks.totalMs} ms, keys ${r.keys.median} ms${r.errors.length ? `, ${r.errors.length} errors` : ""}`);
       results.push(r);
     }
-    Object.assign(report, summarise(results));
+    Object.assign(report, summarise(results), { retries });
     await ctx.close();
   }
   if (shotsDir) {

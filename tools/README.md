@@ -86,7 +86,10 @@ Each run (after one load that warms the caches, so a warm start like a TV's):
   core), long tasks, number of elements;
 - 20 arrow keys 400 ms apart: `keys` (median, p90 and worst answer, from Event Timing; under 16 ms counts as 0);
 - the control walk (Discover, Library, Calendar, Settings, Home, a title's page, Home): `session` holds the
-  same counters for the whole visit. Any error from Nathflix makes the bench fail.
+  same counters for the whole visit. Any error from Nathflix makes the bench fail;
+- with `--dwell "#/route,#/other"` (a title's page, the calendar…), a rest on each after the walk, as long as the
+  rest on Home: `dwell` holds their counters, by route. In Git Bash, set `MSYS_NO_PATHCONV=1` first: it
+  otherwise turns `#/detail/…` into a Windows path.
 
 No Stremio account: guest mode is allowed with `nathflix.allowGuest`, like the CI. `--settings '{"lightMode":"on"}'`
 sets Nathflix's settings, `--storage '{"key":"value"}'` puts entries in localStorage first. Never set
@@ -101,7 +104,8 @@ screenshots.
 On guest Home nothing changes at rest, so the rest counters are usually 0: the `session` counters and the
 keys are the ones that move. Times vary a lot from one run to the next (the plugin's load from 0.4 to 1.2 s):
 to compare two builds, run both one after the other, the old one with `--plugin` (for example
-`git show HEAD:nathflix.plugin.js > old.js`).
+`git show HEAD:nathflix.plugin.js > old.js`). A run during which the page reloads is taken again (twice at
+most; `retries` in the report).
 
 The counters are in the plugin (`perf`, `window.__nathflix.perf()`), and the performance readout setting
 shows them on the device as reads, main-loop runs and saves a minute.

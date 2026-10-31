@@ -100,6 +100,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-040 | Release 0.5.2 (performances) | Terminé | P0 | release, tv, plugin, app | T-039 | 2026-10-30 |
 | T-041 | Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran | Terminé | P1 | plugin, tools | T-039 | 2026-10-31 |
 | T-042 | `coreMeta` piloté par les événements du cœur (`coreEvents`) | Terminé | P1 | plugin | T-041 | 2026-10-31 |
+| T-043 | « Se termine à » et calendrier mémorisés | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2065,8 +2066,54 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Non vérifié : les cartes de survol sur PC (non couvertes par les captures ; elles lisent `coreMeta.get`, toujours rempli à l'arrivée sur l'Accueil), un vrai compte (bibliothèque, Continuer à regarder), la Fire TV.
 
 **Livraison**
-- Commits : ce commit (`perf: coreMeta reads a model only when the core says it changed (coreEvents), known paths instead of a recursive walk`)
+- Commits : `f2315ff`
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-043 — « Se termine à » et calendrier mémorisés
+
+- **Statut :** Abandonné (pas de gain mesurable)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-042
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-043)
+
+**Critères d'acceptation**
+- [ ] ~~`endsAt` et `calendarFill` ne lisent le cœur qu'une fois par film ou par mois~~ : essayé, pas gardé
+- [x] Banc : repos sur d'autres routes (`--dwell`), run repris si la page se recharge
+
+**Notes techniques**
+- **Essai** (non gardé) :
+  - `endsAt` gardait les minutes restantes du film (`memo`), relues seulement pour un autre film, après un événement `meta_details` (`coreEvents.on`), ou au retour du lecteur (`invalidate()` dans `updateRoute`) ;
+  - `calendarFill` gardait ce que le cœur dit du mois (`memo`, clé `location.hash`), avec les mêmes conditions sur `calendar`.
+- **Pourquoi aucun gain** :
+  - `endsAt.ensure()` et `calendarFill.ensure()` ne tournent que dans `sync()`, et `sync()` ne tourne que si la page change. Au repos sur la fiche ou le calendrier : 0 passage, avant comme après. Le plan supposait une lecture « par sync » au repos : ce n'est pas le cas ;
+  - quand la fiche change (flux qui arrivent, bibliothèque), le cœur envoie aussi `NewState` `meta_details` : le mémo est invalidé et relu de toute façon. Il n'épargne que les passages causés par d'autres changements, rares sur cette page.
+- **Banc** :
+  - `--dwell "#/route,#/autre"` : après le parcours, un repos sur chaque route (5 s d'arrivée, puis la durée de `--idle`), compteurs dans `dwell` par route ;
+  - un run pendant lequel la page se recharge (une fois, `Execution context was destroyed` dans `closeModals`) est repris, deux fois au plus (`retries` dans le rapport) ;
+  - **piège** : Git Bash change `#/detail/…` en chemin Windows (`#C:/Program Files/Git/detail/…`). Lancer avec `MSYS_NO_PATHCONV=1` (noté dans `tools/README.md`).
+
+**Vérification**
+- Banc TV (bridé ×6, médiane de 5 runs, avant/après l'essai) :
+
+  | Mesure | Avant | Après (essai) |
+  |---|---|---|
+  | `getState` `meta_details` sur le parcours | 9 | 8 |
+  | `getState` `calendar` sur le parcours | 3 | 3 |
+  | Repos 20 s sur la fiche d'un film : `sync`, `meta_details` | 0, 0 | 0, 0 (1 run chacun) |
+  | Repos 20 s sur le calendrier | 0 passage | 0 passage |
+
+  Une lecture de moins sur un parcours qui en compte environ 400 : pas de gain mesurable. Le code du plugin est retiré ; le banc garde `--dwell` et la reprise des runs.
+- Captures avec l'essai : identiques à avant (hors bruit des badges), sans objet une fois le code retiré.
+
+**Livraison**
+- Commits : ce commit (`bench: rest on other routes (--dwell), a run taken again when the page reloads; T-043 not kept`)
+- Version / CHANGELOG : —
 
 <!--
 ### T-000 — Titre court
@@ -2147,6 +2194,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-043 | Abandonné : « Se termine à » et calendrier ne lisent le cœur que pendant `sync()`, qui ne tourne pas au repos ; mémo sans gain mesurable (9 → 8 lectures sur le parcours). Banc : `--dwell`, reprise des runs |
 | 2026-10-31 | T-042 | Fait : `coreEvents` (enveloppe de `window.onCoreEvent`), `coreMeta` ne lit plus que les modèles changés de la route : lectures divisées par deux sur le parcours |
 | 2026-10-31 | T-063 | Fait : bouton « Lecture » aligné sur ses voisins (PC, TV) |
 | 2026-10-31 | T-041 | Fait : banc `tools/perf-bench.mjs`, compteurs `perf` et mesure de référence (TV et PC). Chantier performance lancé (`docs/perf/`), T-061 et T-062 réservées aux releases 0.6.0 et 0.7.0 |
