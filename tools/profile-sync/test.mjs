@@ -59,6 +59,8 @@ check(r.json.entries.some((e) => e.k === "homeRows:v2"), "since: later changes c
 
 r = await sync("key-u1", { since: 0, entries: [{ k: "played:v2", t: Date.now(), v: { tt1: Date.now() } }] });
 check(r.status === 200, "what each viewer played is kept (played:<viewer>)");
+r = await sync("key-u1", { since: 0, entries: [{ k: "settings", t: Date.now(), v: { accent: { v: "blue", t: Date.now() } } }] });
+check(r.status === 200, "Nathflix's settings are kept (settings)");
 r = await sync("key-u1", { since: 0, entries: [{ k: "nathflix.meta.tt1", t: Date.now(), v: {} }] });
 check(r.status === 400, "keys Nathflix doesn't sync are refused");
 r = await sync("key-u1", { since: 0, entries: [{ k: "stats:v2", t: Date.now(), v: "x".repeat(110 * 1024) }] });

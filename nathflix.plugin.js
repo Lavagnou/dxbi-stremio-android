@@ -549,7 +549,7 @@
     { key: "watchStats", type: "toggle", label: t("Watch stats"), description: t("Counts how long you watch (on this PC only). See them under your profile menu → Your stats."), defaultValue: DEFAULTS.watchStats },
     { key: "whoIsWatching", type: "toggle", label: t("Ask who's watching"), description: t("Choose your profile when Nathflix opens, when you come back to it and on Home after a film. Each profile has its own library, Continue Watching, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
     { key: "profileLock", type: "select", label: t("Lock profiles after inactivity"), description: t("After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security."), defaultValue: DEFAULTS.profileLock, options: [{ label: t("Never"), value: "off" }, { label: t("After {n} minutes", { n: 5 }), value: "5" }, { label: t("After {n} minutes", { n: 15 }), value: "15" }, { label: t("After {n} minutes", { n: 30 }), value: "30" }, { label: t("After 1 hour"), value: "60" }] },
-    { key: "profileSync", type: "toggle", label: t("Sync profiles with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account. They're kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
+    { key: "profileSync", type: "toggle", label: t("Sync profiles and settings with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC, HDR subtitles and your TMDB and MDBList keys. It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
     { key: "backgroundPlay", type: "toggle", label: t("Keep playing in the background"), description: t("The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification."), defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
     { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true },
@@ -656,17 +656,22 @@
     applyAccent();
     applyLight();
     applySubtitleStyle();
-    API.onSettingsSaved((all) => {
-      Object.assign(settings, normalise(all));
-      persistSettings();
-      builtInTheme.ensure();
-      subtitlesStart.apply().catch(() => { /* core busy */ });
-      applyAccent();
-      applyLight();
-      applySubtitleStyle();
-      hero.reset();
-      scheduleSync();
-    });
+    settingsSync.seen = { ...settings };
+    API.onSettingsSaved(settingsSaved);
+  }
+
+  // Settings saved (any settings screen, Nathflix's own choices, or settings from the account)
+  function settingsSaved(all) {
+    Object.assign(settings, normalise(all));
+    settingsSync.noted();
+    persistSettings();
+    builtInTheme.ensure();
+    subtitlesStart.apply().catch(() => { /* core busy */ });
+    applyAccent();
+    applyLight();
+    applySubtitleStyle();
+    hero.reset();
+    scheduleSync();
   }
 
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
@@ -7842,8 +7847,73 @@
   // Worker only, which checks it with Stremio and never keeps it
   // ---------------------------------------------------------------------------
 
-  // What's synced: the profiles and their choices, never caches or this device's settings
-  const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|(homeRows|hidden|cwDismissed|stats|played):[\w-]{1,40})$/;
+  // Nathflix's settings follow the account too (key "settings": { setting: { v, t } }), the ones changed
+  // by hand only: a setting nobody touched on any device stays at each device's own default. The latest
+  // change of each setting wins. Some stay on each device: they depend on its hardware or set-up, or
+  // are keys of the person's own
+  let settingsReady = Promise.resolve();
+  const settingsSync = {
+    LOCAL: new Set(["lightMode", "perfOverlay", "profileSync", "builtInTheme", "convertVideo", "enhance", "tvTorrents", "trailers", "trailerDelay", "externalPlayer", "hdrSubtitles", "tmdbKey", "mdblistKey"]),
+    // the settings as last seen, to tell what a save changed (some code sets a value before saving it)
+    seen: null,
+
+    // After a save (from any settings screen, or Nathflix's own): what was changed by hand goes out
+    noted() {
+      const before = this.seen;
+      this.seen = { ...settings };
+      if (!before) return;
+      const synced = store.get("settings", null) || {};
+      const next = { ...synced };
+      let any = false;
+      for (const key of Object.keys(DEFAULTS)) {
+        if (this.LOCAL.has(key) || before[key] === settings[key]) continue;
+        // (a value that just came from another device isn't sent back as a change of this one)
+        if (synced[key] && synced[key].v === settings[key]) continue;
+        next[key] = { v: settings[key], t: Date.now() };
+        any = true;
+      }
+      if (any) store.set("settings", next);
+    },
+
+    merge(a, b) {
+      const out = { ...(a && typeof a === "object" ? a : {}) };
+      for (const [key, x] of Object.entries(b && typeof b === "object" ? b : {})) {
+        if (!x || typeof x !== "object" || !(key in DEFAULTS)) continue;
+        if (!out[key] || Number(x.t) > Number(out[key].t)) out[key] = x;
+      }
+      return out;
+    },
+
+    same(a, b) {
+      const ka = Object.keys(a || {});
+      return ka.length === Object.keys(b || {}).length && ka.every((k) => b[k] && a[k].t === b[k].t && a[k].v === b[k].v);
+    },
+
+    // Settings changed on another device: saved here as if changed here (once this device's are loaded)
+    async apply() {
+      await settingsReady;
+      const synced = store.get("settings", null) || {};
+      const changes = [];
+      for (const [key, x] of Object.entries(synced)) {
+        if (this.LOCAL.has(key) || !(key in DEFAULTS) || !x) continue;
+        const value = normalise({ [key]: x.v })[key];
+        if (settings[key] !== value) changes.push([key, value]);
+      }
+      if (!changes.length) return;
+      log(`settings from the account: ${changes.map(([key]) => key).join(", ")}`);
+      // saved on the device first (where there's somewhere to save them), then applied here at once:
+      // not every settings store says when the plugin itself saved something
+      if (API) {
+        for (const [key, value] of changes) {
+          try { await API.saveSetting(key, value); } catch (_) { /* next sync */ }
+        }
+      }
+      settingsSaved({ ...settings, ...Object.fromEntries(changes) });
+    },
+  };
+
+  // What's synced: the profiles and their choices, and Nathflix's settings (settingsSync), never caches
+  const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|settings|(homeRows|hidden|cwDismissed|stats|played):[\w-]{1,40})$/;
   const SYNC_MAX_VALUE = 100 * 1024;
 
   const cloudSync = {
@@ -8043,6 +8113,20 @@
           changed.add(e.k);
           continue;
         }
+        // Nathflix's settings: setting by setting, the one changed last wins
+        if (e.k === "settings" && e.v && typeof e.v === "object") {
+          const merged = settingsSync.merge(mine && mine.v, e.v);
+          const same = (a, b) => settingsSync.same(a, b);
+          if (mine && same(merged, mine.v)) {
+            if (!same(merged, e.v)) this.dirty.add(e.k);
+            continue;
+          }
+          const ours = !same(merged, e.v);
+          store.put(e.k, { t: ours ? Date.now() : Math.max(e.t, mine ? mine.t : 0), v: merged });
+          if (ours) this.dirty.add(e.k);
+          changed.add(e.k);
+          continue;
+        }
         // What a viewer played: on either device, so it's in their Continue Watching on both
         if (/^played:/.test(e.k) && mine && mine.v && e.v && typeof e.v === "object") {
           const merged = { ...e.v };
@@ -8077,6 +8161,7 @@
       if (any(/^(viewers|kidsAllow|hidden:)/)) hero.reset();
       navAvatar.ensure();
       if (whoIsWatching.el) whoIsWatching.render();
+      if (changed.has("settings")) settingsSync.apply();
       scheduleSync();
     },
 
@@ -8089,7 +8174,7 @@
       if (!this.lastOk) return t("Waiting for a connection to sync your profiles…");
       const min = Math.floor((Date.now() - this.lastOk) / 60000);
       const when = min < 1 ? t("just now") : min < 60 ? t("{n} min ago", { n: min }) : t("{n} h ago", { n: Math.floor(min / 60) });
-      return t("Profiles synced with your Stremio account · {when}", { when });
+      return t("Profiles and settings synced with your Stremio account · {when}", { when });
     },
 
     // Signing in (or to another account) doesn't reload the page: without this, the account's profiles
@@ -15574,7 +15659,7 @@
     // …and the app's picture-in-picture window (see miniPlayer)
     miniPlayer.init();
     // loadSettings applies the cached settings synchronously, so the intro sees the right accent/sound
-    const loading = loadSettings();
+    const loading = (settingsReady = loadSettings());
     splash();
     loading.finally(scheduleSync);
     startup.watch();
@@ -16348,8 +16433,8 @@ vec4 hook() {
       "Undo": "Annuler",
       "Set a parental PIN": "Définir un code parental",
       "Parental PIN": "Code parental",
-      "Sync profiles with my Stremio account": "Synchroniser les profils avec mon compte Stremio",
-      "Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) follow you on every device signed in to the same Stremio account. They're kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back.": "Vos profils (avec leurs avatars, codes, rangées de l'Accueil, titres masqués et statistiques) vous suivent sur tous les appareils connectés au même compte Stremio. Ils sont gardés sur le serveur de synchronisation de Nathflix, sous votre compte ; les codes ne partent que sous une forme illisible.",
+      "Sync profiles and settings with my Stremio account": "Synchroniser les profils et les réglages avec mon compte Stremio",
+      "Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC, HDR subtitles and your TMDB and MDBList keys. It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back.": "Vos profils (avec leurs avatars, codes, rangées de l'Accueil, titres masqués et statistiques) et les réglages de Nathflix que vous changez vous suivent sur tous les appareils connectés au même compte Stremio. Quelques-uns restent propres à chaque appareil\u00a0: mode léger, mesure des performances, apparence intégrée, conversion vidéo et upscaler du PC, torrents sur TV, bandes-annonces des cartes, mpv ou VLC, sous-titres HDR et vos clés TMDB et MDBList. Tout est gardé sur le serveur de synchronisation de Nathflix, sous votre compte\u00a0; les codes ne partent que sous une forme illisible.",
       "Sign in to Stremio to sync your profiles": "Connectez-vous à Stremio pour synchroniser vos profils",
       "Sign in to Stremio again to sync your profiles": "Reconnectez-vous à Stremio pour synchroniser vos profils",
       "Your profiles are too big to sync": "Vos profils sont trop volumineux pour être synchronisés",
@@ -16357,7 +16442,7 @@ vec4 hook() {
       "just now": "à l'instant",
       "{n} min ago": "il y a {n} min",
       "{n} h ago": "il y a {n} h",
-      "Profiles synced with your Stremio account · {when}": "Profils synchronisés avec votre compte Stremio · {when}",
+      "Profiles and settings synced with your Stremio account · {when}": "Profils et réglages synchronisés avec votre compte Stremio · {when}",
       "Add profile": "Ajouter un profil",
       "Edit": "Modifier",
       "Manage profiles": "Gérer les profils",

@@ -114,6 +114,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
+| T-066 | Réglages de Nathflix synchronisés avec le compte Stremio | À valider | P1 | plugin, tools | T-027 | 2026-10-31 |
 
 ---
 
@@ -2604,7 +2605,52 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la lecture réelle d'une source (compte avec extensions de flux) ; pas testé sur le compte de l'utilisateur pour ne pas lancer de film à sa place (sa progression changerait).
 
 **Livraison**
-- Commits : ce commit (`Play on a film's page opened without its streams (the billboard's More Info, some catalogs)`)
+- Commits : `6f318d3`
+- Version / CHANGELOG : 0.6.0 (T-061)
+
+### T-066 — Réglages de Nathflix synchronisés avec le compte Stremio
+
+- **Statut :** À valider (sur deux appareils de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin, tools
+- **Dépend de :** T-027
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> J'aimerais que mes paramètres de Nathflix dans l'app soient synchronisés avec mon compte. Je veux que les paramètres modifiés se reporte sur les autres appareils.
+
+**Critères d'acceptation**
+- [x] Un réglage changé sur un appareil arrive sur les autres appareils du même compte
+- [x] Seuls les réglages changés à la main partent ; le plus récent gagne, réglage par réglage
+- [x] Les réglages propres à un appareil restent sur l'appareil
+- [x] Pas d'aller-retour : un réglage reçu n'est pas renvoyé comme un changement local
+- [x] Worker redéployé avant la publication du plugin
+- [ ] Vérifié sur deux appareils de l'utilisateur
+
+**Notes techniques**
+- **Entrée synchronisée `settings`** : `{ réglage: { v, t } }`, avec seulement les réglages changés à la main. Un réglage que personne n'a touché reste à la valeur par défaut de chaque appareil (par exemple les bandes-annonces, coupées par défaut sur TV). Ajoutée à `SYNCED` (plugin) et `KEY` (`tools/profile-sync/worker.js`).
+- **`settingsSync`** (juste avant `SYNCED`) :
+  - `noted()` : appelé à chaque enregistrement (`settingsSaved()`, l'ancien gestionnaire de `onSettingsSaved`, qui reçoit tous les réglages sur TV, sur l'app desktop et dans Stremio Enhanced). Compare avec `seen` (les réglages vus la dernière fois) plutôt qu'avec `settings`, que du code modifie parfois avant d'enregistrer (« Ne plus me demander »). Une valeur égale à celle reçue du compte n'est pas renvoyée ;
+  - `merge()` / `same()` : la fusion de `cloudSync.merge` pour `settings`, réglage par réglage (le `t` le plus récent gagne) ; un réglage inconnu de cette version est ignoré ;
+  - `apply()` : après une fusion qui change `settings`, une fois les réglages de l'appareil chargés (`settingsReady`) : enregistre les réglages reçus sur l'appareil (`API.saveSetting`), puis les applique tout de suite (`settingsSaved`), sans attendre que l'environnement prévienne.
+- **`LOCAL`** (restent sur chaque appareil) : `lightMode`, `perfOverlay`, `profileSync`, `builtInTheme`, `convertVideo`, `enhance`, `tvTorrents`, `trailers`, `trailerDelay`, `externalPlayer`, `hdrSubtitles`, `tmdbKey`, `mdblistKey`. Ils dépendent du matériel ou de l'installation, ou ce sont des clés personnelles, qui ne partent pas vers le serveur.
+- **Textes** : le réglage devient « Synchroniser les profils et les réglages avec mon compte Stremio », sa description dit ce qui reste sur l'appareil ; l'état devient « Profils et réglages synchronisés… ». Traduits.
+- **Ordre de publication** (CLAUDE.md) : le Worker refuse toute la requête pour une seule clé inconnue. Il est redéployé avant que le plugin parte sur `main`, que Stremio Enhanced et les installeurs prennent directement.
+
+**Vérification**
+- `node --check` (plugin, Worker) : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus.
+- `node tools/profile-sync/test.mjs` : tous les contrôles passent, dont le nouveau « Nathflix's settings are kept (settings) ».
+- Deux appareils simulés (deux navigateurs Chrome, le vrai code du Worker en mémoire sur SQLite, un compte de test ; `settings-sync-e2e.mjs`, scratchpad) :
+  - A change l'accent (rouge → bleu) et passe en mode léger ; A envoie ses réglages ;
+  - B reçoit l'accent bleu, l'enregistre dans ses propres réglages, garde son mode léger (`auto`), et ne renvoie rien ;
+  - B coupe le billboard et l'envoie ; A, relancé, le reçoit et garde son accent et son mode léger.
+- Non vérifié : deux vrais appareils de l'utilisateur (ce test n'a pas touché à son compte).
+
+**Livraison**
+- Commits : ce commit (`Nathflix's settings follow the Stremio account: the ones changed by hand, newest wins, device settings stay put`)
+- Worker : redéployé (`npx wrangler deploy`) avant de pousser ce commit
 - Version / CHANGELOG : 0.6.0 (T-061)
 
 <!--
@@ -2686,6 +2732,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-066 | Créée et faite : réglages synchronisés avec le compte (clé `settings`, le plus récent gagne, réglages d'appareil exclus) ; testée sur deux appareils simulés avec le Worker en local |
 | 2026-10-31 | T-065 | Créée et corrigée : « Lecture » sur les pages de films sans vidéo dans l'adresse ; `navigate()` relance la boucle de Nathflix |
 | 2026-10-31 | T-049 | Temps de démarrage dans la mesure à l'écran (`Bridge.launchedAt`) ; bloqué en attendant les photos de la Fire TV |
 | 2026-10-31 | T-050 | Abandonné : l'index des épisodes coûte très peu, même cache vidé ; le départ décalé déplaçait le travail sur les touches. Banc : `--drop` |
