@@ -109,7 +109,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | Bloqué | P1 | plugin, tv | T-041 | 2026-10-31 |
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
-| T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | En cours | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
+| T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
@@ -2655,7 +2655,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 ### T-061 — Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-042 à T-066
@@ -2671,8 +2671,8 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 **Critères d'acceptation**
 - [x] `@version 0.6.0`, section `## 0.6.0` du CHANGELOG, `node tools/bundle-theme.mjs`
 - [x] Worker de synchronisation redéployé avant la publication (clé `settings`, T-066)
-- [ ] CI verte, tag `v0.6.0`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 600, plugin embarqué en 0.6.0
+- [x] CI verte, tag `v0.6.0`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 600, plugin embarqué en 0.6.0
 
 **Notes techniques**
 - **Contenu** :
@@ -2686,11 +2686,19 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 **Vérification**
 - `node --check` (plugin, `nathflix-tv.js`, Worker), `node tools/profile-sync/test.mjs` : OK.
 - Résultats du chantier sur le compte de l'utilisateur (TV bridée ×6, parcours du banc) : voir T-046, T-054 et T-047 (lectures du cœur ÷ 2, boucle de Nathflix 2,5 → 1,1 s, Accueil 7 000 → 4 600 éléments, pire tâche longue 1,1 → 0,6 s, dessin −22 %).
-- —
+- CI sur `5a8332f` : Cross-platform, mpv Windows et build Android de test verts.
+- Tag `v0.6.0` sur `5a8332f` ; run « Release » 41247091622 : tous les jobs verts du premier coup (publication, APK, Windows, Mac ×2, Linux ×2).
+- `gh release view v0.6.0` : les 11 fichiers, les mêmes noms que pour la 0.5.2.
+- APK :
+  - `apksigner` : `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b`, identique à l'APK 0.5.2 ;
+  - `aapt2` : versionCode 600, versionName 0.6.0 ;
+  - plugin embarqué en 0.6.0 ; `nathflix-tv.js` avec `launchedAt`.
+- Worker `nathflix-profiles` redéployé avant la publication (version `3bcdbda6`) : `OPTIONS /sync` 204, `POST` sans session ou avec une session inconnue 401.
+- Non vérifié : la Fire TV et un téléphone avec cette release.
 
 **Livraison**
-- Commits : ce commit (`0.6.0: …`)
-- Release : —
+- Commits : `5a8332f` (0.6.0)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.6.0
 
 <!--
 ### T-000 — Titre court
@@ -2771,6 +2779,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-061 | Fait : release v0.6.0 publiée (11 fichiers, APK signée vérifiée, versionCode 600) |
 | 2026-10-31 | T-061 | Release 0.6.0 en cours : version montée, CHANGELOG ; Worker redéployé (clé `settings`) |
 | 2026-10-31 | T-066 | Créée et faite : réglages synchronisés avec le compte (clé `settings`, le plus récent gagne, réglages d'appareil exclus) ; testée sur deux appareils simulés avec le Worker en local |
 | 2026-10-31 | T-065 | Créée et corrigée : « Lecture » sur les pages de films sans vidéo dans l'adresse ; `navigate()` relance la boucle de Nathflix |
