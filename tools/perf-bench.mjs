@@ -131,7 +131,7 @@ const median = (xs) => {
 };
 const round = (x) => Math.round(x * 10) / 10;
 
-// Counts between two perf() snapshots: { sync: { calls, ms }, getState: { model: n }, saveLocal, dispatch }
+// Counts between two perf() snapshots: { sync: { calls, ms }, getState: { model: n }, saveLocal, dispatch, filterMs }
 function counters(a, b) {
   const getState = {};
   for (const [k, n] of Object.entries(b.counts)) {
@@ -142,6 +142,8 @@ function counters(a, b) {
     getState,
     saveLocal: (b.counts.saveLocal || 0) - (a.counts.saveLocal || 0),
     dispatch: (b.counts.dispatch || 0) - (a.counts.dispatch || 0),
+    // time in the per-viewer library filter (only with two profiles or more)
+    filterMs: round((b.ms.filter || 0) - (a.ms.filter || 0)),
   };
 }
 
@@ -266,6 +268,7 @@ function summarise(results) {
     getState: Object.fromEntries([...models].sort().map((m) => [m, pick((r) => r.getState[m] || 0)])),
     saveLocal: pick((r) => r.saveLocal),
     dispatch: pick((r) => r.dispatch),
+    filterMs: round(pick((r) => r.filterMs)),
     longTasks: { count: pick((r) => r.longTasks.count), totalMs: pick((r) => r.longTasks.totalMs), maxMs: pick((r) => r.longTasks.maxMs) },
     elements: pick((r) => r.elements),
     keys: { median: pick((r) => r.keys.median), p90: pick((r) => r.keys.p90), worst: pick((r) => r.keys.worst) },
@@ -275,6 +278,7 @@ function summarise(results) {
       getState: Object.fromEntries([...new Set(results.flatMap((r) => Object.keys(r.session.getState)))].sort().map((m) => [m, pick((r) => r.session.getState[m] || 0)])),
       saveLocal: pick((r) => r.session.saveLocal),
       dispatch: pick((r) => r.session.dispatch),
+      filterMs: round(pick((r) => r.session.filterMs)),
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
     ...(dwellRoutes.length ? {
@@ -285,6 +289,7 @@ function summarise(results) {
           getState: Object.fromEntries([...new Set(results.flatMap((r) => Object.keys(at(r).getState)))].sort().map((m) => [m, pick((r) => at(r).getState[m] || 0)])),
           saveLocal: pick((r) => at(r).saveLocal),
           dispatch: pick((r) => at(r).dispatch),
+          filterMs: round(pick((r) => at(r).filterMs)),
           longTasks: { count: pick((r) => at(r).longTasks.count), totalMs: pick((r) => at(r).longTasks.totalMs), maxMs: pick((r) => at(r).longTasks.maxMs) },
         }];
       })),

@@ -10501,7 +10501,13 @@
       live.getState = async (model) => {
         perf.count("getState:" + model);
         const state = await getState(model);
-        try { if (this.on() && state && typeof state === "object") this.filter(model, state); } catch (err) { log("viewer library filter failed", err); }
+        try {
+          if (this.on() && state && typeof state === "object") {
+            const started = performance.now();
+            this.filter(model, state);
+            perf.time("filter", performance.now() - started);
+          }
+        } catch (err) { log("viewer library filter failed", err); }
         return state;
       };
       live.dispatch = (action, ...rest) => {

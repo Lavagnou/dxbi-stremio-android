@@ -101,6 +101,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-041 | Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran | Terminé | P1 | plugin, tools | T-039 | 2026-10-31 |
 | T-042 | `coreMeta` piloté par les événements du cœur (`coreEvents`) | Terminé | P1 | plugin | T-041 | 2026-10-31 |
 | T-043 | « Se termine à » et calendrier mémorisés | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
+| T-044 | Filtre de la bibliothèque par profil allégé | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2112,7 +2113,50 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Captures avec l'essai : identiques à avant (hors bruit des badges), sans objet une fois le code retiré.
 
 **Livraison**
-- Commits : ce commit (`bench: rest on other routes (--dwell), a run taken again when the page reloads; T-043 not kept`)
+- Commits : `c00a828`
+- Version / CHANGELOG : —
+
+### T-044 — Filtre de la bibliothèque par profil allégé
+
+- **Statut :** Abandonné (pas de gain mesurable)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-042
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-044)
+
+**Critères d'acceptation**
+- [ ] ~~`viewerLibrary.filter` : spectateurs lus une fois par appel, chemins connus~~ : essayé, pas gardé
+- [x] Mesure du filtre : `perf.time("filter")` dans le plugin, `filterMs` dans le banc
+
+**Notes techniques**
+- **Essai** (non gardé) :
+  - étape 1 : `me`, `owners` et `base` lus une fois au début de `filter()`, et une fermeture `mine` passée à `inProgress(mine)` et à `unmark` ;
+  - étape 2 : `unmarkKnown(model, s, all, mine)` sur les chemins de `coreMeta.collectKnown` (`board`, `search`, `discover`) et `metaItem.content.content` + `videos[]` pour `meta_details`, la marche récursive en repli ;
+  - étape 3 (court-circuit quand rien n'a changé) écartée d'emblée : chaque `getState` renvoie un état neuf du Worker, qu'il faut filtrer à chaque fois.
+- **Pourquoi aucun gain** : le filtre ne coûte presque rien. `store.get` est une simple lecture d'objet, et l'Accueil compte quelques dizaines de titres par lecture. Sur tout le parcours, avec deux profils : environ 27 ms en TV bridée ×6 (≈ 4 ms réels), 8 ms sur PC.
+- **Gardé** : le chronomètre autour de `filter()` dans l'enveloppe de `viewerLibrary.patch` (`perf.time("filter", …)`, seulement avec deux profils ou plus) et `filterMs` dans le banc (repos, parcours, `dwell`). Il mesure le filtre sur l'appareil, par `window.__nathflix.perf()`.
+- **Banc avec deux profils** : `--storage` pose `nathflix.data` avec `viewers` (`main` et `v2`, `current: "v2"`), `--settings '{"whoIsWatching":false}'` pour que « Qui regarde ? » ne couvre pas l'Accueil.
+
+**Vérification**
+- Banc avant/après (deux profils, bridé ×6, médiane de 5 runs, sur tout le parcours) :
+
+  | Mesure | TV avant → après | PC avant → après |
+  |---|---|---|
+  | Temps dans `filter` | 27,2 → 19,6 ms | 8,4 → 10,4 ms |
+  | Boucle principale | 22 fois, 413 ms → 20 fois, 361 ms | 16 fois, 140 ms → 15 fois, 142 ms |
+  | Tâches longues | 19, 3 089 ms → 18, 2 606 ms | 8, 665 ms → 6, 464 ms |
+  | Erreurs de Nathflix | 0 → 0 | 0 → 0 |
+
+  Quelques millisecondes par minute, dans le bruit (le PC monte même un peu) : pas de gain mesurable, le code de l'essai est retiré.
+- Captures avec l'essai (deux profils) : identiques, hors bruit des badges. Sans objet une fois le code retiré.
+
+**Livraison**
+- Commits : ce commit (`perf: time the per-viewer library filter (filterMs in the bench); T-044 not kept`)
 - Version / CHANGELOG : —
 
 <!--
@@ -2194,6 +2238,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-044 | Abandonné : le filtre par profil coûte quelques ms par minute (27 → 20 ms en TV bridée, 8 → 10 ms sur PC). Gardé : son chronomètre (`filterMs`) |
 | 2026-10-31 | T-043 | Abandonné : « Se termine à » et calendrier ne lisent le cœur que pendant `sync()`, qui ne tourne pas au repos ; mémo sans gain mesurable (9 → 8 lectures sur le parcours). Banc : `--dwell`, reprise des runs |
 | 2026-10-31 | T-042 | Fait : `coreEvents` (enveloppe de `window.onCoreEvent`), `coreMeta` ne lit plus que les modèles changés de la route : lectures divisées par deux sur le parcours |
 | 2026-10-31 | T-063 | Fait : bouton « Lecture » aligné sur ses voisins (PC, TV) |

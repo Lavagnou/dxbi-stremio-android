@@ -83,7 +83,8 @@ Each run (after one load that warms the caches, so a warm start like a TV's):
 - `pageReadyMs`: until Stremio's first title is on screen; `pluginLoadMs`: the plugin's load and first run;
 - 15 s to settle (`--settle`), then 30 s at rest on Home (`--idle`): `sync` (the main loop: calls and ms),
   `getState` (core reads by model), `saveLocal` (writes of Nathflix's data), `dispatch` (actions sent to the
-  core), long tasks, number of elements;
+  core), `filterMs` (time in the per-viewer library filter: two profiles or more), long tasks, number of
+  elements;
 - 20 arrow keys 400 ms apart: `keys` (median, p90 and worst answer, from Event Timing; under 16 ms counts as 0);
 - the control walk (Discover, Library, Calendar, Settings, Home, a title's page, Home): `session` holds the
   same counters for the whole visit. Any error from Nathflix makes the bench fail;
