@@ -1054,18 +1054,25 @@
     }
   }
 
-  // TV: every Home row's catalog is asked for as Home opens. Stremio otherwise fetches each one as
-  // it scrolls into view, and rebuilding Home for it mid-scroll froze a TV stick for up to a second.
+  // TV: Home's first rows are asked for as Home opens, and the next ones a few rows ahead of the
+  // remote. Stremio otherwise fetches each one as it scrolls into view, and rebuilding Home for it
+  // mid-scroll froze a TV stick for up to a second; asking for every row at once instead made Home
+  // seven times bigger (7,000 elements on a real account), and Stremio redrew all of it at each change.
   const homeRows = {
     timer: null,
+    // rows asked for as Home opens; then, when fewer than LOW are ready below the selected row, the
+    // next BATCH at once (each answer rebuilds Home: one row at a time made every press wait for it)
+    FIRST: 6,
+    LOW: 3,
+    BATCH: 6,
 
-    // (force: elsewhere than a TV, when Home's rows are in another order than Stremio's)
+    // (force: every row, on any device, when Home's rows are in another order than Stremio's)
     preload(tries = 4, force = false) {
       if (!IN_TV && !force) return;
       clearTimeout(this.timer);
       this.timer = setTimeout(async () => {
-        const { getState, dispatch } = core();
-        if (!getState || !dispatch || currentRoute() !== "board") return;
+        const { getState } = core();
+        if (!getState || currentRoute() !== "board") return;
         let board;
         try { board = await getState("board"); } catch (_) { /* not loaded yet */ }
         const count = board && Array.isArray(board.catalogs) ? board.catalogs.length : 0;
@@ -1073,9 +1080,31 @@
           if (tries > 1) this.preload(tries - 1, force);
           return;
         }
-        if (board.catalogs.every((c) => c && c.content)) return;
-        dispatch({ action: "CatalogsWithExtra", args: { action: "LoadRange", args: { start: 0, end: count } } }, "board");
+        this.load(board, force ? count : this.FIRST);
       }, 1500);
+    },
+
+    // The remote went down to the row at `index` among Home's rows: the next few are asked for
+    async ahead(index) {
+      if (!IN_TV || document.querySelector(".dx-rows-arranged")) return;
+      const { getState } = core();
+      if (!getState || currentRoute() !== "board") return;
+      let board;
+      try { board = await getState("board"); } catch (_) { return; }
+      const catalogs = Array.isArray(board && board.catalogs) ? board.catalogs : [];
+      const ready = catalogs.findIndex((c) => !c || !c.content);
+      if (ready < 0 || ready - index > this.LOW) return;
+      this.load(board, ready + this.BATCH);
+    },
+
+    // Rows up to `end` that nobody asked for yet, in one go (each answer rebuilds Home once)
+    load(board, end) {
+      const { dispatch } = core();
+      const catalogs = board && Array.isArray(board.catalogs) ? board.catalogs : [];
+      end = Math.min(end, catalogs.length);
+      const start = catalogs.findIndex((c) => !c || !c.content);
+      if (!dispatch || start < 0 || start >= end) return;
+      dispatch({ action: "CatalogsWithExtra", args: { action: "LoadRange", args: { start, end } } }, "board");
     },
   };
 
@@ -3375,6 +3404,8 @@
         }
         const rows = this.rows();
         const target = rows[rows.indexOf(row) + dy];
+        // TV: the rows below are asked for before the remote gets there
+        if (dy > 0) homeRows.ahead(rows.indexOf(row) + 1);
         if (target) {
           this.toRow(target, this.rest(card).x, e);
           return;

@@ -7,7 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login]
+//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -43,6 +43,10 @@ const lossTest = flag("loss-test");
 const vsPath = opt("vs", "") ? resolve(opt("vs", "")) : "";
 // a visible window to sign in to Stremio first (by hand, in that window); the session lives in memory only
 const login = flag("login");
+// a browser trace of the keys and the walk (first run of each build): where the main thread's time goes
+const traceOn = flag("trace");
+// after the keys, Down this many times down Home's rows, 700 ms apart: the row reached each time
+const descendN = Math.max(0, parseInt(opt("descend", "0"), 10) || 0);
 if (login && lossTest) throw new Error("--loss-test adds profiles: not on a real account (--login)");
 // signed in, "Who's watching?" would cover Home at every load
 if (login && !("whoIsWatching" in benchSettings)) benchSettings.whoIsWatching = false;
@@ -241,7 +245,45 @@ async function loss() {
   return out;
 }
 
-async function measure(ctx) {
+// The trace's main-thread time by kind of work, and script time by script. Durations include what
+// they call (a script that forces a layout counts it too); style and layout are counted on their own
+const TRACED = { UpdateLayoutTree: "style", Layout: "layout", Paint: "paint", PrePaint: "prepaint", Layerize: "layerize", ParseHTML: "parseHTML", ParseAuthorStyleSheet: "parseCSS", MinorGC: "gc", MajorGC: "gc" };
+function traceSummary(buffer) {
+  const events = JSON.parse(buffer.toString("utf8")).traceEvents || [];
+  const threads = new Map();
+  for (const e of events) if (e.ph === "M" && e.name === "thread_name") threads.set(`${e.pid}:${e.tid}`, e.args && e.args.name);
+  const main = (e) => threads.get(`${e.pid}:${e.tid}`) === "CrRendererMain";
+  const work = {};
+  const scripts = {};
+  // only the outermost script event of each stack (nested calls would count twice), named after the
+  // first script it runs (an event or a timer names none itself)
+  const SCRIPT = new Set(["FunctionCall", "EvaluateScript", "TimerFire", "EventDispatch", "FireAnimationFrame", "RunMicrotasks", "FireIdleCallback"]);
+  const urlOf = (e) => {
+    const d = (e.args && e.args.data) || {};
+    const url = String(d.url || d.scriptName || (d.stackTrace && d.stackTrace[0] && d.stackTrace[0].url) || "");
+    if (!url) return "";
+    return url.includes("__nathflix") ? "nathflix" : url.replace(/^https?:\/\/[^/]+/, "").replace(/[?#].*$/, "").slice(-60);
+  };
+  let current = null;
+  let scriptEnd = 0;
+  const flush = () => { if (current) scripts[current.name || current.kind] = (scripts[current.name || current.kind] || 0) + current.ms; };
+  const sorted = events.filter((e) => e.ph === "X" && typeof e.dur === "number" && main(e)).sort((a, b) => a.ts - b.ts);
+  for (const e of sorted) {
+    const kind = TRACED[e.name];
+    if (kind) work[kind] = (work[kind] || 0) + e.dur / 1000;
+    if (!SCRIPT.has(e.name)) continue;
+    if (e.ts >= scriptEnd) {
+      flush();
+      current = { kind: e.name, ms: e.dur / 1000, name: urlOf(e) };
+      scriptEnd = e.ts + e.dur;
+    } else if (current && !current.name) current.name = urlOf(e);
+  }
+  flush();
+  const rounded = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Math.round(v)]).filter(([, v]) => v).sort((a, b) => b[1] - a[1]).slice(0, 12));
+  return { work: rounded(work), scripts: rounded(scripts) };
+}
+
+async function measure(ctx, trace = false) {
   const errors = [];
   const page = await openPage(ctx, errors, true);
   await page.goto(`${ORIGIN}/#/`, { waitUntil: "load", timeout: 180000 });
@@ -255,6 +297,8 @@ async function measure(ctx) {
   await sleep(idleMs);
   const after = await page.evaluate(() => ({ perf: window.__nathflix.perf(), at: performance.now(), longTasks: window.__bench.longTasks, elements: document.getElementsByTagName("*").length }));
   const idleTasks = after.longTasks.filter((t) => t.at >= before.at && t.at < after.at);
+
+  if (trace) await browser.startTracing(page, { categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "v8"] });
 
   // 20 key presses, 400 ms apart
   const keys = [...Array(2).fill("ArrowDown"), ...Array(10).fill("ArrowRight"), ...Array(4).fill("ArrowLeft"), ...Array(2).fill("ArrowUp"), ...Array(2).fill("ArrowDown")];
@@ -270,6 +314,31 @@ async function measure(ctx) {
     return own.reduce((m, e) => Math.max(m, e.ms), 0);
   }));
   const sorted = [...keyMs].sort((a, b) => a - b);
+
+  // Down Home's rows: where the selection is after each press (its row among Home's rows, in screen
+  // order), how long each press took, and how big Home has grown by the end
+  let descend = null;
+  if (descendN) {
+    await page.evaluate(() => { window.__bench.presses = []; });
+    const rows = [];
+    for (let i = 0; i < descendN; i++) {
+      await page.keyboard.press("ArrowDown");
+      await sleep(700);
+      rows.push(await page.evaluate(() => {
+        const row = document.activeElement && document.activeElement.closest && document.activeElement.closest('[class*="meta-row-container"]');
+        const all = [...document.querySelectorAll('[class*="board-content-"]:not([class*="board-content-container"]) [class*="meta-row-container"]')]
+          .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+        return row ? all.indexOf(row) : -1;
+      }));
+    }
+    await sleep(1000);
+    const ms = await page.evaluate(() => window.__bench.presses.map((at) => {
+      const own = window.__bench.events.filter((e) => /^key(down|up)$/.test(e.name) && e.at >= at - 1 && e.at - at < 650);
+      return Math.round(own.reduce((m, e) => Math.max(m, e.ms), 0));
+    }));
+    const stalls = rows.filter((r, i) => i && r === rows[i - 1]).length;
+    descend = { rows, stalls, keys: { median: Math.round(median(ms)), worst: Math.max(0, ...ms) }, elements: await page.evaluate(() => document.getElementsByTagName("*").length) };
+  }
 
   // The control walk: every main screen, a title's page and back, without an error from Nathflix
   for (const route of ["#/discover", "#/library", "#/calendar", "#/settings", "#/"]) {
@@ -288,6 +357,7 @@ async function measure(ctx) {
   } else errors.push("control walk: no title on Home");
   // the whole visit, from the plugin's start: load, rest, keys and walk
   const end = await page.evaluate(() => ({ perf: window.__nathflix.perf(), longTasks: window.__bench.longTasks }));
+  const traced = trace ? traceSummary(await browser.stopTracing()) : null;
   const tasks = (list) => ({ count: list.length, totalMs: Math.round(list.reduce((a, t) => a + t.ms, 0)), maxMs: Math.round(list.reduce((a, t) => Math.max(a, t.ms), 0)) });
   // Two profiles or more (--storage): to another profile and back, as at "Who's watching?" (never on
   // a real account: the profiles are synced to it)
@@ -327,6 +397,8 @@ async function measure(ctx) {
     keys: { median: Math.round(median(keyMs)), p90: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] || 0), worst: Math.round(sorted[sorted.length - 1] || 0), pressed: keyMs.length },
     session: { ...counters({ counts: {}, ms: {} }, end.perf), longTasks: tasks(end.longTasks) },
     switching,
+    descend,
+    traced,
     dwell,
     errors,
   };
@@ -361,6 +433,15 @@ function summarise(results) {
       syncSteps: Object.fromEntries([...new Set(results.flatMap((r) => Object.keys(r.session.syncSteps)))].map((k) => [k, round(pick((r) => r.session.syncSteps[k] || 0))]).filter(([, ms]) => ms).sort((x, y) => y[1] - x[1])),
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
+    ...(results[0].traced ? { traced: results[0].traced } : {}),
+    ...(results[0].descend ? {
+      descend: {
+        stalls: pick((r) => r.descend.stalls),
+        keys: { median: pick((r) => r.descend.keys.median), worst: pick((r) => r.descend.keys.worst) },
+        elements: pick((r) => r.descend.elements),
+        rows: results.map((r) => r.descend.rows.join(" ")),
+      },
+    } : {}),
     ...(results[0].switching ? {
       switching: {
         sync: { calls: pick((r) => r.switching.sync.calls), ms: round(pick((r) => r.switching.sync.ms)) },
@@ -526,7 +607,7 @@ try {
       serving = which;
       let r;
       try {
-        r = await measure(ctx);
+        r = await measure(ctx, traceOn && !results[which].length);
       } catch (err) {
         // the page reloaded under the bench (it happens now and then while Stremio starts): that run
         // is taken again, twice at most, and the report says so

@@ -104,6 +104,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-044 | Filtre de la bibliothèque par profil allégé | Abandonné | P2 | plugin, tools | T-042 | 2026-10-31 |
 | T-045 | Données de Nathflix écrites au plus une fois par seconde, statistiques toutes les 60 s | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
+| T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2322,7 +2323,65 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Non vérifié : la Fire TV (photo de la mesure à l'écran à demander avant la release 0.6.0).
 
 **Livraison**
-- Commits : ce commit (`perf: row arrows measured only for the row under the mouse; bench signed in to a real account (--login, --vs)`)
+- Commits : `70242bf`
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-054 — Accueil TV : rangées chargées à l'approche de la télécommande, par paquets
+
+- **Statut :** Terminé
+- **Priorité :** P0
+- **Cible :** plugin, tools
+- **Dépend de :** T-046
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> (chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-054, phase 2)
+
+Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d'après la trace sur son compte : l'interface de Stremio pèse 9,9 s sur 13,7 s de tâches longues, pour un Accueil de 7 000 éléments. Plugin seul : elle entre dans la release 0.6.0.
+
+**Critères d'acceptation**
+- [x] Sur TV, l'Accueil ne demande plus toutes ses rangées à l'ouverture
+- [x] Les rangées sont prêtes avant que la télécommande y arrive : descente de 10 rangées sans blocage ni saut
+- [x] Ordre personnalisé (« Organiser l'Accueil ») et autres appareils inchangés
+- [x] Moins de tâches longues, pas de touche plus lente (banc connecté)
+
+**Notes techniques**
+- **Avant** : `homeRows.preload()` demandait, 1,5 s après l'ouverture de l'Accueil sur TV, les catalogues de **toutes** les rangées (`CatalogsWithExtra` / `LoadRange` de 0 à `count`). Il avait été ajouté parce que Stremio va chercher chaque rangée en arrivant dessus, et la reconstruction de l'Accueil en plein défilement figeait la clé jusqu'à une seconde. Sur un vrai compte (24 rangées et plus), l'Accueil atteignait 7 000 éléments, que Stremio redessinait à chaque changement.
+- **Maintenant** (`homeRows`) :
+  - à l'ouverture, `FIRST` (6) rangées seulement ;
+  - `ahead(index)`, appelé par `keyNav.fromCard` à chaque Bas sur une rangée : si moins de `LOW` (3) rangées sont prêtes sous la sélection, les `BATCH` (6) suivantes d'un coup ;
+  - `load(board, end)` demande de la première rangée pas encore demandée jusqu'à `end`, en un seul `LoadRange` ;
+  - avec `force` (ordre personnalisé, `dx-rows-arranged`, tous appareils) : toutes, comme avant ; `ahead` ne fait rien dans ce cas.
+- **Premier essai écarté** : 5 rangées au départ, puis toujours 4 d'avance. Chaque Bas demandait alors une rangée de plus, donc une reconstruction de l'Accueil par appui : 64 petites tâches longues au lieu de 39, pire touche 56 → 104 ms. Les paquets de 6 règlent ça.
+- **Banc** :
+  - `--trace` : trace du navigateur pendant les touches et le parcours (premier run de chaque build) ; `traced.work` = temps du fil principal par type de travail (style, mise en page, couches, peinture…), `traced.scripts` = temps de script par fichier (l'événement le plus externe, au nom du premier script qu'il lance) ;
+  - `--descend N` : N fois Bas sur l'Accueil, 700 ms d'écart ; rangée atteinte à chaque appui (`rows`, `stalls`), temps des touches, taille de l'Accueil à la fin.
+
+**Vérification**
+- `node --check` (plugin, banc) : OK. Aucun texte nouveau.
+- Banc connecté au compte de l'utilisateur, TV bridée ×6, 5 runs de chaque en alternance :
+
+  | | Avant | Après |
+  |---|---|---|
+  | Éléments sur l'Accueil | 6 902 | 4 610 |
+  | Tâches longues sur le parcours | 42, 14,9 s | 67, 12,6 s |
+  | Tâches longues, run par run | 14,9 / 14,8 / 15,7 / 14,7 / 15,7 s | 12,6 / 12,0 / 12,7 / 12,1 / 12,8 s |
+  | Pire tâche longue | 1 126 ms | 585 ms |
+  | 20 touches : médiane / p90 / pire | 40 / 56 / 96 ms | 32 / 48 / 48 ms |
+  | Descente de 10 rangées : rangées atteintes | une par appui, 0 blocage | une par appui, 0 blocage |
+  | Descente : touches médiane / pire | 64 / 112 ms | 56 / 120 ms |
+  | Accueil après la descente | 6 923 éléments | 5 227 éléments |
+  | Trace : scripts de Stremio / de Nathflix | 10,8 / 2,4 s | 10,7 / 2,2 s |
+  | Erreurs de Nathflix | 0 | 0 |
+
+  Le pire de la descente varie de 72 à 120 ms d'une mesure à l'autre, avant comme après : bruit.
+- Captures avant/après (invité ; Accueil, Découvrir, fiche, Réglages) : identiques, hors bruit (lissage d'un titre de rangée sur PC, badges RT et Metacritic). En invité l'Accueil n'a que 6 rangées : toutes demandées dès l'ouverture, comme avant.
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : ce commit (`perf: Home's rows on TV load ahead of the remote, six at a time, not all at once`)
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
@@ -2404,6 +2463,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-054 | Avancée et faite : Accueil TV chargé par paquets de 6 rangées devant la télécommande (7 000 → 4 600 éléments, tâches longues 14,9 → 12,6 s, pire 1,1 → 0,6 s). Banc : `--trace`, `--descend` |
 | 2026-10-31 | T-046 | Fait : banc connecté au compte de l'utilisateur (`--login`, `--vs`) ; au repos Nathflix ne fait rien, la boucle principale coûte surtout dans la mesure des flèches des rangées → mesurées seulement au survol (boucle 2,48 → 1,14 s sur le parcours) |
 | 2026-10-31 | T-064 | Créée et corrigée : cache noir pendant que « Qui est-ce ? » se prépare (Accueil visible 0 ms au lieu de ≈ 0,4 s sur PC) ; à valider sur la Fire TV |
 | 2026-10-31 | T-045 | Abandonné : une écriture de moins par visite sur le banc, et une perte possible si le renderer plante ; à reprendre si la Fire TV montre beaucoup d'enregistrements. Banc : `switching`, `--loss-test` |

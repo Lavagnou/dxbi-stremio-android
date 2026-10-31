@@ -103,6 +103,12 @@ with `--settings '{"whoIsWatching":false}'` so that "Who's watching?" doesn't co
 `--vs other.plugin.js` measures a second build in the same browser, the two in turn at each run (a, then
 b, then b, then a…): `a` and `b` in the report. Steadier than two benches one after the other.
 
+`--trace` records a browser trace of the keys and the walk (first run of each build): `traced.work` is
+the main thread's time by kind of work (style, layout, layers, paint…), `traced.scripts` the script time by
+script (Stremio's, Nathflix's). `--descend N` presses Down N times down Home after the keys: `descend`
+says which row was reached each time (a stall is a press that didn't move), how long the presses took
+and how big Home has grown.
+
 `--login` opens a visible window to sign in to Stremio by hand, then measures signed in, with the
 library, Continue Watching and the profiles of a real account. The session stays in that browser's
 memory: nothing is written to disk and the bench never reads the session key (it only checks that
