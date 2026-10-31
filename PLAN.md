@@ -106,6 +106,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
+| T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 
 ---
 
@@ -2214,8 +2215,54 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Machine chargée pendant ces mesures (Android Studio, WSL : environ 1,2 Go de RAM libre) : les temps ne sont pas comparés, seulement les comptes.
 
 **Livraison**
-- Commits : ce commit (`bench: profile switch (switching), loss test, --storage @file; T-045 not kept`)
+- Commits : `f3eb847`
 - Version / CHANGELOG : —
+
+### T-064 — L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture
+
+- **Statut :** À valider (sur la Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-034
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> Juste en attendant, il y a un bug que j'ai en général quand j'ouvre l'app, juste après l'intro je tombe sur la page d'accueil qui s'affiche pendant une seconde avant que le choix du profil s'affiche. Corrige ce bug pour que ça affiche directement le choix du profil et pas que l'accueil soit visible pendant une seconde avant que le choix du profil apparaisse.
+
+**Critères d'acceptation**
+- [x] Après l'intro, « Qui est-ce ? » directement, sans voir l'Accueil
+- [x] Rien ne change quand le choix n'est pas proposé (« Ne plus me demander », pas connecté)
+- [ ] Vérifié sur la Fire TV
+
+**Notes techniques**
+- **Cause** :
+  - l'intro native (`Intro.finish` → `MainActivity.pageReady`) s'efface dès que l'Accueil est là (`PAGE_READY`). Elle ne sait rien du choix du profil ;
+  - `whoIsWatching.maybeShow` n'ouvre le choix qu'après `store.ready`, la lecture de `ctx` (profils Stremio) et l'attente de `.dx-splash` (sondée toutes les 250 ms) ;
+  - puis `.dxe-who` apparaît en fondu (opacité, 0,3 s), avec l'Accueil visible dessous.
+- **Correction** (plugin seul, donc aussi avec l'APK actuelle) :
+  - `whoIsWatching.hold(start)` pose un cache noir `.dxe-who-hold` (`EXTRAS_CSS`, `z-index` juste sous `.dxe-who`) au début de `maybeShow`, avant toute attente, et seulement si le choix va s'afficher (mêmes conditions : connecté, route, réglage `whoIsWatching` ou profil avec code au démarrage) ;
+  - `release()` le retire 350 ms après l'ouverture (fin du fondu), ou tout de suite si le choix ne s'affiche pas (profils Stremio, lecteur…). `maybeShow` le retire dans un `finally`, et un délai de 12 s le retire de toute façon ;
+  - le noir prolonge la fin de l'intro. Il vaut aussi pour les autres ouvertures de `maybeShow` (retour dans l'app après 5 s, Accueil après un film).
+- **Déjà là, non modifié** : au tout premier démarrage d'un appareil (aucune copie `nathflix.settings`), `maybeShow` peut partir avant `loadSettings()` et proposer le choix même si « Ne plus me demander » est coché sur le compte. Les démarrages suivants lisent la copie.
+
+**Vérification**
+- `node --check` : OK. Aucun texte nouveau.
+- Test dans Chrome (copie de test du plugin qui se croit connectée, 3 runs, chaque image échantillonnée : Accueil affiché, sans écran de chargement, sans cache noir, avant que `.dxe-who` soit entièrement opaque) :
+
+  | | Accueil visible avant « Qui est-ce ? », avant → après |
+  |---|---|
+  | TV (UA `nathflix-tv`, 1280×720) | 475, 475, 483 ms → 0, 0, 0 |
+  | PC (1600×900) | 351, 358, 375 ms → 0, 0, 0 |
+
+  Sur ce PC rapide ; plus long sur une Fire TV.
+- Cas de bord : choix désactivé (copie des réglages en cache) : ni choix ni cache noir ; pas connecté : jamais de cache noir ; choix ouvert : plus aucun cache noir 1,5 s après.
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : ce commit (`Who's watching? shows straight after the intro, without Home for a moment first`)
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
 ### T-000 — Titre court
@@ -2296,6 +2343,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-064 | Créée et corrigée : cache noir pendant que « Qui est-ce ? » se prépare (Accueil visible 0 ms au lieu de ≈ 0,4 s sur PC) ; à valider sur la Fire TV |
 | 2026-10-31 | T-045 | Abandonné : une écriture de moins par visite sur le banc, et une perte possible si le renderer plante ; à reprendre si la Fire TV montre beaucoup d'enregistrements. Banc : `switching`, `--loss-test` |
 | 2026-10-31 | T-044 | Abandonné : le filtre par profil coûte quelques ms par minute (27 → 20 ms en TV bridée, 8 → 10 ms sur PC). Gardé : son chronomètre (`filterMs`) |
 | 2026-10-31 | T-043 | Abandonné : « Se termine à » et calendrier ne lisent le cœur que pendant `sync()`, qui ne tourne pas au repos ; mémo sans gain mesurable (9 → 8 lectures sur le parcours). Banc : `--dwell`, reprise des runs |

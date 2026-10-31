@@ -8295,6 +8295,7 @@
   /* Who's watching and the profile pages, made like Netflix's */
   .dxe-who { position: fixed; inset: 0; z-index: 100003; display: flex; flex-direction: column; align-items: center; overflow-y: auto; background: #000; color: #fff; font-family: Inter, system-ui, sans-serif; opacity: 0; transition: opacity .3s ease; }
   .dxe-who.is-in { opacity: 1; }
+  .dxe-who-hold { position: fixed; inset: 0; z-index: 100002; background: #000; }
   .dxe-who-top { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; width: 100%; box-sizing: border-box; min-height: 4.2rem; padding: .6rem 1.6rem; background: #000; }
   .dxe-who-top > :first-child { justify-self: start; }
   .dxe-who-top > :last-child { justify-self: end; }
@@ -10642,20 +10643,52 @@
     // does, even with one profile (it offers to add the others), until "Don't ask me again". A viewer
     // with a PIN is still asked at every start
     async maybeShow({ start = false } = {}) {
-      await store.ready;
-      // (never over the sign-in: signInGate shows it once signed in)
-      if (this.el || currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return;
-      const pinned = !!viewers.current().pin;
-      if (!settings.whoIsWatching && !(pinned && start)) return;
-      const { getState } = core();
+      // the page behind stays hidden until the gate is up (Home showed for a second after the intro)
+      const held = this.hold(start);
       try {
-        // Accounts with Stremio's own profiles get Stremio's profile lock screen instead
-        const ctx = getState ? await getState("ctx") : null;
-        if (ctx && Array.isArray(ctx.userProfiles) && ctx.userProfiles.length > 1) return;
-      } catch (_) { /* fine: show ours */ }
-      for (let i = 0; i < 40 && document.querySelector(".dx-splash"); i++) await new Promise((r) => setTimeout(r, 250));
-      if (this.el || currentRoute() === "player") return;
-      this.open({ locked: pinned });
+        await store.ready;
+        // (never over the sign-in: signInGate shows it once signed in)
+        if (this.el || currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return;
+        const pinned = !!viewers.current().pin;
+        if (!settings.whoIsWatching && !(pinned && start)) return;
+        const { getState } = core();
+        try {
+          // Accounts with Stremio's own profiles get Stremio's profile lock screen instead
+          const ctx = getState ? await getState("ctx") : null;
+          if (ctx && Array.isArray(ctx.userProfiles) && ctx.userProfiles.length > 1) return;
+        } catch (_) { /* fine: show ours */ }
+        for (let i = 0; i < 40 && document.querySelector(".dx-splash"); i++) await new Promise((r) => setTimeout(r, 250));
+        if (this.el || currentRoute() === "player") return;
+        this.open({ locked: pinned });
+      } finally {
+        if (held) this.release();
+      }
+    },
+
+    // A black cover over the page while the gate gets ready, as the intro ends: put up only when the
+    // gate is about to show, and gone once the gate has faded in (or straight away if it doesn't show)
+    holdEl: null,
+    holdTimer: null,
+    hold(start) {
+      if (this.el || this.holdEl || currentRoute() === "player" || currentRoute() === "intro" || !signInGate.signedIn()) return false;
+      if (!settings.whoIsWatching && !(start && viewers.current().pin)) return false;
+      ensureExtrasStyle();
+      const el = document.createElement("div");
+      el.className = "dxe-who-hold";
+      document.body.append(el);
+      this.holdEl = el;
+      // never stuck over the page
+      this.holdTimer = setTimeout(() => this.release(true), 12000);
+      return true;
+    },
+    release(now = false) {
+      const el = this.holdEl;
+      if (!el) return;
+      this.holdEl = null;
+      clearTimeout(this.holdTimer);
+      // (the gate fades in over .3 s)
+      if (this.el && !now) setTimeout(() => el.remove(), 350);
+      else el.remove();
     },
 
     // Coming back to Nathflix after a few seconds away (not from the player: Android's own player
