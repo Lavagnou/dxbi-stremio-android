@@ -101,6 +101,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-041 | Banc de mesure `tools/perf-bench.mjs` et compteurs dans la mesure à l'écran | Terminé | P1 | plugin, tools | T-039 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, phase 1 : T-042 à T-051) — réservée | À faire | P1 | release, tv, plugin, app | T-042 à T-051 | 2026-10-31 |
 | T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
+| T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 
 ---
 
@@ -1972,7 +1973,41 @@ Un banc reproductible et des compteurs dans le plugin, pour mesurer chaque tâch
 - Non mesuré : la Fire TV (pas d'adb ; photos de la mesure à l'écran demandées à l'utilisateur avant la release 0.6.0).
 
 **Livraison**
-- Commits : ce commit (`perf: measurement bench (tools/perf-bench.mjs) and core/sync counters in the performance readout`)
+- Commits : `cd56e91`
+- Version / CHANGELOG : à la release 0.6.0 (T-061)
+
+### T-063 — Bouton « Lecture » de la page des flux plus bas que ses voisins
+
+- **Statut :** Terminé
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-012
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-10-31
+- **Branche :** `main`
+
+**Demande**
+> Le bouton de Lecture est décalé ici sur ton screenshot, corrige ça au passage
+
+(capture de la fiche d'un film sur PC : « Recherche des flux… » plus bas que « Bande-annonce » et les autres boutons)
+
+**Critères d'acceptation**
+- [x] « Lecture » / « Lancer l'épisode » à la même hauteur que ses voisins sur PC et TV
+- [x] Téléphone inchangé (le bouton y est seul sur sa ligne)
+
+**Notes techniques**
+- `.action-buttons-container` aligne ses boutons au centre (`align-items: center`). Ceux de Stremio et de Nathflix (`.dx-reviews-btn`, `.dx-hide-btn`) ont `margin-bottom: 1rem`, pas `.dx-play-ep` (`EXTRAS_CSS`) : il descendait de la moitié de cette marge (7 px).
+- `.dx-play-ep` prend la même marge ; `html.dx-mobile .dx-play-ep` la remet à 0 (bouton seul sur sa ligne, déjà bien placé).
+
+**Vérification**
+- `node --check` : OK.
+- Mesure dans la page (PC) : haut du bouton à 772 px, comme ses voisins (avant : 779 px).
+- Captures avant/après (`perf-bench.mjs --shots --compare`, Accueil, Découvrir, fiche, Réglages) :
+  - PC et TV : seule la fiche change, et seulement le bouton, maintenant aligné ; le reste n'est que le bruit des badges ;
+  - téléphone : le bouton ne bouge pas ; les seules différences sont celles des badges IMDb, RT et Metacritic.
+
+**Livraison**
+- Commits : ce commit (`Play button: same height as its neighbours on the streams page`)
 - Version / CHANGELOG : à la release 0.6.0 (T-061)
 
 <!--
@@ -2054,6 +2089,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-10-31 | T-063 | Fait : bouton « Lecture » aligné sur ses voisins (PC, TV) |
 | 2026-10-31 | T-041 | Fait : banc `tools/perf-bench.mjs`, compteurs `perf` et mesure de référence (TV et PC). Chantier performance lancé (`docs/perf/`), T-061 et T-062 réservées aux releases 0.6.0 et 0.7.0 |
 | 2026-10-30 | T-040 | Fait : release v0.5.2 publiée (11 fichiers, APK signée vérifiée) ; T-039 à valider sur la Fire TV |
 | 2026-10-30 | T-039, T-040 | Audit de performance (rapport) puis corrections : CSS allégé et `sharpen` partout, billboard, télécommande, mode léger, mesure à l'écran ; testées (Playwright avant/après). Release 0.5.2 en cours |

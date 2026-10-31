@@ -8400,12 +8400,12 @@
   .dx-ends { display: inline-flex; align-items: center; height: 1.9rem; padding: 0 .7rem; border-radius: .35rem; background: rgba(255,255,255,.1); color: #fff; font: 600 .85rem Inter, system-ui, sans-serif; white-space: nowrap; }
   .dx-preview-facts .dx-ends-at { color: rgba(255,255,255,.75); }
   .dx-cal-poster { height: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: .25rem; }
-  .dx-play-ep { height: 3rem; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; padding: 0 1.6rem 0 1.25rem; border-radius: var(--dx-radius, .5rem); background: #fff; color: #000; cursor: pointer; user-select: none; transition: background-color .2s, opacity .2s; }
+  .dx-play-ep { height: 3rem; margin-bottom: 1rem; display: inline-flex; align-items: center; justify-content: center; gap: .6rem; padding: 0 1.6rem 0 1.25rem; border-radius: var(--dx-radius, .5rem); background: #fff; color: #000; cursor: pointer; user-select: none; transition: background-color .2s, opacity .2s; }
   .dx-play-ep:hover, .dx-play-ep:focus-visible { background: rgba(255,255,255,.84); outline: none; }
   .dx-play-ep.is-waiting { opacity: .55; cursor: default; }
   .dx-play-ep svg { width: 1.35rem; height: 1.35rem; flex: none; fill: currentColor; }
   .dx-play-ep span { font: 700 1rem/1 Inter, system-ui, sans-serif !important; white-space: nowrap; }
-  html.dx-mobile .dx-play-ep { flex: 1 1 100%; }
+  html.dx-mobile .dx-play-ep { flex: 1 1 100%; margin-bottom: 0; }
   /* with Play there, the trailer steps back to an outlined button */
   #app .dx-play-ep ~ [class*="action-button-container"][class*="wide"] { background: rgba(42,42,48,.65) !important; border-color: rgba(255,255,255,.28) !important; }
   #app .dx-play-ep ~ [class*="action-button-container"][class*="wide"] * { color: #fff !important; }
