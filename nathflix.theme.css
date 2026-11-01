@@ -4743,8 +4743,9 @@ html.dx-light {
     transition: scale 0.18s ease, opacity 0.18s ease, visibility 0s;
 }
 
-/* the card is the selected title grown: it carries the selection's ring */
-.dx-tv .dx-preview.is-open .dx-preview-inner {
+/* the card is the selected title grown: it carries the selection's ring (on the card itself: it cuts
+   off whatever is inside it, a ring on its contents included) */
+.dx-tv .dx-preview.is-open {
     outline: 3px solid var(--dx-focus, #fff);
     outline-offset: 2px;
 }

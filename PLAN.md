@@ -118,6 +118,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-067 | « Organiser l'Accueil » : textes des rangées superposés | Terminé | P2 | plugin | — | 2026-11-01 |
 | T-068 | TV : sélection à la télécommande (contour coupé, point de départ, déplacements) et défilement fluide | À valider | P1 | plugin, tv | T-046, T-054 | 2026-11-01 |
 | T-069 | TV : carte d'aperçu et bande-annonce sur le titre sélectionné ; défauts trouvés avec le compte de l'utilisateur | À valider | P1 | plugin, tv | T-068 | 2026-11-01 |
+| T-070 | « Qui est-ce ? » au démarrage seulement ; fenêtres promotionnelles de Stremio supprimées ; contour de la carte d'aperçu TV | À valider | P1 | plugin, tv | T-069 | 2026-11-01 |
 
 ---
 
@@ -2890,6 +2891,49 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `66156cc`
 - Version / CHANGELOG : à la prochaine release
 
+### T-070 — « Qui est-ce ? » au démarrage seulement ; fenêtres promotionnelles de Stremio supprimées ; contour de la carte d'aperçu TV
+
+- **Statut :** À valider (sur la Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-069
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> * On peut pas l'enlever cette fenêtre promotionnelle Hallowen au démarrage ? En plus elle vient de stremio et pas de Nathflix.
+> * On perd l'encadrement blanc de selection de la série/film quand la carte grossit j'ai l'impression.
+> * Quand je suis sur un épisode et que je veux revenir a l'accueil ça revient au choix du profil. Le choix du profil ne devrait apparaitre qu'une fois a l'ouverture de l'app et après ne plus se rouvrir(sauf manuellement) jusqu'à ce que l'app soit fermé et réouverte.
+
+**Critères d'acceptation**
+- [x] Les fenêtres promotionnelles de Stremio ne s'affichent plus
+- [x] La carte d'aperçu TV garde le contour de la sélection
+- [x] « Qui est-ce ? » ne s'affiche qu'au démarrage de l'app (ou depuis le menu du profil)
+- [ ] Vérifié sur la Fire TV
+
+**Notes techniques**
+- **Fenêtres promotionnelles** (Stremio, `event-modal`) : cachées par `EXTRAS_CSS` (`[class*="event-modal"] { display: none }`), et fermées dès qu'elles arrivent par leur propre croix (`stremioPromo`, étape de `sync()`), pour que Stremio ne les ramène pas et qu'aucune ne garde la sélection. Partout (PC compris).
+- **Contour de la carte d'aperçu** : il était sur `.dx-preview-inner`, que `.dx-preview` (`overflow: hidden`) coupait entièrement. Il est sur `.dx-preview.is-open` (TV).
+- **« Qui est-ce ? »** : `whoIsWatching.onVisible` (retour dans l'app après plus de 5 s) et `onRoute` (Accueil après un film) sont retirés. Il ne reste que le démarrage (`maybeShow({ start: true })`), le menu du profil, et le verrouillage après inactivité (`idleLock`, réglage `profileLock`). CLAUDE.md mis à jour.
+- **Trouvés en vérifiant** :
+  - avec le compte, la page d'une série ou d'un épisode s'ouvrait sans sélection : Stremio met le focus sur `#app`, que `land()` prenait pour une sélection. `keyNav.nothing()` traite `#app` comme le fond de page ;
+  - au démarrage, les rangées sous « Cette semaine » ne se chargeaient qu'à l'approche de la télécommande, et la flèche bas attendait. Avec des rangées masquées parmi les premiers catalogues, l'Accueil n'avait presque rien de prêt sous le billboard. Une étape de `sync()` (TV, Accueil) appelle `homeRows.ahead()` depuis le billboard : moins de 3 rangées prêtes, et la suite est demandée.
+
+**Vérification**
+- `node --check` : OK.
+- Émulateur, compte de l'utilisateur :
+  - Accueil → série (« Lancer S1 É1 » sélectionné) → épisode (« Lancer l'épisode ») → Retour : Accueil, sur le titre quitté, sans « Qui est-ce ? » ;
+  - Home du téléviseur pendant 8 s, puis retour dans l'app : pas de « Qui est-ce ? » ;
+  - carte d'aperçu ouverte : contour blanc autour de la carte (capture) ;
+  - descente 6 s après le démarrage : Lecture → Continuer à regarder → Cette semaine → rangées, sans attente.
+- Fenêtre promotionnelle : elle ne s'est plus affichée sur l'émulateur, Stremio ayant retenu sa fermeture (fermée plusieurs fois par Retour pendant T-069). Le sélecteur `event-modal` vient des feuilles de style de Stremio ; la fermeture automatique n'a pas pu être vue en action.
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -2969,6 +3013,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-070 | Créée et faite : « Qui est-ce ? » au démarrage seulement, promotions de Stremio supprimées, contour de la carte d'aperçu ; sélection sur `#app`, rangées préparées au démarrage ; à valider sur la Fire TV |
 | 2026-11-01 | T-069 | Créée et faite : carte d'aperçu et bande-annonce sur TV ; Qui est-ce ?, rangées masquées (T-054), Cette semaine, glissade, panneau d'informations, barre du haut ; à valider sur la Fire TV |
 | 2026-11-01 | T-068 | Créée et faite : émulateur Fire TV ; sélection TV (contour jamais coupé, point de départ, déplacements), défilement fluide, loupe, « Aucun flux trouvé » ; à valider sur la Fire TV |
 | 2026-11-01 | T-067 | Créée et faite : lignes de « Organiser l'Accueil » écrasées (`flex: none`) |

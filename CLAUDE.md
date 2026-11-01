@@ -252,7 +252,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
       - boutons `.dxe-who-pill` ;
       - mode Gérer : même page et même titre, avatars assombris sous un crayon, profil sélectionné sur un panneau clair, pas de tuile « Ajouter ».
       - Les tuiles coupent ce qui dépasse : les anneaux de sélection sont en `inset`. Stremio fixe la taille des `span` : forcer `font: inherit`.
-    - **quand le choix s'affiche** (`maybeShow`) : au démarrage, au retour dans l'app après plus de 5 s (`onVisible`, jamais en sortant du lecteur), et sur l'Accueil après un film (`onRoute`). Il s'affiche même avec un seul profil, sauf si le réglage `whoIsWatching` est coupé (case « Ne plus me demander », `setAsk`). Un profil avec code est toujours demandé au démarrage ;
+    - **quand le choix s'affiche** (`maybeShow`) : une seule fois, au démarrage de l'app ; ensuite seulement à la demande (menu du profil), jusqu'à ce que l'app soit fermée et rouverte (choix de l'utilisateur : il ne revient ni après un film ni au retour dans l'app). Il s'affiche même avec un seul profil, sauf si le réglage `whoIsWatching` est coupé (case « Ne plus me demander », `setAsk`). Un profil avec code est toujours demandé au démarrage ;
     - « Changer de profil » (menu du profil) ouvre toujours le choix ;
     - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
     - clavier de code `pinPad` (aussi pour le code parental) ;
