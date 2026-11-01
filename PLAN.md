@@ -117,6 +117,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-066 | Réglages de Nathflix synchronisés avec le compte Stremio | À valider | P1 | plugin, tools | T-027 | 2026-10-31 |
 | T-067 | « Organiser l'Accueil » : textes des rangées superposés | Terminé | P2 | plugin | — | 2026-11-01 |
 | T-068 | TV : sélection à la télécommande (contour coupé, point de départ, déplacements) et défilement fluide | À valider | P1 | plugin, tv | T-046, T-054 | 2026-11-01 |
+| T-069 | TV : carte d'aperçu et bande-annonce sur le titre sélectionné ; défauts trouvés avec le compte de l'utilisateur | À valider | P1 | plugin, tv | T-068 | 2026-11-01 |
 
 ---
 
@@ -2824,6 +2825,71 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `432118a`
 - Version / CHANGELOG : à la prochaine release
 
+### T-069 — TV : carte d'aperçu et bande-annonce sur le titre sélectionné ; défauts trouvés avec le compte de l'utilisateur
+
+- **Statut :** À valider (sur la Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-068
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Oui corrige tout les bugs que tu voit.
+>
+> Sinon sur PC, avec la souris sur une série/film […] ça agrandis la vue, et après quelques secondes ça lit même la bande d'annonce dans la petite fenêtre. Il faudrait avoir ça sur la version TV aussi quand on est sur la sélection d'un film/série. Ca aiderai en plus la lisibilité pour savoir ou se trouve le curseur.
+
+(capture PC : le titre « Cette semaine » passe sous le logo de la barre du haut ; l'utilisateur s'est ensuite connecté lui-même sur l'émulateur, et a autorisé la validation de son profil en cours après chaque redémarrage)
+
+**Critères d'acceptation**
+- [x] Sur TV, le titre sélectionné s'agrandit en carte d'aperçu, avec un contour, puis sa bande-annonce démarre, muette
+- [x] La sélection n'est plus perdue ni posée derrière un écran (« Qui est-ce ? », fenêtre de Stremio)
+- [x] « Cette semaine » est accessible à la télécommande
+- [x] Les textes du panneau d'informations ne sont plus coupés à mi-ligne sur TV
+- [ ] Vérifié sur la Fire TV
+
+**Notes techniques**
+- **Carte d'aperçu sur TV** : elle existait (`preview.onFocus`, 1,1 s après l'arrêt de la télécommande), mais le mode léger « auto » la coupait sur tout appareil modeste (`MODEST_DEVICE` : 4 cœurs ou moins, ou 2 Go ou moins), donc sur la Fire TV.
+  - `previewsOn()` ne dépend plus du mode léger sur TV ; la description du mode léger le dit sur TV (traduite).
+  - `trailers` est activé par défaut partout. Sur TV, la bande-annonce ne commence à se charger qu'après 2,5 s de carte ouverte.
+  - Sur TV, la carte porte le contour de la sélection, et elle se ferme dès que la sélection bouge. Gardée jusqu'à l'ouverture de la suivante, elle montrait le titre quitté et laissait le titre sélectionné poussé de côté, à moitié hors de l'écran.
+  - Sur TV, la flèche bas va toujours à la rangée suivante (sur PC, au clavier, elle entre dans les boutons de la carte).
+- **« Qui est-ce ? »** :
+  - la fenêtre promotionnelle de Stremio, ouverte dessous après la connexion, gardait la sélection ; les flèches allaient alors à sa croix, invisible. `#app` reçoit `inert` tant que l'écran est ouvert. `keyNav.layer()` ramène dans l'écran de Nathflix du dessus (Qui est-ce, fenêtre, pavé du code) une flèche partie d'ailleurs, et `land()` y remet la sélection à chaque passage (l'écran s'ouvre pendant le film d'intro natif, et la sélection posée alors ne tenait pas ; un passage est aussi programmé quand la WebView reprend le focus) ;
+  - `render()` retrouve l'élément sélectionné après un nouveau dessin (les profils reçus du compte redessinaient l'écran).
+- **Sélection perdue sur l'Accueil** :
+  - `homeRows.ahead()` (T-054) comparait la position dans les rangées affichées à la liste des catalogues. Avec des rangées masquées en haut de la liste (13 sur 67 chez l'utilisateur), les rangées suivantes n'étaient jamais demandées. Il compte maintenant les rangées prêtes sous la sélection, sur la page ;
+  - `keyNav` ne saute plus par-dessus des rangées en cours de chargement (`loadingBetween`, `loadingBelow`) : il allait à une rangée lointaine, redessinée aussitôt, ou à « Organiser l'Accueil » tout en bas ;
+  - quand l'Accueil redessine le titre sélectionné, `land()` remet la sélection sur la même adresse, la copie la plus proche de l'ancienne place, même hors de l'écran (`nearestCopy`, `remember` garde aussi la position).
+- **Défilement TV** : le défilement fluide du navigateur s'arrêtait au bout d'environ 400 ms quand l'Accueil changeait en route (rangées qui se remplissent), et laissait la rangée choisie en bas de l'écran. `reveal()` et `glideBy()` : glissade maison sur TV (chaque image couvre 30 % du reste, vers la position recalculée de l'élément ; arrêt au bout de 700 ms). Le PC garde `scrollIntoView` en `smooth`.
+- **« Cette semaine »** : ses épisodes (`.dxe-air`) étaient sautés. Haut et bas y passent entre deux rangées (`airingBetween`), gauche et droite restent dedans, et l'anneau est dessiné sur leur couche `::after`, car l'image du dessous couvrait le contour ; pas de grossissement sur TV (la piste le coupait).
+- **Panneau d'informations** (fiche, Découvrir) : quand son contenu dépasse, son bas s'estompe en fondu sur TV (`infoFade`, classe `dx-more`, `mask-image`), au lieu d'une ligne coupée.
+- **Barre du haut** (capture PC) : son état opaque suivait n'importe quel cadre qui défilait, y compris ceux des pages que Stremio garde cachées, et une barre redessinée le perdait. `PAGE_SCROLLERS` : seul le cadre visible compte, et `checkScrolled()` le revérifie à chaque passage de `sync()`. Non reproduit en navigateur (il faut la rangée « Cette semaine » de l'utilisateur).
+
+**Vérification**
+- `node --check` : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus.
+- Émulateur, compte de l'utilisateur (67 rangées dont 13 masquées, Continuer à regarder, Cette semaine, deux profils) :
+  - « Qui est-ce ? » s'ouvre sur le profil en cours (avant : rien de sélectionné, et la flèche allait à la fenêtre de Stremio cachée dessous) ;
+  - descente juste après le démarrage, deux fois : Lecture → Continuer à regarder → Cette semaine → rangées, sans perte (avant : sélection perdue, ou saut à « Organiser l'Accueil ») ;
+  - tour de 55 appuis (Accueil, Découvrir, filtres) : aucune sélection perdue, appuis à 40 ms en médiane, 112 ms au pire ;
+  - carte d'aperçu sur « The Invite » : ouverte, avec contour, puis bande-annonce lancée.
+- Processeur bridé ×12, pause de 7 s sur 5 titres d'une rangée :
+
+  | | Carte ouverte | Images > 100 ms | 95 % des images sous |
+  |---|---|---|---|
+  | Carte seule | 5 / 5 | 3 | 17 ms |
+  | Carte et bande-annonce | 5 / 5 (vidéo lancée 4 fois sur 5 en 12 s) | 97 | 217 ms |
+
+  La carte ne coûte presque rien ; c'est le chargement du lecteur YouTube qui fait saccader. D'où son départ retardé sur TV. Elle se coupe dans les réglages, appareil par appareil (`trailers` fait partie de `settingsSync.LOCAL`).
+- Défilement de l'Accueil (compte de l'utilisateur, ×12, 2e et 3e passes) : 0.6.0 80–88 ms par appui, 9 à 11 images de plus de 50 ms ; ce plugin 72–96 ms, 8 à 12.
+- PC (Chrome, invité) : barre opaque après défilement, survol d'une affiche sans décalage de la page.
+- Non vérifié : la Fire TV ; la capture PC (« Cette semaine » sous le logo) n'a pas été reproduite.
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -2903,6 +2969,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-069 | Créée et faite : carte d'aperçu et bande-annonce sur TV ; Qui est-ce ?, rangées masquées (T-054), Cette semaine, glissade, panneau d'informations, barre du haut ; à valider sur la Fire TV |
 | 2026-11-01 | T-068 | Créée et faite : émulateur Fire TV ; sélection TV (contour jamais coupé, point de départ, déplacements), défilement fluide, loupe, « Aucun flux trouvé » ; à valider sur la Fire TV |
 | 2026-11-01 | T-067 | Créée et faite : lignes de « Organiser l'Accueil » écrasées (`flex: none`) |
 | 2026-10-31 | T-061 | Fait : release v0.6.0 publiée (11 fichiers, APK signée vérifiée, versionCode 600) |

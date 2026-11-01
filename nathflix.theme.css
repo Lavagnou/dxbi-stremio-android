@@ -4581,6 +4581,13 @@ html.dx-light {
     scroll-margin: 2.5rem;
 }
 
+/* a title's details running past their box fade out at its bottom (the plugin marks it: infoFade),
+   rather than ending on a line cut in half */
+.dx-tv #app [class*="meta-info-container"].dx-more {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 3rem), transparent);
+}
+
 /* no scroll bars: the remote scrolls */
 .dx-tv * {
     scrollbar-width: none;
@@ -4634,6 +4641,17 @@ html.dx-light {
 /* (a dark line inside the ring keeps it plain on a light poster) */
 .dx-tv #app [class*="meta-item-container"]:focus-within [class*="poster-container"]::after,
 .dx-tv body #app [class*="discover-content"] [class*="meta-item-container"].selected:focus-within:not(.hovered):not(.active) [class*="poster-container"]::after {
+    box-shadow: inset 0 0 0 3px var(--dx-focus, #fff), inset 0 0 0 5px rgba(0, 0, 0, 0.65);
+}
+
+/* Airing this week's episodes: the ring goes on their shade layer, as the picture under it covered the
+   element's own ring; and they don't grow (their strip cut off the grown edge, as with the titles) */
+.dx-tv #app .dxe-airing .dxe-air:focus-visible {
+    outline: none !important;
+    transform: none;
+}
+
+.dx-tv #app .dxe-air:focus-visible::after {
     box-shadow: inset 0 0 0 3px var(--dx-focus, #fff), inset 0 0 0 5px rgba(0, 0, 0, 0.65);
 }
 
@@ -4723,6 +4741,12 @@ html.dx-light {
 .dx-tv .dx-preview.is-open {
     scale: 1;
     transition: scale 0.18s ease, opacity 0.18s ease, visibility 0s;
+}
+
+/* the card is the selected title grown: it carries the selection's ring */
+.dx-tv .dx-preview.is-open .dx-preview-inner {
+    outline: 3px solid var(--dx-focus, #fff);
+    outline-offset: 2px;
 }
 
 .dx-tv .dx-preview-inner {
