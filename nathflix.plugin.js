@@ -3640,10 +3640,21 @@
     },
 
     FOCUSABLE: 'a[href], button:not([disabled]), input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])',
-    // Never selected: the hover card's pointer shield and the rows' arrows. On a TV, nothing in a
-    // title's details either (its genres and cast are links to Discover and Search, but read as
-    // details there): only its buttons, and its episodes or streams
-    SKIP: ".dx-keyshield, .dx-arrow" + (IN_TV ? ', #app [class*="meta-preview"] [class*="meta-info-container"]' : ""),
+    // Never selected: the hover card's pointer shield and the rows' arrows
+    SKIP: ".dx-keyshield, .dx-arrow",
+    // and in light mode, nothing in a title's details (its genres and cast, links to Discover and
+    // Search): only its buttons, and its episodes or streams. Otherwise they stay selectable
+    SKIP_IN: '#app [class*="meta-info-container"]',
+
+    // The parts of the page left out, looked up once per press: tried as a selector on every button's
+    // every parent, they cost a TV stick tens of milliseconds a press
+    skipping() {
+      return light() ? [...document.querySelectorAll(this.SKIP_IN)] : [];
+    },
+
+    skips(n, boxes) {
+      return !!n.closest(this.SKIP) || boxes.some((b) => b.contains(n));
+    },
     SETTINGS_MENU: '#app [class*="settings-content"] > [class*="menu-"]',
     TAB_ON: '#app nav [class*="nav-tab-button"][class*="selected"]',
 
@@ -3691,7 +3702,8 @@
     // The nearest thing that way inside `box`, out of sight or not (the caller scrolls to it).
     // Measuring only, no checking what covers what: that's for what's on screen.
     beyond(box, focused, e) {
-      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !n.closest(this.SKIP) && n.checkVisibility({ visibilityProperty: true }) && getComputedStyle(n).pointerEvents !== "none");
+      const boxes = this.skipping();
+      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !this.skips(n, boxes) && n.checkVisibility({ visibilityProperty: true }) && getComputedStyle(n).pointerEvents !== "none");
       return this.nearest(pool, focused, e);
     },
 
@@ -3849,11 +3861,14 @@
         if (r.bottom <= 0 || r.top >= window.innerHeight) away.add(row);
       }
       const out = [];
+      const boxes = this.skipping();
       for (const n of document.querySelectorAll(sel)) {
-        if (n === focused || n.contains(focused) || n.closest(this.SKIP)) continue;
+        if (n === focused || n.contains(focused)) continue;
         if (away.size && away.has(n.closest(rowSel))) continue;
         const r = n.getBoundingClientRect();
         if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= window.innerHeight || r.left >= window.innerWidth) continue;
+        // (only what's on screen is checked: most of the page isn't)
+        if (this.skips(n, boxes)) continue;
         out.push(n);
       }
       return out;

@@ -135,7 +135,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-077 | Dégradé de « Qui est-ce ? » dans la couleur d'accent | À valider | P2 | plugin | — | 2026-11-01 |
 | T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | Terminé | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
 | T-080 | TV : OK maintenu ouvre le menu d'un titre (plus de clics en boucle) ; 3 points masqués ; Retour sur la page d'un titre | À valider | P1 | plugin | T-010 | 2026-11-01 |
-| T-081 | TV : page d'un titre, genres et acteurs plus sélectionnables ; bouton Partager retiré | À valider | P2 | plugin | T-068 | 2026-11-01 |
+| T-081 | Page d'un titre : genres et acteurs plus sélectionnables en mode léger ; bouton Partager retiré | À valider | P2 | plugin | T-068 | 2026-11-01 |
 
 ---
 
@@ -3544,7 +3544,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : à venir
 - Version / CHANGELOG : à la prochaine release
 
-### T-081 — TV : page d'un titre, genres et acteurs plus sélectionnables ; bouton Partager retiré
+### T-081 — Page d'un titre : genres et acteurs plus sélectionnables en mode léger ; bouton Partager retiré
 
 - **Statut :** À valider (test sur la Fire TV)
 - **Priorité :** P2
@@ -3561,8 +3561,13 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 > Enlève le bouton "Partager" au passage
 
+Puis, le lendemain (2026-11-02) :
+
+> J'avais dis que je voulais pas que les boutons des notes et genres soient cliquable, mais enfaite je veux garder cette feature mais juste la retirer pour les appareils en mode léger si ça peut optimiser.
+
 **Critères d'acceptation**
-- [x] Sur TV, rien dans les détails d'un titre (notes, genres, distribution) ne prend la sélection, sur la page d'une série, d'un épisode ou d'un film
+- [x] ~~Sur TV, rien dans les détails d'un titre (notes, genres, distribution) ne prend la sélection~~ (remplacé le 2026-11-02)
+- [x] En mode léger seulement (TV, téléphone, PC), rien dans les détails d'un titre ne prend la sélection de la télécommande ou du clavier ; sinon genres et acteurs restent sélectionnables
 - [x] Les boutons, les saisons, la recherche, les épisodes et les sources restent sélectionnables
 - [x] Plus de bouton « Partager » sur la page d'un titre (partout : TV, téléphone, PC)
 - [ ] Vérifié sur la Fire TV
@@ -3572,17 +3577,20 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - `keyNav.SKIP` réunit ce que la télécommande ne sélectionne jamais : `.dx-keyshield, .dx-arrow` comme avant, plus, sur TV seulement, tout ce qui est dans `#app [class*="meta-preview"] [class*="meta-info-container"]`. Utilisé par `inView()` (ce qui est à l'écran) et `beyond()` (plus loin, hors de l'écran). Sur PC, à la souris ou au clavier, rien ne change.
 - Le même `meta-preview` sert au panneau de droite de Découvrir : sur TV, ses genres et acteurs ne sont plus sélectionnables non plus.
 - Depuis « Lancer », Haut mène maintenant à la flèche de retour en haut à gauche (avant : aux acteurs).
+- **2026-11-02, mode léger seulement** (demande de l'utilisateur) : `keyNav.SKIP_IN` (`#app [class*="meta-info-container"]`) ne vaut plus que quand `light()` est vrai. Le gain de performance est négligeable (quelques éléments de moins à mesurer par touche) : c'est surtout un choix d'interface.
+- **Régression corrigée (2026-11-02)** : la première version ajoutait un sélecteur coûteux (`[class*=…] [class*=…]`) à `SKIP`, essayé par `closest()` sur chaque élément sélectionnable de la page et chacun de ses parents, à chaque touche (vu dans un profil : ~50 ms sur 10 touches, processeur ×6, dans `inView`). Désormais `skipping()` cherche les zones à ignorer une fois par touche, `skips(n, boxes)` les teste par `contains()`, et `inView()` ne le fait que pour ce qui est à l'écran (après la mesure de position).
 - **Partager** : `hideButton.noShare(row)`, appelé par `hideButton.ensure()` sur la page d'un titre, avant même de savoir quel titre c'est. Le bouton de Stremio n'a pas de classe propre et son nom suit la langue de Stremio : il est reconnu par son icône (chemin SVG qui commence par `M396 459.9`), ou par son nom « Share » / « Partager ». Masqué en `style.display = "none"` (l'observateur principal ne suit pas les attributs, donc pas de boucle). Partout, pas seulement sur TV : la demande ne faisait pas de différence.
 
 **Vérification**
 - `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
 - Émulateur Fire TV, compte de l'utilisateur, plugin poussé en 0.7.99 (`emu/walk.mjs`, scratchpad : flèches puis ce qui est sélectionné, avec une alerte si c'est dans les détails) : page d'une série (VisionQuest), d'un épisode et d'un film (6 liens dans les détails à chaque fois) ; 19 à 17 flèches dans tous les sens, jamais dans les détails. Boutons, épisodes et sources (à droite de la page d'un épisode) atteints. Aucun OK pressé sur une source.
 - `tools/perf-bench.mjs --tv` (1 run) : parcours de contrôle sans erreur.
+- 2026-11-02, émulateur, compte de l'utilisateur : mode léger actif (Auto, émulateur modeste : 2 cœurs, 2 Go), 11 flèches sur la page d'une série, jamais dans les détails ; mode léger coupé (réglage local, remis sur Auto après), Haut depuis « Lancer » mène aux acteurs puis aux genres, comme avant T-081.
 - Partager, émulateur : plus de bouton sur la page d'une série, d'un épisode, d'un film (avec et sans ses flux) ; capture de la page d'un film. Chrome, PC, invité (`perf2/share-pc.mjs`, scratchpad) : le bouton est présent mais masqué, aucune erreur.
 - Non vérifié : la Fire TV.
 
 **Livraison**
-- Commits : `795dc37` (genres et acteurs), puis le bouton Partager
+- Commits : `795dc37` (genres et acteurs), `7ed82ff` (bouton Partager), puis le mode léger seulement (voir le journal)
 - Version / CHANGELOG : à la prochaine release
 
 ### T-051 — Réglage « Rendu allégé sur TV » (page dessinée en 720p puis agrandie)
@@ -3727,6 +3735,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-081 | Bouton « Partager » retiré de la page d'un titre (`hideButton.noShare`) |
 | 2026-11-01 | T-049 | Étape 3 faite (mises à jour vérifiées 5 s après la page) ; étape 2 essayée et retirée ; À valider avec la photo d'après la prochaine release |
 | 2026-11-01 | T-051 | Créée et faite : réglage « Rendu allégé sur TV » (720p agrandi), coupé par défaut ; À valider avec des photos de la Fire TV |
+| 2026-11-02 | T-081 | Genres et acteurs à nouveau sélectionnables, sauf en mode léger (demande de l'utilisateur) ; filtre moins coûteux |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
