@@ -122,6 +122,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-071 | Retour depuis un épisode : la page de la série, pas l'Accueil | À valider | P2 | plugin | — | 2026-11-01 |
 | T-072 | Titres, résumés, genres et bandes-annonces en français (TMDB) | À valider | P1 | plugin | — | 2026-11-01 |
 | T-073 | Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées | À valider | P1 | plugin | T-027, T-066 | 2026-11-01 |
+| T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | En cours | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
 
 ---
 
@@ -3084,6 +3085,37 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `f9db738`
 - Version / CHANGELOG : à la prochaine release
 
+### T-074 — Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin, app
+- **Dépend de :** T-067 à T-073
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Push et tag une nouvelle release quand ça sera terminé
+
+**Critères d'acceptation**
+- [x] `@version 0.6.1`, section `## 0.6.1` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.6.1`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, versionCode 601, plugin embarqué en 0.6.1
+
+**Notes techniques**
+- **Numéro** : 0.6.1, car la 0.7.0 reste réservée à la phase 2 du chantier performance (T-062, nouvelle APK). Depuis la 0.6.0, seul le plugin a changé (`tv/` et `app/` identiques, hors numéro de version).
+- **Contenu** : T-067 (« Organiser l'Accueil »), T-068 et T-069 (sélection et défilement TV, carte d'aperçu et bande-annonce), T-070 (« Qui est-ce ? » au démarrage seulement, promotions de Stremio), T-071 (Retour depuis un épisode), T-072 (titres en français par TMDB), T-073 (synchro des profils, clés TMDB et MDBList).
+- **Worker de synchro** : inchangé depuis la 0.6.0 (la clé `settings` porte aussi les clés TMDB et MDBList), rien à redéployer.
+
+**Vérification**
+- `node --check` : OK. Bancs de T-073 (21/21) et de T-066 (9/9), `tools/profile-sync/test.mjs` : OK.
+- —
+
+**Livraison**
+- Commits : ce commit (`0.6.1: …`)
+- Release : —
+
 <!--
 ### T-000 — Titre court
 
@@ -3163,6 +3195,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
 | 2026-11-01 | T-072 | Créée et faite : titres, résumés, genres et bandes-annonces en français par TMDB (`localMeta`), anglais en repli ; à valider avec la vraie clé |
 | 2026-11-01 | T-071 | Créée et faite : Retour depuis un épisode ramène à la série (`episodeBack`) ; à valider sur la Fire TV |
