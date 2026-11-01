@@ -9211,6 +9211,9 @@
   .dxe-arrange-btn svg { width: 1.15rem; height: 1.15rem; }
   /* Organise Home: the rows in the viewer's order (CSS order, set by homeArrange), some hidden */
   #app .dx-rows-arranged { display: flex !important; flex-direction: column; }
+  /* (nothing shrinks to fit the screen's height: the billboard, which clips what overflows it,
+     was squeezed to a strip showing only its bottom) */
+  #app .dx-rows-arranged > * { flex-shrink: 0; }
   #app .dx-rows-arranged > .dx-row-hidden { display: none !important; }
   .dxe-row.is-off .dxe-name { opacity: .4; }
   .dxe-eye.is-off, .dxe-row.is-off .dxe-eye { color: #fff; }

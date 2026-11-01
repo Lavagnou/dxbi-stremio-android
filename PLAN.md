@@ -138,6 +138,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-081 | Page d'un titre : genres et acteurs plus sélectionnables en mode léger ; bouton Partager retiré | À valider | P2 | plugin | T-068 | 2026-11-01 |
 | T-082 | Défilement : moins de travail à chaque image (`onScroll`) | À valider | P1 | plugin | T-041 | 2026-11-02 |
 | T-083 | Continuer de regarder : une série ouvre sa page, pas son épisode | À valider | P2 | plugin | T-012 | 2026-11-02 |
+| T-084 | Billboard écrasé (seul le bas visible) quand l'Accueil est réorganisé | À valider | P1 | plugin | — | 2026-11-02 |
 
 ---
 
@@ -3711,6 +3712,38 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-084 — Billboard écrasé (seul le bas visible) quand l'Accueil est réorganisé
+
+- **Statut :** À valider (PC et téléphone de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Sur PC, le billboard a le haut qui est coupé, on voit que le bas du billboard, il faudra corriger ça.
+> En vue portrait sur mobile aussi c'est le cas mais pas autant.
+
+**Critères d'acceptation**
+- [x] Billboard à sa hauteur normale avec un Accueil réorganisé (PC, téléphone en portrait)
+- [x] Ordre et rangées masquées d'« Organiser l'Accueil » inchangés
+
+**Notes techniques**
+- **Cause** : pas reproduit en invité (Accueil dans l'ordre de Stremio). L'utilisateur a réorganisé son Accueil : `homeArrange.apply()` passe alors le conteneur des rangées en `display: flex` colonne (`.dx-rows-arranged`, dans `EXTRAS_CSS`), pour ranger les rangées par `order`. Ce conteneur fait la hauteur de l'écran (il défile) : ses enfants rétrécissent pour y tenir, et le billboard, en `overflow: hidden`, n'a plus de hauteur minimale. Il était écrasé en bande, son contenu ancré en bas : on n'en voyait que le bas.
+- Mesuré (Chrome, invité, la classe posée à la main) : PC 1920×1080, 886 px de haut → 390 px ; téléphone en portrait (390×844, app mobile), 551 → 394 px (412×915 : 551 → 446).
+- **Correction** : `#app .dx-rows-arranged > * { flex-shrink: 0; }` : rien ne rétrécit pour tenir dans l'écran.
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Après : PC 886 → 886 px, téléphone 551 → 551 px (390 et 412 de large), Accueil réorganisé ou non.
+- Non vérifié : sur le compte de l'utilisateur (son app PC n'aura la correction qu'avec la prochaine release ; Stremio Enhanced la prend sur `main`).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3811,6 +3844,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-081 | Genres et acteurs à nouveau sélectionnables, sauf en mode léger (demande de l'utilisateur) ; filtre moins coûteux |
 | 2026-11-02 | T-082 | Créée et faite : défilement allégé (`preview.marked`, barres gardées, `scrollKind`), JS de Nathflix −25 à −40 % en descendant les rangées |
 | 2026-11-02 | T-083 | Créée et faite : une série de Continuer de regarder ouvre sa page (« Reprendre ») |
+| 2026-11-02 | T-084 | Créée et faite : billboard écrasé sur un Accueil réorganisé (`flex-shrink: 0`) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
