@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.0
+- **Nathflix TV: a player like Netflix's.** The TV player gets new controls, made like Netflix's: Back and *Restart from the beginning* at the top left (the one the remote is on shows its name), the show and the episode at the top right, a big play button with the time, a red bar and the length, then *Audio & Subtitles*, *Episodes* and *Next Episode*. On play, left and right skip 10 seconds; up and down move to the icons and the buttons. They go away after a few seconds while the film plays, and the subtitles move up above them while they're there. With the controls hidden, the remote works as before.
+- **Nathflix TV: audio, subtitles and episodes from the player.** *Audio & Subtitles* lists the tracks in two columns and switches at once, without an *Apply* button. *Episodes* shows the season's episodes as cards, with the summary of the one selected, and plays the one you pick.
+- **Nathflix TV: next episode.** During the credits or the last half minute, *Next Episode* takes the place of *Skip Intro*, and the next episode starts by itself at the end, as on phones (Nathflix settings → *Play the next episode automatically*). *Skip Intro* gets the same look as the new controls.
+- **"Who's watching?" in your colour.** Its round glow now takes the accent colour chosen in Nathflix settings (red stays as it was).
+- **French summaries on every title's page.** A title's page without an IMDb rating (some series) kept its summary in English, though the billboard showed it in French.
+
 ## 0.6.1
 - **Titles in French.** With a TMDB key (Nathflix settings, the same key as for reviews) and Nathflix in French, titles' summaries, genres and trailers come in French from TMDB: on the billboard, in the details cards and on a title's page, where *Trailer* plays the French one. Where TMDB has none in French, the English one stays, trailer included. Without a key nothing changes.
 - **Your TMDB and MDBList keys follow your account.** Typed in once, they now reach every device signed in to the same Stremio account, with your other Nathflix settings: keys already typed in on a device are sent the first time.

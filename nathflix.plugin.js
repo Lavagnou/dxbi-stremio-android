@@ -1,7 +1,7 @@
 /**
  * @name Nathflix
  * @description The Nathflix experience: cinematic billboard, Netflix-style carousels, hover previews with trailers, ratings on posters, critic reviews, skip intro and up next, anime filler guide, new episode badges, watch stats and viewers, stream sorting & filters, a Netflix-style player with black-bar removal, night mode and subtitle sync, watch parties with friends, a cinematic intro and interface sounds. Use with the Nathflix theme.
- * @version 0.6.1
+ * @version 0.7.0
  * @author lavagnou
  * @updateUrl https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/nathflix.plugin.js
  */
@@ -19,7 +19,7 @@
   // Stremio Enhanced loads each plugin as <script id="<file name>">, which tells us our settings key
   const SCRIPT_ID = (document.currentScript && document.currentScript.id) || "nathflix.plugin.js";
   const PLUGIN_KEY = SCRIPT_ID.replace(/\.plugin\.js$/, "");
-  const PLUGIN_VERSION = "0.6.1"; // kept in step with @version by tools/bundle-theme.mjs
+  const PLUGIN_VERSION = "0.7.0"; // kept in step with @version by tools/bundle-theme.mjs
   // Recent messages and errors, kept for problem reports (see `report`)
   const recent = { logs: [], errors: [] };
   const remember = (list, text) => {
@@ -718,6 +718,27 @@
       root.classList.add("dx-brand");
     }
     root.style.setProperty("--dx-mark-filter", accentFilter());
+    // Who's watching: its round glow takes the accent (Netflix's own red keeps the hand-picked one)
+    if (colour === ACCENTS.red) {
+      root.style.removeProperty("--dx-who-glow");
+      root.style.removeProperty("--dx-who-bar");
+    } else {
+      root.style.setProperty("--dx-who-glow", whoGlow(colour));
+      root.style.setProperty("--dx-who-bar", `${whoGlowMix(colour, 0.04)}8c`);
+    }
+  }
+
+  // The accent faded into the near-black of the page, from the top of the window outwards (worked out
+  // here rather than with color-mix(), which older TV WebViews don't have)
+  function whoGlowMix(hex, share) {
+    const n = parseInt(hex.slice(1), 16);
+    const base = [11, 11, 13];
+    return "#" + [n >> 16, (n >> 8) & 255, n & 255].map((c, i) => Math.round(c * share + base[i] * (1 - share)).toString(16).padStart(2, "0")).join("");
+  }
+
+  function whoGlow(hex) {
+    const stops = [[0.42, 0], [0.32, 18], [0.2, 38], [0.09, 60], [0.04, 80], [0.01, 100]];
+    return `radial-gradient(circle farthest-corner at 50% 0, ${stops.map(([share, at]) => `${whoGlowMix(hex, share)} ${at}%`).join(", ")})`;
   }
 
   // ---------------------------------------------------------------------------
@@ -9151,10 +9172,10 @@
   .dxe-who[data-view="gate"] .dxe-who-top .dxe-who-link[data-manage], .dxe-who[data-view="manage"] .dxe-who-top .dxe-who-link[data-done] { display: none; }
   html.dx-mobile .dxe-who[data-view="gate"] .dxe-who-top .dxe-who-link[data-manage], html.dx-mobile .dxe-who[data-view="manage"] .dxe-who-top .dxe-who-link[data-done] { display: inline-flex; }
   html.dx-mobile .dxe-who :is(.dxe-who-inner > [data-manage], .dxe-who-inner > [data-done]) { display: none; }
-  /* Who's watching and its pages, as on Netflix's site: a round red glow from the top middle of the
-     window, the logo on the left, rounded tiles, pill buttons */
-  .dxe-who { background: radial-gradient(circle farthest-corner at 50% 0, #64131b 0%, #4d1017 18%, #330b10 38%, #1d0609 60%, #110405 80%, #0b0203 100%); }
-  .dxe-who:not([data-view="gate"]):not([data-view="manage"]) .dxe-who-top { background: rgba(12,3,4,.55); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+  /* Who's watching and its pages, as on Netflix's site: a round glow in the accent (red by default,
+     applyAccent) from the top middle of the window, the logo on the left, rounded tiles, pill buttons */
+  .dxe-who { background: var(--dx-who-glow, radial-gradient(circle farthest-corner at 50% 0, #64131b 0%, #4d1017 18%, #330b10 38%, #1d0609 60%, #110405 80%, #0b0203 100%)); }
+  .dxe-who:not([data-view="gate"]):not([data-view="manage"]) .dxe-who-top { background: var(--dx-who-bar, rgba(12,3,4,.55)); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
   .dxe-who-top.is-gate { position: absolute; left: 0; right: 0; grid-template-columns: auto 1fr; padding: 1.7rem 3.6rem; background: none; }
   .dxe-who-top.is-gate .dxe-who-brand { font-size: 2.3rem !important; }
   .dxe-who-actions { display: inline-flex; align-items: center; gap: .5rem; }

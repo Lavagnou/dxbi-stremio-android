@@ -110,7 +110,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
-| T-062 | Release 0.7.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
+| T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
@@ -125,6 +125,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | Terminé | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
 | T-075 | Résumé resté en anglais sur la fiche d'un titre sans note IMDb | À valider | P2 | plugin | T-072 | 2026-11-01 |
 | T-076 | Lecteur TV comme celui de Netflix (prototype validé) | À valider | P1 | TV, plugin | — | 2026-11-01 |
+| T-077 | Dégradé de « Qui est-ce ? » dans la couleur d'accent | À valider | P2 | plugin | — | 2026-11-01 |
+| T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | En cours | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
 
 ---
 
@@ -3206,6 +3208,64 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `ca8c08f` (CI verte : build Android avec R8, mpv, multiplateforme ; build Dev publiée dans la pré-release `dev`)
 - Version / CHANGELOG : nouvelle APK, release 0.7.0 à proposer
 
+### T-077 — Dégradé de « Qui est-ce ? » dans la couleur d'accent
+
+- **Statut :** À valider
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> J'aimerais que la couleur rouge du dégradé circulaire du choix de profil soit lié a la couleur choisi dans les réglages de Nathflix (emeraude en ce moment)
+
+**Critères d'acceptation**
+- [x] Le dégradé circulaire de « Qui est-ce ? » (et de ses pages) prend la couleur d'accent
+- [x] Avec l'accent rouge (par défaut), il reste exactement celui d'avant
+
+**Notes techniques**
+- `applyAccent()` pose `--dx-who-glow` (le dégradé) et `--dx-who-bar` (la barre floutée des pages d'un profil), calculés par `whoGlow()` / `whoGlowMix()` : l'accent mêlé au noir de la page (#0b0b0d), 42 % au centre jusqu'à 1 % au bord. Calcul en JS plutôt qu'en `color-mix()`, que les WebView TV anciennes (≥ 100) n'ont pas.
+- Accent rouge : les variables sont retirées, et le CSS garde le dégradé dessiné à la main (`var(--dx-who-glow, …)`).
+
+**Vérification**
+- `node --check` : OK.
+- Chrome, compte invité, « Qui est-ce ? » ouvert par l'avatar (`who-accent.mjs`, scratchpad) : Émeraude, dégradé vert (`rgb(19, 84, 43)` au centre) ; rouge, dégradé identique à avant (`rgb(100, 19, 27)` au centre).
+
+**Livraison**
+- Commits : dans la release 0.7.0 (T-078)
+- Version / CHANGELOG : 0.7.0
+
+### T-078 — Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin, app
+- **Dépend de :** T-075 à T-077
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Après ça tu peux publier une nouvelle release
+
+**Critères d'acceptation**
+- [ ] `@version 0.7.0`, section `## 0.7.0` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.7.0`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, versionCode 700, plugin embarqué en 0.7.0
+
+**Notes techniques**
+- **Numéro** : 0.7.0, car l'APK change (nouveau lecteur TV). La réservation de la phase 2 du chantier performance (T-062) passe à 0.8.0.
+- **Contenu** : T-075 (résumé français sans note IMDb), T-076 (lecteur TV), T-077 (dégradé de « Qui est-ce ? »).
+- **Worker de synchro** : inchangé, rien à redéployer.
+
+**Vérification**
+- (à remplir)
+
+**Livraison**
+- Commits : (à remplir)
+
 <!--
 ### T-000 — Titre court
 
@@ -3287,6 +3347,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 |---|---|---|
 | 2026-11-01 | T-075 | Créée et faite : résumé en français aussi sur les fiches sans note IMDb (`localMeta.titleOf`) |
 | 2026-11-01 | T-076 | Créée et faite : lecteur TV comme celui de Netflix (`TvPlayerControls`), Épisodes et Épisode suivant sur TV |
+| 2026-11-01 | T-077 | Créée et faite : dégradé de « Qui est-ce ? » dans la couleur d'accent |
+| 2026-11-01 | T-078 | Créée : release 0.7.0 ; réservation de T-062 passée à 0.8.0 |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
