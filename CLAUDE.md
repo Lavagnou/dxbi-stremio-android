@@ -80,6 +80,8 @@ Le reste du dépôt :
   - **TV** : plein écran, écran toujours allumé.
   - Injecte `assets/nathflix-tv.js` au démarrage du document.
   - Gère aussi : Back, liens `stremio://`, récupération après crash du renderer (`onRenderProcessGone`), WebView minimale 100.
+  - **Rendu allégé sur TV** (réglage `tvLowRes`, lu au démarrage par `lowRes()`) : la WebView fait 1280 px de large et est agrandie à l'écran (`drawSmaller`, `scaleX/Y`), donc la page est dessinée en 720p. `nathflix-tv.js` l'annonce (`tv.lowRes`), et le plugin n'affiche le réglage qu'alors (`tvFeature: "lowRes"` dans `SCHEMA`).
+  - Vérifications de mises à jour 5 s après que la page est prête (`whenPageReady`), pas dans `onCreate`.
 - **`assets/nathflix-tv.js`** : tourne dans la page avant les scripts de Stremio.
   - Remplace l'API de Stremio Enhanced (`window.StremioEnhancedAPI` : réglages, alertes, prompts).
   - Charge le plugin.
@@ -223,7 +225,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
 
 - **Ajouter un réglage** :
   - le mettre dans `DEFAULTS`, `SCHEMA` et `SETTING_GROUPS`, libellés et description en `t("…")`, avec leur traduction dans `frDictionary()` ;
-  - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
+  - s'il ne concerne que la TV, ajouter `tvOnly: true` dans `SCHEMA` ; s'il demande une APK récente, `tvFeature: "<nom>"` (affiché seulement si `window.__nathflixTv[<nom>]` existe) ; s'il concerne l'app Android (TV, téléphone et tablette), ajouter `androidOnly: true` ;
   - s'il ne concerne que téléphone et tablette, ajouter `mobileOnly: true` (exemples : `mobilePip`, `backgroundPlay`, `autoNext`) ;
   - s'il n'a pas de sens au doigt, ajouter sa clé au `Set` `NOT_ON_TOUCH` de `nathflix-tv.js` ;
   - s'il ne sert que sur desktop (lecteur in-page), ajouter sa clé au `Set` `DESKTOP_ONLY` de `nathflix-tv.js`. Sinon il apparaîtra dans les réglages TV.

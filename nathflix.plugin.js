@@ -313,6 +313,7 @@
     partyActivity: true,
     partySounds: true,
     lightMode: "auto",
+    tvLowRes: "off",
     perfOverlay: false,
   };
 
@@ -573,6 +574,22 @@
         { label: t("Off"), value: "off" },
       ],
     },
+    {
+      key: "tvLowRes",
+      type: "select",
+      label: t("Lighter rendering on TV"),
+      description: t("The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less). Takes effect the next time the app starts."),
+      defaultValue: DEFAULTS.tvLowRes,
+      // (only with an app that can do it: an older one ignores the setting)
+      tvOnly: true,
+      androidOnly: true,
+      tvFeature: "lowRes",
+      options: [
+        { label: "Auto", value: "auto" },
+        { label: t("On"), value: "on" },
+        { label: t("Off"), value: "off" },
+      ],
+    },
     { key: "perfOverlay", type: "toggle", label: t("Performance readout"), description: t("Shows in a corner how long Nathflix takes to answer each key press or tap, and how often it got stuck over the last 10 seconds. To find out what slows a device down."), defaultValue: DEFAULTS.perfOverlay },
     { key: "splash", type: "toggle", label: t("Intro animation"), description: t("Plays once each time the app starts."), defaultValue: DEFAULTS.splash },
     { key: "introSound", type: "toggle", label: t("Intro sound"), description: t("Play the intro's score (a 'ta-dum', a chord and a whoosh)."), defaultValue: DEFAULTS.introSound },
@@ -595,7 +612,7 @@
   // option carries its group's name, and they're listed group by group.
   const SETTING_GROUPS = [
     [t("Look"), ["accent", "focusColour", "builtInTheme", "ratings", "animeTitles", "wideContinue"]],
-    [t("Performance"), ["lightMode", "perfOverlay"]],
+    [t("Performance"), ["lightMode", "tvLowRes", "perfOverlay"]],
     [t("Home"), ["videoRowsOnly", "billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "newEpisodes", "airingRow", "whoIsWatching", "profileLock", "profileSync"]],
     [t("Hover cards & trailers"), ["previews", "trailers", "trailerDelay"]],
     [t("Browsing & library"), ["watchedTitles", "librarySort", "streamTools", "addonTools", "watchStats", "reviews", "tmdbKey", "mdblistKey"]],
@@ -677,7 +694,7 @@
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
   function registerSchema() {
     // (profile sync only shows once Nathflix has a sync server)
-    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly || (o.tvNext && IN_TV && !!(window.__nathflixTv && window.__nathflixTv.tvNext))) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
+    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly || (o.tvNext && IN_TV && !!(window.__nathflixTv && window.__nathflixTv.tvNext))) && (!o.tvFeature || !!(window.__nathflixTv && window.__nathflixTv[o.tvFeature])) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
   }
 
   // Clears what's registered and registers the schema again, one at a time: two at once (start-up and
@@ -8450,6 +8467,9 @@
         ...(startup.ms ? [startup.fromApp ? t("Start-up: {ms} ms from the app's opening", { ms: startup.ms }) : t("Start-up: {ms} ms from the page's start", { ms: startup.ms })] : []),
         // (Nathflix for Android: how long the plugin took to compile and run)
         ...(typeof window.__nathflixTvPluginMs === "number" ? [t("Plugin loaded in {ms} ms", { ms: window.__nathflixTvPluginMs })] : []),
+        // (the pixels the device really draws the page at, the size of the app's page view: "Lighter
+        // rendering on TV" brings it to 720p. The page's own width is always 1280, zoomed to fit.)
+        ...(IN_TV ? [t("Page drawn at {w}×{h}", { w: Math.round(window.outerWidth * window.devicePixelRatio), h: Math.round(window.outerHeight * window.devicePixelRatio) })] : []),
       ];
     },
 
@@ -8551,7 +8571,7 @@
   // are keys of the person's own
   let settingsReady = Promise.resolve();
   const settingsSync = {
-    LOCAL: new Set(["lightMode", "perfOverlay", "profileSync", "builtInTheme", "convertVideo", "enhance", "tvTorrents", "trailers", "trailerDelay", "externalPlayer", "hdrSubtitles"]),
+    LOCAL: new Set(["lightMode", "tvLowRes", "perfOverlay", "profileSync", "builtInTheme", "convertVideo", "enhance", "tvTorrents", "trailers", "trailerDelay", "externalPlayer", "hdrSubtitles"]),
     // Synced since they were typed in on each device (the TMDB and MDBList keys): a device that has one
     // the account hasn't sends it once, as only settings changed by hand go out otherwise
     SEED: ["tmdbKey", "mdblistKey"],
@@ -17555,6 +17575,8 @@ vec4 hook() {
       "The billboard holds still, and titles get no rating badges or details cards: what slows a TV stick down the most. Auto switches it on for a modest TV, phone or tablet (four cores or fewer, or 2 GB of memory or less).": "Le billboard reste fixe, et les titres n'ont ni badge de note ni carte d'aperçu : c'est ce qui ralentit le plus une clé TV. Auto l'active sur un téléviseur, un téléphone ou une tablette modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins).",
       "This device counts as modest.": "Cet appareil est considéré comme modeste.",
       "This device doesn't count as modest.": "Cet appareil n'est pas considéré comme modeste.",
+      "Lighter rendering on TV": "Rendu allégé sur TV",
+      "The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less). Takes effect the next time the app starts.": "La page est dessinée en 720p puis agrandie à l'écran : bien moins de pixels à dessiner pour la TV, pour un texte un peu moins net. Auto l'active sur une TV modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins). Prend effet au prochain démarrage de l'app.",
       "Performance readout": "Mesure des performances",
       "Shows in a corner how long Nathflix takes to answer each key press or tap, and how often it got stuck over the last 10 seconds. To find out what slows a device down.": "Affiche dans un coin le temps que met Nathflix à répondre à chaque touche ou toucher, et combien de fois il s'est bloqué ces 10 dernières secondes. Pour trouver ce qui ralentit un appareil.",
       "{n} cores": "{n} cœurs",
@@ -17570,6 +17592,7 @@ vec4 hook() {
       "Start-up: {ms} ms from the app's opening": "Démarrage : {ms} ms depuis l'ouverture de l'app",
       "Start-up: {ms} ms from the page's start": "Démarrage : {ms} ms depuis le début de la page",
       "Plugin loaded in {ms} ms": "Plugin chargé en {ms} ms",
+      "Page drawn at {w}×{h}": "Page dessinée en {w}×{h}",
       "Nathflix's share of a key press: {ms} ms": "Part de Nathflix par touche : {ms} ms",
     };
   }

@@ -108,6 +108,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-048 | Polices liées par le plugin, sans `@import` dans le thème intégré | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | À valider | P1 | plugin, tv | T-041 | 2026-11-01 |
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
+| T-051 | Réglage « Rendu allégé sur TV » (page dessinée en 720p puis agrandie) | À valider | P1 | plugin, tv | T-041 | 2026-11-01 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
 | T-053 | Plugin minifié pour l'APK et l'app | Abandonné | P2 | tv, app, tools | T-052 | 2026-11-01 |
@@ -3584,6 +3585,51 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `795dc37` (genres et acteurs), puis le bouton Partager
 - Version / CHANGELOG : à la prochaine release
 
+### T-051 — Réglage « Rendu allégé sur TV » (page dessinée en 720p puis agrandie)
+
+- **Statut :** À valider (photos de la mesure à l'écran sur la Fire TV, réglage coupé puis activé ; puis choix du défaut)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Je dois aller me coucher, avance tout le chantier en autonome au maximum pour demain quand je me réveillerais
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-051)
+
+**Critères d'acceptation**
+- [x] Réglage `tvLowRes` (Auto / Activé / Coupé) dans Performances, sur TV seulement, et seulement avec une APK qui sait le faire
+- [x] Activé : la page est dessinée en 1280 pixels de large, puis agrandie à l'écran ; elle garde sa largeur de 1280 px CSS
+- [x] Points de vigilance n° 6 du plan : sélection, « Qui est-ce ? », lecteur natif et retour, clavier à l'écran
+- [x] Ligne « Page dessinée en L×H » dans la mesure à l'écran (lisible sur les photos)
+- [ ] Mesure sur la Fire TV, coupé puis activé ; défaut `auto` seulement si la médiane des touches baisse d'au moins 20 % (plan), sinon `off`
+
+**Notes techniques**
+- **Pourquoi** : sur TV, la page fait 1280 px CSS de large, agrandie à l'écran par la WebView. Sur une Fire TV en 1080p (densité 2), Chromium dessine donc 1920×1080 pixels pour une page pensée en 1280×720 : 2,25 fois plus de pixels. Les blocages d'environ 1 s vus sur les photos (T-079) ne viennent pas du code de Nathflix (quelques ms par touche) : le dessin de la page en est un suspect.
+- **Kotlin** (`MainActivity`) : `lowRes()` lit `tvLowRes` dans les SharedPreferences `plugin-settings` (clé `nathflix`, comme `Intro.kt` lit `accent`) une fois, au démarrage : `on`, ou `auto` sur une TV modeste (4 cœurs ou moins, `isLowRamDevice`, ou 2 Go de mémoire ou moins, comme le mode léger), jamais sur téléphone ou tablette. Si oui, `drawSmaller(largeur, hauteur)` (sur chaque changement de taille de la racine, via `post`) : WebView de `1280 × ceil(hauteur / échelle)` pixels, `pivotX/Y = 0`, `scaleX/Y = largeur / 1280`. Rien sur un écran de 1280 px ou moins.
+- **Page** : `nathflix-tv.js` annonce `tv.lowRes = true`. Le plugin n'affiche le réglage que si `__nathflixTv.lowRes` existe : nouvelle propriété de `SCHEMA`, `tvFeature: "lowRes"`, vérifiée par `registerSchema()` (une vieille APK ignorerait le réglage). Réglage propre à l'appareil (`settingsSync.LOCAL`). Défaut `off` pour l'instant : le plan voulait `auto`, mais à décider d'après les photos.
+- **Mesure à l'écran** : « Page dessinée en L×H » = `outerWidth × devicePixelRatio` (la taille de la vue de la page ; `innerWidth` reste 1280, la page étant zoomée pour tenir).
+- **Le dessin est vraiment en 720p** : Chromium aurait pu redessiner à la taille agrandie (il connaît la transformation de la vue). Captures comparées, le texte est nettement plus doux réglage activé : la page est bien dessinée en 720p puis agrandie.
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus). `assembleDebug` local.
+- Émulateur Fire TV (1920×1080, densité 320), compte de l'utilisateur, plugin poussé en 0.7.99 :
+  - coupé : WebView 1920×1080 (`outerWidth` 960, `devicePixelRatio` 2, `visualViewport.scale` 0,75) ;
+  - activé (puis app relancée) : WebView 1280×720 (`dumpsys` : `0,0-1280,720`), `outerWidth` 640, `innerWidth` 1280, `visualViewport.scale` 0,5 ; la page remplit l'écran (capture) ;
+  - contour de sélection bien placé sur une carte de Continuer de regarder (capture) ;
+  - « Qui est-ce ? » affiché et validé (sur Nathan) au démarrage ;
+  - lecteur natif avec la vidéo publique de test (`emu/playtest.mjs`, jamais un titre du compte), puis Retour : la page revient, toujours en 720p, voile retiré ;
+  - clavier à l'écran : champ de Recherche, OK, le clavier s'ouvre, « dune » tapé arrive dans le champ.
+- Réponse aux touches sur l'émulateur (`emu/scrollperf.mjs`, processeur ×4, 12 touches, 2 passages) : activé 56 / 56 ms de médiane, coupé 48 / 48 ms. Pas d'écart : l'émulateur dessine avec la carte graphique du PC, et le bridage ne ralentit que le processeur. Seule la Fire TV dira si le gain existe.
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release (nouvelle APK nécessaire)
+
 <!--
 ### T-000 — Titre court
 
@@ -3680,6 +3726,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-081 | Créée et faite : sur TV, genres et acteurs de la page d'un titre plus sélectionnables (`keyNav.SKIP`) |
 | 2026-11-01 | T-081 | Bouton « Partager » retiré de la page d'un titre (`hideButton.noShare`) |
 | 2026-11-01 | T-049 | Étape 3 faite (mises à jour vérifiées 5 s après la page) ; étape 2 essayée et retirée ; À valider avec la photo d'après la prochaine release |
+| 2026-11-01 | T-051 | Créée et faite : réglage « Rendu allégé sur TV » (720p agrandi), coupé par défaut ; À valider avec des photos de la Fire TV |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

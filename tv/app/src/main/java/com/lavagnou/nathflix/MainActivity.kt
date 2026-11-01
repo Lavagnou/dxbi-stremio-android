@@ -67,6 +67,10 @@ class MainActivity : AppCompatActivity() {
         root.setBackgroundColor(getColor(R.color.background))
         root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
+        // "Lighter rendering on TV": the page is drawn 1280 pixels wide, then enlarged to the screen
+        if (lowRes()) root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+            root.post { drawSmaller(right - left, bottom - top) }
+        }
         // Phones and tablets: the page sits between the status and navigation bars, clear of a notch,
         // and above the keyboard while it's open (so the box being typed in stays in sight)
         if (mobile) ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -280,6 +284,45 @@ class MainActivity : AppCompatActivity() {
         web.evaluateJavascript("!!document.querySelector('$PAGE_READY')") { answer(it == "true") }
     }
 
+    /**
+     * The "Lighter rendering on TV" setting (tvLowRes in the plugin's settings): a TV only, on when asked,
+     * or on "Auto" for a modest one (four cores or fewer, or 2 GB of memory or less, as the plugin's
+     * light mode counts it). Read once, at the start: it takes effect the next time the app starts.
+     */
+    private fun lowRes(): Boolean {
+        if (mobile) return false
+        val settings = try {
+            JSONObject(getSharedPreferences("plugin-settings", MODE_PRIVATE).getString("nathflix", "{}") ?: "{}")
+        } catch (_: Exception) { JSONObject() }
+        return when (settings.optString("tvLowRes", "off")) {
+            "on" -> true
+            "auto" -> {
+                val memory = android.app.ActivityManager.MemoryInfo()
+                val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
+                am.getMemoryInfo(memory)
+                Runtime.getRuntime().availableProcessors() <= 4 || am.isLowRamDevice || memory.totalMem <= 2L * 1024 * 1024 * 1024
+            }
+            else -> false
+        }
+    }
+
+    /**
+     * The page laid out 1280 pixels wide (the width it's designed at anyway) and enlarged to fill the
+     * screen: the TV draws a 720p page rather than a 1080p or 4K one, at the cost of slightly softer text
+     */
+    private fun drawSmaller(width: Int, height: Int) {
+        if (width <= LOW_RES_WIDTH || height <= 0) return
+        val scale = width / LOW_RES_WIDTH.toFloat()
+        val tall = kotlin.math.ceil(height / scale).toInt()
+        val params = web.layoutParams
+        if (params.width == LOW_RES_WIDTH && params.height == tall) return
+        web.layoutParams = FrameLayout.LayoutParams(LOW_RES_WIDTH, tall)
+        web.pivotX = 0f
+        web.pivotY = 0f
+        web.scaleX = scale
+        web.scaleY = scale
+    }
+
     /** Runs [block] once, when the page has a screen to show (checked every second), or after a minute anyway */
     private fun whenPageReady(block: () -> Unit) {
         var tries = 0
@@ -357,6 +400,8 @@ class MainActivity : AppCompatActivity() {
         const val STREMIO_HOST = "web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
+        // the page's width on a TV (nathflix-tv.js's viewport), and what "Lighter rendering on TV" draws
+        private const val LOW_RES_WIDTH = 1280
         // SPLASH_READY in nathflix.plugin.js (Home's rows, a details page, Settings…)
         private const val PAGE_READY = """[class*="meta-item-container"], [class*="metadetails-container"], [class*="player-container"], [class*="settings-content"], [class*="addons-content"]"""
     }

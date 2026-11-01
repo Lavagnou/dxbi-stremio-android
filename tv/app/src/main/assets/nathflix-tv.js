@@ -99,6 +99,8 @@
   tv.nativeIntro = true;
   // the native player on a TV has Next episode and plays the next one by itself (the plugin shows that setting)
   tv.tvNext = true;
+  // the app can draw the page at 720p and enlarge it (the plugin shows "Lighter rendering on TV")
+  tv.lowRes = true;
   // when the app was opened (ms since 1970; 0 from an older app): the performance readout's start-up time
   tv.launchedAt = native.launchedAt();
 
