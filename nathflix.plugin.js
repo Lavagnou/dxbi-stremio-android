@@ -3623,6 +3623,10 @@
     },
 
     FOCUSABLE: 'a[href], button:not([disabled]), input:not([type="hidden"]), select, textarea, [tabindex]:not([tabindex="-1"])',
+    // Never selected: the hover card's pointer shield and the rows' arrows. On a TV, nothing in a
+    // title's details either (its genres and cast are links to Discover and Search, but read as
+    // details there): only its buttons, and its episodes or streams
+    SKIP: ".dx-keyshield, .dx-arrow" + (IN_TV ? ', #app [class*="meta-preview"] [class*="meta-info-container"]' : ""),
     SETTINGS_MENU: '#app [class*="settings-content"] > [class*="menu-"]',
     TAB_ON: '#app nav [class*="nav-tab-button"][class*="selected"]',
 
@@ -3670,7 +3674,7 @@
     // The nearest thing that way inside `box`, out of sight or not (the caller scrolls to it).
     // Measuring only, no checking what covers what: that's for what's on screen.
     beyond(box, focused, e) {
-      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !n.closest(".dx-keyshield, .dx-arrow") && n.checkVisibility({ visibilityProperty: true }) && getComputedStyle(n).pointerEvents !== "none");
+      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !n.closest(this.SKIP) && n.checkVisibility({ visibilityProperty: true }) && getComputedStyle(n).pointerEvents !== "none");
       return this.nearest(pool, focused, e);
     },
 
@@ -3829,7 +3833,7 @@
       }
       const out = [];
       for (const n of document.querySelectorAll(sel)) {
-        if (n === focused || n.contains(focused) || n.closest(".dx-keyshield, .dx-arrow")) continue;
+        if (n === focused || n.contains(focused) || n.closest(this.SKIP)) continue;
         if (away.size && away.has(n.closest(rowSel))) continue;
         const r = n.getBoundingClientRect();
         if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= window.innerHeight || r.left >= window.innerWidth) continue;
