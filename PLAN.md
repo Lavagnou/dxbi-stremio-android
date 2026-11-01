@@ -112,6 +112,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
 | T-053 | Plugin minifié pour l'APK et l'app | Abandonné | P2 | tv, app, tools | T-052 | 2026-11-01 |
 | T-055 | `keyNav` sans remesure | Abandonné | P1 | plugin, tools | T-041 | 2026-11-01 |
+| T-056 | Desktop : iframe de bande-annonce unique, observateurs du preload | Abandonné | P2 | plugin, app | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -3389,6 +3390,38 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 **Livraison**
 - Commits : à venir (compteur et outils de mesure seulement)
 
+### T-056 — Desktop : iframe de bande-annonce unique, observateurs du preload
+
+- **Statut :** Abandonné (rien à gagner, et un risque pour l'iframe)
+- **Priorité :** P2
+- **Cible :** plugin, app
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Continue la suite du chantier
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-056)
+
+**Critères d'acceptation**
+- [x] Mesurer ce que coûtent les observateurs de la barre de titre avant de les changer
+- [x] Ne rien changer au comportement
+
+**Notes techniques**
+- **Observateurs du preload** (`addTitleBar` dans `app/src/preload/index.ts`, `followPlayer` dans `ui/titleBar.ts`, tous deux `childList` + `subtree`) : recopiés tels quels et chronométrés dans Chromium sur Stremio + Nathflix (PC, processeur ralenti ×6 ; `perf2/observers-cost.mjs`, scratchpad, deux passes) :
+  - au repos sur l'Accueil, 30 s : **0 appel** ;
+  - en naviguant (fiche d'un film, retour, Découvrir, retour, défilement de l'Accueil) : environ 200 changements observés, 2 à 9 ms de rappels au total. La page s'est rechargée une fois pendant ce parcours (horloge de la page remise à zéro) : mesure partielle, mais même plusieurs fois plus, c'est négligeable.
+  - Leurs rappels sortent tout de suite (`querySelector` d'un élément précis, puis retour) : rien à gagner à restreindre ce qu'ils observent, et un risque de manquer la barre de titre ou le lecteur.
+- **Iframe de bande-annonce réutilisée** : changer le `src` d'une iframe gardée ajoute une entrée à l'historique de la fenêtre ; Retour reculerait d'abord dans les bandes-annonces de l'iframe au lieu de la page. Le gain se limite à la création d'un élément, quand le chargement de YouTube domine. Non fait.
+
+**Vérification**
+- Mesure seulement ; aucun code changé.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
 <!--
 ### T-000 — Titre court
 
@@ -3477,6 +3510,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-053 | Abandonné : plugin minifié (−30 %) sans gain de chargement sur l'émulateur |
 | 2026-11-01 | — | Test mpv (Windows) en échec sur `2f13276` : l'image de l'Accueil prise pendant un fondu du billboard (238 points changés au lieu de 0) ; relancé, il passe. `tools/mpv-test.mjs` remesure l'Accueil 2,5 s plus tard s'il bouge |
 | 2026-11-01 | T-055 | Abandonné : le profil des touches montre que les mesures de `keyNav` ne coûtent presque rien ; deux pistes essayées sans gain ; compteur `keyNav` et `--profile` du banc gardés |
+| 2026-11-01 | T-056 | Abandonné : observateurs du preload sans coût mesurable (0 appel au repos) ; iframe réutilisée écartée (historique de Retour) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
