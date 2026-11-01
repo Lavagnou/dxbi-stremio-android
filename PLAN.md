@@ -3203,7 +3203,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la vraie TV (Fire TV), un vrai épisode et son passage à l'épisode suivant, les vignettes d'épisodes (celles de test sont refusées par leur serveur).
 
 **Livraison**
-- Commits : à venir
+- Commits : `ca8c08f` (CI verte : build Android avec R8, mpv, multiplateforme ; build Dev publiée dans la pré-release `dev`)
 - Version / CHANGELOG : nouvelle APK, release 0.7.0 à proposer
 
 <!--
