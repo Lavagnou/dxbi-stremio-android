@@ -1097,7 +1097,7 @@
     const route = currentRoute();
     if (document.body.dataset.dxRoute !== route) {
       document.body.dataset.dxRoute = route;
-      setScrolled(false);
+      setScrolled(false, true);
       preview.close(true);
       if (route === "player") keyNav.exit();
       miniPlayer.onRoute(route);
@@ -1171,9 +1171,13 @@
 
   // The top bar turns solid once the page is scrolled. It's marked on the bar itself: a class on
   // <body> restyles the whole page, and on a TV that took most of a second on every scroll.
-  function setScrolled(on) {
+  // The top bars, kept between scroll events (a row's glide sends one a frame); looked up again at
+  // every pass (`fresh`), as Stremio draws a bar anew on some pages
+  let scrolledNavs = [];
+  function setScrolled(on, fresh) {
     if (!IN_TV) document.body.classList.toggle("dx-scrolled", on);
-    for (const nav of document.querySelectorAll('#app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"]')) {
+    if (fresh || !scrolledNavs.length || !scrolledNavs.every((n) => n.isConnected)) scrolledNavs = [...document.querySelectorAll('#app [class*="main-nav-bars-container"] > nav[class*="horizontal-nav-bar"]')];
+    for (const nav of scrolledNavs) {
       if (nav.hasAttribute("data-dx-scrolled") !== on) nav.toggleAttribute("data-dx-scrolled", on);
     }
   }
@@ -1185,7 +1189,7 @@
   // The bar's state from the page on show, at every pass: the bar Stremio draws anew comes without it
   function checkScrolled() {
     const box = [...document.querySelectorAll(PAGE_SCROLLERS)].find((n) => n.checkVisibility());
-    setScrolled(!!box && box.scrollTop > 8);
+    setScrolled(!!box && box.scrollTop > 8, true);
   }
 
   // TV: a title's details that run past their box (the cast, the directors…) fade out at its bottom
@@ -1199,16 +1203,30 @@
     if (IN_TV) for (const box of document.querySelectorAll(INFO_BOX)) infoFade(box);
   }
 
+  // What each scrolling element is (a page, a title's details, a row), worked out once: a row's glide
+  // sends a scroll event every frame
+  const scrollKinds = new WeakMap();
+  function scrollKind(target) {
+    let kind = scrollKinds.get(target);
+    if (kind === undefined) {
+      kind = target.matches(PAGE_SCROLLERS) ? "page"
+        : IN_TV && target.matches(INFO_BOX) ? "info"
+        : target.matches('[class*="meta-row"] > [class*="meta-items-container"]') ? "row"
+        : "";
+      scrollKinds.set(target, kind);
+    }
+    return kind;
+  }
+
   function onScroll(event) {
     const target = event.target;
     if (!(target instanceof Element)) return;
     preview.close(true);
     keyNav.onScroll();
-    if (target.matches(PAGE_SCROLLERS) && target.checkVisibility()) setScrolled(target.scrollTop > 8);
-    if (IN_TV && target.matches(INFO_BOX)) infoFade(target);
-    if (target.matches('[class*="meta-row"] > [class*="meta-items-container"]')) {
-      arrowsSoon(target.parentElement);
-    }
+    const kind = scrollKind(target);
+    if (kind === "page" && target.checkVisibility()) setScrolled(target.scrollTop > 8);
+    else if (kind === "info") infoFade(target);
+    else if (kind === "row") arrowsSoon(target.parentElement);
   }
 
   // A gliding row sends a scroll event every frame: its arrows and page dots catch up once a frame
@@ -2468,6 +2486,8 @@
   const preview = {
     el: null,
     card: null,
+    // an open card covered its title and pushed others aside (cleared when it closes)
+    marked: false,
     openTimer: null,
     closeTimer: null,
     token: 0,
@@ -2827,6 +2847,7 @@
         // around the card as a second, smaller frame
         document.querySelectorAll("[data-dx-covered]").forEach((n) => { if (n !== card) n.removeAttribute("data-dx-covered"); });
         card.setAttribute("data-dx-covered", "");
+        this.marked = true;
         this.applyPushes(pushes);
         sfx.play("pop", 0.9);
       });
@@ -2918,9 +2939,15 @@
       trailer.stop();
       this.token++;
       if (this.card && this._leave) this.card.removeEventListener("mouseleave", this._leave);
-      document.querySelectorAll("[data-dx-covered]").forEach((n) => n.removeAttribute("data-dx-covered"));
+      // (only when an open card covered or pushed titles aside: closing runs on every scroll event,
+      // a frame each while a row glides, and searching the whole page each time cost a TV stick
+      // tens of milliseconds a press)
+      if (this.marked) {
+        this.marked = false;
+        document.querySelectorAll("[data-dx-covered]").forEach((n) => n.removeAttribute("data-dx-covered"));
+        this.unpush();
+      }
       this.card = null;
-      this.unpush();
       if (!this.el || !this.el.classList.contains("is-open")) return;
       const el = this.el;
       el.classList.remove("is-open");

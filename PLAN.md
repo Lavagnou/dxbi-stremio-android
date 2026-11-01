@@ -136,6 +136,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | Terminé | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
 | T-080 | TV : OK maintenu ouvre le menu d'un titre (plus de clics en boucle) ; 3 points masqués ; Retour sur la page d'un titre | À valider | P1 | plugin | T-010 | 2026-11-01 |
 | T-081 | Page d'un titre : genres et acteurs plus sélectionnables en mode léger ; bouton Partager retiré | À valider | P2 | plugin | T-068 | 2026-11-01 |
+| T-082 | Défilement : moins de travail à chaque image (`onScroll`) | À valider | P1 | plugin | T-041 | 2026-11-02 |
 
 ---
 
@@ -3638,6 +3639,45 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release (nouvelle APK nécessaire)
 
+### T-082 — Défilement : moins de travail à chaque image (`onScroll`)
+
+- **Statut :** À valider (Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Je dois aller me coucher, avance tout le chantier en autonome au maximum pour demain quand je me réveillerais
+
+(trouvée en mesurant pour T-059 : où va le temps quand on descend dans les rangées de l'Accueil)
+
+**Critères d'acceptation**
+- [x] Un évènement de défilement ne fouille plus toute la page quand il n'y a rien à remettre en place
+- [x] Même comportement : carte d'aperçu, titres poussés de côté et couverts, barre du haut, flèches des rangées, fondu des détails
+- [x] Gain mesuré
+
+**Notes techniques**
+- **Constat** (profil processeur, émulateur Fire TV, compte de l'utilisateur, Accueil, 10 × Bas, processeur ×6, `emu/rowsprof.mjs` du scratchpad) : `onScroll` tourne à chaque évènement de défilement, un par image quand une rangée ou la page glisse. À chaque fois : `preview.close(true)` cherchait dans toute la page les titres couverts (`[data-dx-covered]`) et poussés (`unpush()`, `[data-dx-pushed]`), même sans carte ouverte ; `setScrolled()` cherchait la barre du haut ; `onScroll` essayait trois sélecteurs `[class*=…]` sur l'élément. Ensemble : 350 à 450 ms sur les 10 touches.
+- **Changements** :
+  - `preview.marked` : posé quand une carte ouverte couvre son titre et pousse les autres (dans `open`, au moment où elle le fait) ; `close()` ne cherche et ne remet en place que s'il est posé, puis l'enlève ;
+  - `setScrolled(on, fresh)` garde les barres trouvées (`scrolledNavs`) et ne les cherche à nouveau que si l'une a quitté la page, ou à chaque passage (`checkScrolled`) et à chaque changement de page (`updateRoute`) : Stremio redessine sa barre sur certaines pages ;
+  - `scrollKind(target)` : ce qu'est l'élément qui défile (page, détails d'un titre, rangée, rien), calculé une fois par élément (`WeakMap`).
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Mesure, mêmes conditions, deux passages alternés : JS de Nathflix 1061 et 1059 ms avant, 799 et 641 ms après (−25 à −40 %). Les lignes `querySelectorAll < close / unpush / setScrolled < onScroll` disparaissent du profil.
+- Émulateur, à la télécommande (`emu/pushcheck.mjs`) : carte ouverte → 9 titres poussés, le sien couvert ; déplacement → 0 poussé, 0 couvert ; plus bas puis repos → nouvelle carte, mêmes marques. Barre du haut : transparente tout en haut (défilement 0), opaque dès 42 px.
+- Chrome, PC, invité, à la souris (`perf2/hover-pc.mjs`) : survol → 9 poussés, 1 couvert ; souris ailleurs → 0 ; nouveau survol puis molette → 0. (Les erreurs « TrustedScriptURL » de ce test viennent de l'outil de test, qui s'injecte aussi dans les iframes de YouTube et Google : identiques avec le plugin d'avant.)
+- `tools/perf-bench.mjs --tv` et `--pc` (1 run) : parcours de contrôle sans erreur.
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3736,6 +3776,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-049 | Étape 3 faite (mises à jour vérifiées 5 s après la page) ; étape 2 essayée et retirée ; À valider avec la photo d'après la prochaine release |
 | 2026-11-01 | T-051 | Créée et faite : réglage « Rendu allégé sur TV » (720p agrandi), coupé par défaut ; À valider avec des photos de la Fire TV |
 | 2026-11-02 | T-081 | Genres et acteurs à nouveau sélectionnables, sauf en mode léger (demande de l'utilisateur) ; filtre moins coûteux |
+| 2026-11-02 | T-082 | Créée et faite : défilement allégé (`preview.marked`, barres gardées, `scrollKind`), JS de Nathflix −25 à −40 % en descendant les rangées |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
