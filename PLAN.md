@@ -117,10 +117,10 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-057 | Desktop : fenêtre transparente seulement pendant mpv (étude) | Abandonné | P2 | app | T-041 | 2026-11-01 |
 | T-058 | Thème découpé par appareil à la construction (étude) | Abandonné | P2 | plugin, tools | T-041 | 2026-11-02 |
 | T-059 | Ordonnanceur à budget (étude) | Abandonné | P2 | plugin | T-041 | 2026-11-02 |
-| T-060 | Étude : Stremio Web embarqué dans l'APK | À valider | P3 | tv | T-052 | 2026-11-02 |
+| T-060 | Étude : Stremio Web embarqué dans l'APK | Terminé | P3 | tv | T-052 | 2026-11-02 |
 | T-079 | Mesure à l'écran : la dernière minute, et la part de Nathflix par touche | À valider | P1 | plugin | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
-| T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
+| T-062 | Release 0.8.0 (performances, OK maintenu, Continuer de regarder, billboard, synchro) | En cours | P1 | release, tv, plugin, app | T-049 à T-085 | 2026-11-02 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
@@ -3576,7 +3576,7 @@ Puis, le lendemain (2026-11-02) :
 - [x] ~~Sur TV, rien dans les détails d'un titre (notes, genres, distribution) ne prend la sélection~~ (remplacé le 2026-11-02)
 - [x] En mode léger seulement (TV, téléphone, PC), rien dans les détails d'un titre ne prend la sélection de la télécommande ou du clavier ; sinon genres et acteurs restent sélectionnables
 - [x] Les boutons, les saisons, la recherche, les épisodes et les sources restent sélectionnables
-- [x] Plus de bouton « Partager » sur la page d'un titre (partout : TV, téléphone, PC)
+- [x] Plus de bouton « Partager » sur la page d'un titre (partout : TV, téléphone, PC ; confirmé par l'utilisateur le 2026-11-02 : « Oui retiré partout c'est bon »)
 - [ ] Vérifié sur la Fire TV
 
 **Notes techniques**
@@ -3705,7 +3705,7 @@ Puis, le lendemain (2026-11-02) :
 **Notes techniques**
 - Stremio fait pointer ces cartes vers la page des sources de l'épisode (`#/detail/series/<id>/<épisode>`). `cwSeries.onClick` (écouteur `click` en capture sur `window`, avant Stremio) : un lien de série avec un épisode, dans une carte de `continue-watching` ou sur la route `continuewatching`, est remplacé par `navigate("/detail/series/<id>")`, avec le son « select » que l'écouteur des sons n'entend plus. Pas sur le menu caché, le bouton lecture ni la croix de la carte.
 - Un clic déjà annulé (`defaultPrevented`, comme celui qui suit l'ouverture du menu par un doigt maintenu) est laissé tel quel.
-- « Par défaut » compris comme le comportement normal : pas de réglage pour revenir à l'épisode (question posée à l'utilisateur).
+- « Par défaut » compris comme le comportement normal : pas de réglage pour revenir à l'épisode (confirmé par l'utilisateur : « Non comme ça c'est bon »).
 
 **Vérification**
 - `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
@@ -3855,7 +3855,7 @@ Puis, le lendemain (2026-11-02) :
 
 ### T-060 — Étude : Stremio Web embarqué dans l'APK
 
-- **Statut :** À valider (recommandation : ne pas le faire ; décision de l'utilisateur)
+- **Statut :** Terminé (décision de l'utilisateur : ne pas l'embarquer)
 - **Priorité :** P3
 - **Cible :** tv
 - **Dépend de :** T-052
@@ -3874,7 +3874,7 @@ Puis, le lendemain (2026-11-02) :
 - [x] Ce que coûte aujourd'hui le chargement de Stremio Web au démarrage
 - [x] Faisabilité technique et licence
 - [x] Recommandation écrite
-- [ ] Décision de l'utilisateur
+- [x] Décision de l'utilisateur : « Tant que l'app fonctionne alors oui. » (d'accord pour ne pas l'embarquer)
 
 **Notes techniques**
 - **Aujourd'hui** (émulateur Fire TV, démarrage à chaud, compte de l'utilisateur ; `performance.getEntriesByType`) : la page est contrôlée par le service worker de Stremio (Workbox, `__WB_REVISION__`). Tous ses gros fichiers viennent de son cache, rien par le réseau (`transferSize` 0) : `main.js` 10 030 Ko en 481 ms, `main.css` 417 Ko en 259 ms, la page en 1189 ms (par le service worker). Embarquer Stremio Web ne gagnerait du téléchargement qu'au premier lancement et après chaque mise à jour de Stremio Web ; le temps d'analyse et d'exécution de `main.js` resterait le même.
@@ -3887,6 +3887,38 @@ Puis, le lendemain (2026-11-02) :
 
 **Livraison**
 - Commits : aucun code (fiche seulement)
+
+### T-062 — Release 0.8.0 (performances, OK maintenu, Continuer de regarder, billboard, synchro)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin, app
+- **Dépend de :** T-049 à T-085
+- **Créée le :** 2026-10-31
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> 1. Oui fait une release
+
+(réponse à la question « Release 0.8.0 : je la publie quand tu me dis go »)
+
+**Critères d'acceptation**
+- [x] `@version 0.8.0`, section `## 0.8.0` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.8.0`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, versionCode 800, plugin embarqué en 0.8.0
+
+**Notes techniques**
+- **Contenu** : T-049 (mises à jour vérifiées après la page), T-051 (réglage « Rendu allégé sur TV », coupé), T-079 (mesure à l'écran sur la dernière minute), T-080 (OK maintenu, 3 points masqués), T-081 (genres et acteurs en mode léger, Partager retiré), T-082 (défilement allégé), T-083 (Continuer de regarder ouvre la série), T-084 (billboard écrasé), T-085 (synchro de l'ordre de l'Accueil) ; et de T-052 / T-055 ce qui est resté (temps de chargement du plugin dans la mesure à l'écran, outils du banc).
+- **Nouvelle APK** : T-049, T-051 (`MainActivity`, `nathflix-tv.js`). Un plugin 0.8.0 dans une APK 0.7.0 n'affiche pas le réglage de T-051 (`tvFeature`).
+- **Worker de synchro** : inchangé (mêmes clés), rien à redéployer.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
 
 <!--
 ### T-000 — Titre court
@@ -3993,6 +4025,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-058 | Abandonné : l'affûtage du thème coûte ~30 ms par démarrage (cache) et ~0,5 s une fois par mise à jour |
 | 2026-11-02 | T-059 | Abandonné : le temps de Nathflix est sur le chemin de la touche, rien à ordonnancer ; le correctif trouvé est T-082 |
 | 2026-11-02 | T-060 | Étude faite : Stremio Web vient déjà du cache de son service worker ; recommandation : ne pas l'embarquer (décision de l'utilisateur) |
+| 2026-11-02 | T-060 | Terminé : l'utilisateur est d'accord pour ne pas embarquer Stremio Web |
+| 2026-11-02 | T-062 | En cours : release 0.8.0 demandée par l'utilisateur |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

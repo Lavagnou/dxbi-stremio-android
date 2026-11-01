@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.8.0
+- **Continue Watching opens the series.** A series in Continue Watching (Home's row and its *See all* page) now opens the series' page, where *Resume S1 E3* plays from where you left off, rather than the episode's list of streams. Films are unchanged.
+- **The billboard is whole again.** With Home organised (*Organise Home*), the billboard was squeezed into a strip showing only its bottom, on computers and on phones held upright.
+- **Home's order reaches your other devices sooner.** A new order from *Organise Home* goes out within seconds, and your other devices look for changes as Home opens and every two minutes. A device whose changes the sync turned down no longer stops getting the others' too.
+- **No more "⋮" on titles.** The three dots on Continue Watching titles are gone: hold the title instead (a finger, OK on the remote, or a right click) to open its menu.
+- **Nathflix TV: hold OK for a title's menu.** Holding OK on a Continue Watching title opens its menu (*Details*, *Dismiss*), and Back closes it. Holding OK anywhere no longer presses again and again: it opened the title over and over with a click each time, froze the app for seconds, and could even start a film from the title's page.
+- **No Share button.** A title's page no longer has Stremio's *Share* button.
+- **Light mode: a title's page selects only its buttons.** In light mode the remote no longer stops on a title's genres and cast, only on its buttons, episodes and streams. Out of light mode they can still be selected.
+- **Nathflix TV: lighter rendering, to try.** New setting, Nathflix settings → Performance → *Lighter rendering on TV* (off for now): the page is drawn at 720p and enlarged to the screen, far fewer pixels for a TV stick to draw, for slightly softer text. It takes effect the next time the app starts.
+- **Smoother scrolling.** Nathflix does much less while a row or the page glides: about a third less of its own work going down Home's rows.
+- **Nathflix TV: a quieter start.** The check for updates now waits until Home is up, rather than downloading Nathflix in the middle of Stremio's own start.
+- **Performance readout.** Its rates are now over the last minute (they were averaged since the start, which kept the start's burst in them), and it also shows Nathflix's share of each key press, how long Nathflix took to load (Nathflix for Android) and the size the page is drawn at (TV).
+
 ## 0.7.0
 - **Nathflix TV: a player like Netflix's.** The TV player gets new controls, made like Netflix's: Back and *Restart from the beginning* at the top left (the one the remote is on shows its name), the show and the episode at the top right, a big play button with the time, a red bar and the length, then *Audio & Subtitles*, *Episodes* and *Next Episode*. On play, left and right skip 10 seconds; up and down move to the icons and the buttons. They go away after a few seconds while the film plays, and the subtitles move up above them while they're there. With the controls hidden, the remote works as before.
 - **Nathflix TV: audio, subtitles and episodes from the player.** *Audio & Subtitles* lists the tracks in two columns and switches at once, without an *Apply* button. *Episodes* shows the season's episodes as cards, with the summary of the one selected, and plays the one you pick.
