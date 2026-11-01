@@ -8316,19 +8316,32 @@
       } catch (_) { /* this WebView doesn't report long tasks */ }
     },
 
-    // What Nathflix itself did, a minute at a time since the counters started
+    // A copy of the counters every second, for the last minute's rates
+    history: [],
+
+    // What happened over the last minute (core reads include Stremio's own, through the same core).
+    // Averaged since the start, the burst of the start-up hid what goes on afterwards; for the
+    // readout's first seconds, the average since the start is all there is
     counters(now) {
-      const minutes = Math.max((now - perf.since) / 60000, 1 / 60);
-      const rate = (n) => Math.round(n / minutes);
-      const reads = Object.entries(perf.counts)
-        .filter(([k]) => k.startsWith("getState:"))
+      if (this.history.length && this.history[0].since !== perf.since) this.history = [];
+      this.history.push({ at: now, since: perf.since, counts: { ...perf.counts }, ms: { ...perf.ms } });
+      while (this.history.length > 1 && this.history[1].at <= now - 60000) this.history.shift();
+      const base = now - this.history[0].at >= 10000 ? this.history[0] : { at: perf.since, counts: {}, ms: {} };
+      const minutes = Math.max((now - base.at) / 60000, 1 / 60);
+      const rate = (n) => Math.round(Math.max(0, n) / minutes);
+      const counts = Object.fromEntries(Object.entries(perf.counts).map(([k, n]) => [k, n - (base.counts[k] || 0)]));
+      const spent = (k) => (perf.ms[k] || 0) - (base.ms[k] || 0);
+      const reads = Object.entries(counts)
+        .filter(([k, n]) => k.startsWith("getState:") && n > 0)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
         .map(([k, n]) => `${k.slice(9)} ${rate(n)}`);
       return [
         t("Core reads a minute: {list}", { list: reads.length ? reads.join(", ") : "0" }),
-        t("Main loop: {n} times a minute, {ms} ms a minute", { n: rate(perf.counts.sync || 0), ms: rate(perf.ms.sync || 0) }),
-        t("Saves a minute: {n}", { n: rate(perf.counts.saveLocal || 0) }),
+        t("Main loop: {n} times a minute, {ms} ms a minute", { n: rate(counts.sync || 0), ms: rate(spent("sync")) }),
+        t("Saves a minute: {n}", { n: rate(counts.saveLocal || 0) }),
+        // (Nathflix's own share of a press of the remote: the rest is the browser's and Stremio's)
+        ...(counts.keyNav > 0 ? [t("Nathflix's share of a key press: {ms} ms", { ms: Math.round(spent("keyNav") / counts.keyNav) })] : []),
         ...(startup.ms ? [startup.fromApp ? t("Start-up: {ms} ms from the app's opening", { ms: startup.ms }) : t("Start-up: {ms} ms from the page's start", { ms: startup.ms })] : []),
         // (Nathflix for Android: how long the plugin took to compile and run)
         ...(typeof window.__nathflixTvPluginMs === "number" ? [t("Plugin loaded in {ms} ms", { ms: window.__nathflixTvPluginMs })] : []),
@@ -17431,6 +17444,7 @@ vec4 hook() {
       "Start-up: {ms} ms from the app's opening": "Démarrage : {ms} ms depuis l'ouverture de l'app",
       "Start-up: {ms} ms from the page's start": "Démarrage : {ms} ms depuis le début de la page",
       "Plugin loaded in {ms} ms": "Plugin chargé en {ms} ms",
+      "Nathflix's share of a key press: {ms} ms": "Part de Nathflix par touche : {ms} ms",
     };
   }
 
