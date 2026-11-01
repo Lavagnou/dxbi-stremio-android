@@ -126,7 +126,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-075 | Résumé resté en anglais sur la fiche d'un titre sans note IMDb | À valider | P2 | plugin | T-072 | 2026-11-01 |
 | T-076 | Lecteur TV comme celui de Netflix (prototype validé) | À valider | P1 | TV, plugin | — | 2026-11-01 |
 | T-077 | Dégradé de « Qui est-ce ? » dans la couleur d'accent | À valider | P2 | plugin | — | 2026-11-01 |
-| T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | En cours | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
+| T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | Terminé | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
 
 ---
 
@@ -3239,7 +3239,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 ### T-078 — Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-075 à T-077
@@ -3251,9 +3251,9 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 > Après ça tu peux publier une nouvelle release
 
 **Critères d'acceptation**
-- [ ] `@version 0.7.0`, section `## 0.7.0` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.7.0`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 700, plugin embarqué en 0.7.0
+- [x] `@version 0.7.0`, section `## 0.7.0` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [x] CI verte, tag `v0.7.0`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 700, plugin embarqué en 0.7.0
 
 **Notes techniques**
 - **Numéro** : 0.7.0, car l'APK change (nouveau lecteur TV). La réservation de la phase 2 du chantier performance (T-062) passe à 0.8.0.
@@ -3261,10 +3261,14 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - **Worker de synchro** : inchangé, rien à redéployer.
 
 **Vérification**
-- (à remplir)
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
+- CI verte sur `b2cd1ce` (Cross-platform, mpv Windows, Android test build avec R8), puis tag `v0.7.0` : run Release 41329833883, tous les jobs verts (publish, android, desktop ×5).
+- Release : les 11 fichiers (installeur et portable Windows, `.blockmap`, 2 dmg, 2 AppImage, APK, 3 `latest*.yml`).
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé que la 0.6.x) ; `com.lavagnou.nathflix`, versionCode 700, versionName 0.7.0 ; plugin embarqué en 0.7.0 ; `TvTimeBar` présent dans le dex (gardé par R8 pour le layout).
 
 **Livraison**
-- Commits : (à remplir)
+- Commits : `b2cd1ce` (`0.7.0: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.7.0
 
 <!--
 ### T-000 — Titre court
@@ -3349,6 +3353,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-076 | Créée et faite : lecteur TV comme celui de Netflix (`TvPlayerControls`), Épisodes et Épisode suivant sur TV |
 | 2026-11-01 | T-077 | Créée et faite : dégradé de « Qui est-ce ? » dans la couleur d'accent |
 | 2026-11-01 | T-078 | Créée : release 0.7.0 ; réservation de T-062 passée à 0.8.0 |
+| 2026-11-01 | T-078 | Terminé : release 0.7.0 publiée (11 fichiers, APK 700 signée) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
