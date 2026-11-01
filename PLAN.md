@@ -3438,6 +3438,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-078 | Terminé : release 0.7.0 publiée (11 fichiers, APK 700 signée) |
 | 2026-11-01 | T-052 | Abandonné : plugin par adresse (variantes A et B) sans gain sur l'émulateur ; mesure « Plugin chargé en N ms » gardée |
 | 2026-11-01 | T-053 | Abandonné : plugin minifié (−30 %) sans gain de chargement sur l'émulateur |
+| 2026-11-01 | — | Test mpv (Windows) en échec sur `2f13276` : l'image de l'Accueil prise pendant un fondu du billboard (238 points changés au lieu de 0) ; relancé, il passe. `tools/mpv-test.mjs` remesure l'Accueil 2,5 s plus tard s'il bouge |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

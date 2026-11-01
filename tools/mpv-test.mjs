@@ -216,7 +216,13 @@ $ex = [S]::GetWindowLongPtr($script:target, -20).ToInt64()
 
   let area = await place(Math.round(sw * 0.05), Math.round(sh * 0.05), Math.round(sw * 0.8), Math.round(sh * 0.8));
   switcher("on start");
-  const home = screen("1-home", area);
+  // (the billboard changes picture every few seconds: caught in a crossfade, Home is measured again
+  // a moment later, when it's still)
+  let home = screen("1-home", area);
+  if (home >= 10) {
+    await sleep(2500);
+    home = Math.min(home, screen("1-home-again", area));
+  }
 
   const stream = { url: `http://127.0.0.1:${CLIP_PORT}/clip.mkv`, name: "Nathflix test", title: "10-bit HEVC + AC3" };
   const encoded = encodeURIComponent(zlib.deflateSync(Buffer.from(JSON.stringify(stream))).toString("base64"));
