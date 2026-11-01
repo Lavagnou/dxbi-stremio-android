@@ -122,7 +122,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-071 | Retour depuis un épisode : la page de la série, pas l'Accueil | À valider | P2 | plugin | — | 2026-11-01 |
 | T-072 | Titres, résumés, genres et bandes-annonces en français (TMDB) | À valider | P1 | plugin | — | 2026-11-01 |
 | T-073 | Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées | À valider | P1 | plugin | T-027, T-066 | 2026-11-01 |
-| T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | En cours | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
+| T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | Terminé | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
 
 ---
 
@@ -3087,7 +3087,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 ### T-074 — Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-067 à T-073
@@ -3100,8 +3100,8 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 **Critères d'acceptation**
 - [x] `@version 0.6.1`, section `## 0.6.1` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.6.1`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 601, plugin embarqué en 0.6.1
+- [x] CI verte, tag `v0.6.1`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 601, plugin embarqué en 0.6.1
 
 **Notes techniques**
 - **Numéro** : 0.6.1, car la 0.7.0 reste réservée à la phase 2 du chantier performance (T-062, nouvelle APK). Depuis la 0.6.0, seul le plugin a changé (`tv/` et `app/` identiques, hors numéro de version).
@@ -3110,11 +3110,13 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 **Vérification**
 - `node --check` : OK. Bancs de T-073 (21/21) et de T-066 (9/9), `tools/profile-sync/test.mjs` : OK.
-- —
+- CI verte sur `6dddc16` (Cross-platform, mpv Windows, Android test build), puis tag `v0.6.1` : run Release 41322866523, tous les jobs verts (publish, android, desktop ×5).
+- Release : les 11 fichiers (installeur et portable Windows, `.blockmap`, 2 dmg, 2 AppImage, APK, 3 `latest*.yml`).
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé que la 0.6.0) ; `com.lavagnou.nathflix`, versionCode 601, versionName 0.6.1 ; plugin embarqué en 0.6.1.
 
 **Livraison**
-- Commits : ce commit (`0.6.1: …`)
-- Release : —
+- Commits : `6dddc16` (`0.6.1: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.6.1
 
 <!--
 ### T-000 — Titre court
@@ -3195,6 +3197,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
 | 2026-11-01 | T-072 | Créée et faite : titres, résumés, genres et bandes-annonces en français par TMDB (`localMeta`), anglais en repli ; à valider avec la vraie clé |
