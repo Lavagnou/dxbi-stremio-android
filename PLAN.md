@@ -3154,7 +3154,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la vraie clé de l'utilisateur, un titre à identifiant `tmdb:` (aucun sur le compte invité).
 
 **Livraison**
-- Commits : ce commit
+- Commits : `e81da46`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
