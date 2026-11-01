@@ -111,6 +111,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
 | T-053 | Plugin minifié pour l'APK et l'app | Abandonné | P2 | tv, app, tools | T-052 | 2026-11-01 |
+| T-055 | `keyNav` sans remesure | Abandonné | P1 | plugin, tools | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -3352,6 +3353,42 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 **Livraison**
 - Commits : aucun code (fiche seulement)
 
+### T-055 — `keyNav` sans remesure
+
+- **Statut :** Abandonné (le profil montre que les mesures de `keyNav` ne coûtent presque rien ; les deux pistes trouvées n'ont pas de gain mesurable)
+- **Priorité :** P1
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Continue la suite du chantier
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-055)
+
+**Critères d'acceptation**
+- [x] Mesure avant (banc TV, 5 passes)
+- [x] Trouver où va le temps d'une touche avant de changer `keyNav`
+- [x] Garder seulement ce qui gagne
+
+**Notes techniques**
+- **Outils ajoutés (gardés)** :
+  - compteur `keyNav` dans `perf` (`keyNav.onKey` chronomètre le gestionnaire de la télécommande) ;
+  - banc : `keys.handlerMs` (temps du gestionnaire par touche) et `--profile` (profil CPU des 20 touches : les 15 fonctions du plugin les plus coûteuses, en temps propre et total ; documenté dans `tools/README.md`).
+- **Où va le temps** (banc TV, processeur ralenti ×6) : une touche dure ~32 à 48 ms (Event Timing), dont ~10 à 17 ms dans le gestionnaire de Nathflix (selon les passes). Le profil montre que ce temps est surtout `go()` → `link.focus()` et ce qu'il déclenche (`onFocus`, ouverture de la carte d'aperçu, défilement), pas les mesures de `keyNav` (`inView`, `nearest`, `rows`, `getBoundingClientRect` n'apparaissent pas parmi les 15 plus coûteuses). Les étapes prévues (cache des mesures par image, `IntersectionObserver` sur les rangées, cache de `rows()`) viseraient donc à côté : non faites.
+- **Pistes essayées puis retirées** :
+  - `endsAtText` (« Se termine à » de la carte d'aperçu) en tête du profil (76 ms) : c'était le premier appel de `toLocaleTimeString`, qui charge les données de dates (~55 ms, ×6), payé de toute façon. Ensuite, 0,4 ms par appel contre ~0 avec un formateur gardé (`perf2/intl-cost.mjs`, scratchpad) : gain négligeable ;
+  - flèches et traits de page des rangées mesurés à chaque image pendant le glissement d'une rangée sur TV, où ils ne se voient jamais (seulement au survol de la souris) : limité à la rangée survolée. Survol sur PC identique (`arrows-check.mjs`), mais aucune différence au banc.
+  - Banc A/B dans le même navigateur (`--vs`, 6 passes alternées), avant / avec les deux pistes : médiane 32 / 32 ms, p90 52 / 52, pire 68 / 60, gestionnaire 9,7 / 9,6 ms. Retirées, selon la règle du chantier.
+
+**Vérification**
+- `node --check` : OK. Banc TV sans erreur `[Nathflix]` à chaque passe.
+
+**Livraison**
+- Commits : à venir (compteur et outils de mesure seulement)
+
 <!--
 ### T-000 — Titre court
 
@@ -3439,6 +3476,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-052 | Abandonné : plugin par adresse (variantes A et B) sans gain sur l'émulateur ; mesure « Plugin chargé en N ms » gardée |
 | 2026-11-01 | T-053 | Abandonné : plugin minifié (−30 %) sans gain de chargement sur l'émulateur |
 | 2026-11-01 | — | Test mpv (Windows) en échec sur `2f13276` : l'image de l'Accueil prise pendant un fondu du billboard (238 points changés au lieu de 0) ; relancé, il passe. `tools/mpv-test.mjs` remesure l'Accueil 2,5 s plus tard s'il bouge |
+| 2026-11-01 | T-055 | Abandonné : le profil des touches montre que les mesures de `keyNav` ne coûtent presque rien ; deux pistes essayées sans gain ; compteur `keyNav` et `--profile` du banc gardés |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

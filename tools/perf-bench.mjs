@@ -7,7 +7,7 @@
 //   npx --yes -p playwright@1 node tools/perf-bench.mjs [--tv | --pc | --phone] [--runs 5] [--throttle 6]
 //       [--plugin nathflix.plugin.js] [--out result.json] [--settle 15] [--idle 30] [--settings '{"k":v}']
 //       [--storage '{"localStorageKey":"value"}' | @file.json] [--shots dir] [--compare refdir] [--no-measure]
-//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--descend 10] [--cold] [--drop prefix]
+//       [--dwell "#/route,#/other"] [--loss-test] [--vs other.plugin.js] [--login] [--trace] [--profile] [--descend 10] [--cold] [--drop prefix]
 //
 // No Stremio account: the guest mode is allowed with nathflix.allowGuest, like the CI. Never set
 // nathflix.lang here: a language change reloads the page (langWatch).
@@ -45,6 +45,8 @@ const vsPath = opt("vs", "") ? resolve(opt("vs", "")) : "";
 const login = flag("login");
 // a browser trace of the keys and the walk (first run of each build): where the main thread's time goes
 const traceOn = flag("trace");
+// a CPU profile of the 20 key presses (first run of each build): Nathflix's functions by time spent
+const profileOn = flag("profile");
 // after the keys, Down this many times down Home's rows, 700 ms apart: the row reached each time
 const descendN = Math.max(0, parseInt(opt("descend", "0"), 10) || 0);
 // every run starts with an empty HTTP cache (the first start of the day) instead of a warm one
@@ -256,6 +258,34 @@ async function loss() {
   return out;
 }
 
+// A CPU profile's time in the plugin's functions: own time (self) and with what they call (total), in ms,
+// the 15 biggest of each, plus the whole plugin's and Stremio's own time
+function profileSummary(profile) {
+  const nodes = new Map(profile.nodes.map((n) => [n.id, n]));
+  const parent = new Map();
+  for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id);
+  const name = (n) => `${n.callFrame.functionName || "(anonymous)"}:${n.callFrame.lineNumber + 1}`;
+  const ours = (n) => n.callFrame.url.includes("__nathflix/plugin.js");
+  const self = new Map();
+  const total = new Map();
+  const by = { nathflix: 0, stremio: 0, other: 0 };
+  profile.samples.forEach((id, i) => {
+    const ms = (profile.timeDeltas[i] || 0) / 1000;
+    const n = nodes.get(id);
+    if (ours(n)) self.set(name(n), (self.get(name(n)) || 0) + ms);
+    by[ours(n) ? "nathflix" : /main\.js/.test(n.callFrame.url) ? "stremio" : "other"] += ms;
+    const seen = new Set();
+    for (let at = id; at != null; at = parent.get(at)) {
+      const a = nodes.get(at);
+      if (!ours(a) || seen.has(name(a))) continue;
+      seen.add(name(a));
+      total.set(name(a), (total.get(name(a)) || 0) + ms);
+    }
+  });
+  const top = (m) => Object.fromEntries([...m].sort((x, y) => y[1] - x[1]).slice(0, 15).map(([k, v]) => [k, round(v)]));
+  return { ms: Object.fromEntries(Object.entries(by).map(([k, v]) => [k, round(v)])), self: top(self), total: top(total) };
+}
+
 // The trace's main-thread time by kind of work, and script time by script. Durations include what
 // they call (a script that forces a layout counts it too); style and layout are counted on their own
 const TRACED = { UpdateLayoutTree: "style", Layout: "layout", Paint: "paint", PrePaint: "prepaint", Layerize: "layerize", ParseHTML: "parseHTML", ParseAuthorStyleSheet: "parseCSS", MinorGC: "gc", MajorGC: "gc" };
@@ -294,7 +324,7 @@ function traceSummary(buffer) {
   return { work: rounded(work), scripts: rounded(scripts) };
 }
 
-async function measure(ctx, trace = false) {
+async function measure(ctx, trace = false, profiling = false) {
   const errors = [];
   const page = await openPage(ctx, errors, true);
   if (cold) await (await ctx.newCDPSession(page)).send("Network.clearBrowserCache");
@@ -315,11 +345,23 @@ async function measure(ctx, trace = false) {
   // 20 key presses, 400 ms apart
   const keys = [...Array(2).fill("ArrowDown"), ...Array(10).fill("ArrowRight"), ...Array(4).fill("ArrowLeft"), ...Array(2).fill("ArrowUp"), ...Array(2).fill("ArrowDown")];
   await page.evaluate(() => { window.__bench.presses = []; });
+  const keyPerf = await page.evaluate(() => window.__nathflix.perf());
+  const profiler = profiling ? await ctx.newCDPSession(page) : null;
+  if (profiler) {
+    await profiler.send("Profiler.enable");
+    await profiler.send("Profiler.setSamplingInterval", { interval: 200 });
+    await profiler.send("Profiler.start");
+  }
   for (const key of keys) {
     await page.keyboard.press(key);
     await sleep(400);
   }
   await sleep(1000);
+  const profiled = profiler ? profileSummary((await profiler.send("Profiler.stop")).profile) : null;
+  // Nathflix's own share of each press: the time in keyNav's handler ("keyNav" in perf(), 0 before it was timed)
+  const keyPerfEnd = await page.evaluate(() => window.__nathflix.perf());
+  const handled = (keyPerfEnd.counts.keyNav || 0) - (keyPerf.counts.keyNav || 0);
+  const handlerMs = handled ? round(((keyPerfEnd.ms.keyNav || 0) - (keyPerf.ms.keyNav || 0)) / handled) : 0;
   // each press: the longest event the browser timed for it (under 16 ms isn't reported: counted as 0)
   const keyMs = await page.evaluate(() => window.__bench.presses.map((at) => {
     const own = window.__bench.events.filter((e) => /^key(down|up)$/.test(e.name) && e.at >= at - 1 && e.at - at < 350);
@@ -409,11 +451,12 @@ async function measure(ctx, trace = false) {
     ...counters(before.perf, after.perf),
     longTasks: tasks(idleTasks),
     elements: after.elements,
-    keys: { median: Math.round(median(keyMs)), p90: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] || 0), worst: Math.round(sorted[sorted.length - 1] || 0), pressed: keyMs.length },
+    keys: { median: Math.round(median(keyMs)), p90: Math.round(sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.9))] || 0), worst: Math.round(sorted[sorted.length - 1] || 0), pressed: keyMs.length, handlerMs },
     session: { ...counters({ counts: {}, ms: {} }, end.perf), longTasks: tasks(end.longTasks) },
     switching,
     descend,
     traced,
+    profiled,
     dwell,
     errors,
   };
@@ -439,7 +482,7 @@ function summarise(results) {
     filterMs: round(pick((r) => r.filterMs)),
     longTasks: { count: pick((r) => r.longTasks.count), totalMs: pick((r) => r.longTasks.totalMs), maxMs: pick((r) => r.longTasks.maxMs) },
     elements: pick((r) => r.elements),
-    keys: { median: pick((r) => r.keys.median), p90: pick((r) => r.keys.p90), worst: pick((r) => r.keys.worst) },
+    keys: { median: pick((r) => r.keys.median), p90: pick((r) => r.keys.p90), worst: pick((r) => r.keys.worst), handlerMs: pick((r) => r.keys.handlerMs || 0) },
     // the whole visit: load, rest, keys, then the control walk
     session: {
       sync: { calls: pick((r) => r.session.sync.calls), ms: round(pick((r) => r.session.sync.ms)) },
@@ -451,6 +494,7 @@ function summarise(results) {
       longTasks: { count: pick((r) => r.session.longTasks.count), totalMs: pick((r) => r.session.longTasks.totalMs), maxMs: pick((r) => r.session.longTasks.maxMs) },
     },
     ...(results[0].traced ? { traced: results[0].traced } : {}),
+    ...(results[0].profiled ? { profiled: results[0].profiled } : {}),
     ...(results[0].descend ? {
       descend: {
         stalls: pick((r) => r.descend.stalls),
@@ -629,7 +673,7 @@ try {
       serving = which;
       let r;
       try {
-        r = await measure(ctx, traceOn && !results[which].length);
+        r = await measure(ctx, traceOn && !results[which].length, profileOn && !results[which].length);
       } catch (err) {
         // the page reloaded under the bench (it happens now and then while Stremio starts): that run
         // is taken again, twice at most, and the report says so

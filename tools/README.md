@@ -106,7 +106,10 @@ b, then b, then a…): `a` and `b` in the report. Steadier than two benches one 
 
 `--trace` records a browser trace of the keys and the walk (first run of each build): `traced.work` is
 the main thread's time by kind of work (style, layout, layers, paint…), `traced.scripts` the script time by
-script (Stremio's, Nathflix's). `--descend N` presses Down N times down Home after the keys: `descend`
+script (Stremio's, Nathflix's). `--profile` takes a CPU profile of the 20 key presses (first run of each
+build): `profiled.self` and `profiled.total` are the plugin's 15 costliest functions (`name:line`, ms on
+their own and with what they call). `keys.handlerMs` is the time in Nathflix's remote handler per press.
+`--descend N` presses Down N times down Home after the keys: `descend`
 says which row was reached each time (a stall is a press that didn't move), how long the presses took
 and how big Home has grown.
 

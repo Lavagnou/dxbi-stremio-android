@@ -3305,7 +3305,16 @@
     shield: null,
     from: null,
 
-    onKey: (e) => keyNav.key(e),
+    // (timed for the performance counters: the remote's share of each press)
+    onKey: (e) => {
+      const started = performance.now();
+      try {
+        keyNav.key(e);
+      } finally {
+        perf.count("keyNav");
+        perf.time("keyNav", performance.now() - started);
+      }
+    },
     onFocus: (e) => keyNav.focus(e),
 
     key(e) {
