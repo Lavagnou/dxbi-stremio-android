@@ -2887,7 +2887,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la Fire TV ; la capture PC (« Cette semaine » sous le logo) n'a pas été reproduite.
 
 **Livraison**
-- Commits : ce commit
+- Commits : `66156cc`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
