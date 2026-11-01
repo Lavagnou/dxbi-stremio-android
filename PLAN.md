@@ -119,6 +119,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-068 | TV : sélection à la télécommande (contour coupé, point de départ, déplacements) et défilement fluide | À valider | P1 | plugin, tv | T-046, T-054 | 2026-11-01 |
 | T-069 | TV : carte d'aperçu et bande-annonce sur le titre sélectionné ; défauts trouvés avec le compte de l'utilisateur | À valider | P1 | plugin, tv | T-068 | 2026-11-01 |
 | T-070 | « Qui est-ce ? » au démarrage seulement ; fenêtres promotionnelles de Stremio supprimées ; contour de la carte d'aperçu TV | À valider | P1 | plugin, tv | T-069 | 2026-11-01 |
+| T-071 | Retour depuis un épisode : la page de la série, pas l'Accueil | À valider | P2 | plugin | — | 2026-11-01 |
 
 ---
 
@@ -2934,6 +2935,38 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `c522bb0`
 - Version / CHANGELOG : à la prochaine release
 
+### T-071 — Retour depuis un épisode : la page de la série, pas l'Accueil
+
+- **Statut :** À valider (sur la Fire TV)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Ah ouai je preferai que retour repasse par la série, c'est plus intuitif et ergonomique.
+
+**Critères d'acceptation**
+- [x] Depuis un épisode ouvert à partir de la page de sa série, Retour ramène à la série, puis à la page d'avant
+
+**Notes techniques**
+- **Cause** : en choisissant un épisode sur la page d'une série, Stremio remplace cette page dans l'historique par celle de l'épisode (longueur de l'historique inchangée), donc Retour sautait la série.
+- **Correction** (`episodeBack`, clic et touche Entrée en capture) : depuis la page de la série elle-même (`#/detail/series/<id>`, sans épisode), une copie de cette page est ajoutée à l'historique (`history.pushState`) juste avant que Stremio ouvre l'épisode, et c'est elle que Stremio remplace. Si rien ne s'est ouvert au bout d'une seconde, la copie est retirée (`history.back()`). Un seul ajout par appui (OK envoie une touche et un clic). D'un épisode à l'autre, Stremio continue de remplacer.
+- Partout (PC compris).
+
+**Vérification**
+- `node --check` : OK.
+- Émulateur, compte de l'utilisateur : Accueil → série (OK sur une affiche) → épisode (OK sur un épisode) → Retour : la série, sélectionnée sur « Lancer S1 É1 » → Retour : l'Accueil, sur l'affiche quittée. Historique : 2 → 3 en ouvrant l'épisode (avant : 2 → 2).
+- PC (Chrome, invité) : clic sur un épisode, historique 3 → 4, puis Retour du navigateur : la page de la série.
+- **Incident pendant les tests** : un OK envoyé sans vérifier l'élément sélectionné a masqué « Outlander: Blood of My Blood » pour le profil de l'utilisateur (bouton « Ne plus jamais montrer »). Annulé aussitôt par le même bouton ; les listes `hidden:*` sont vides. Depuis, un OK n'est envoyé qu'après avoir vérifié la cible (`okon.mjs`, scratchpad).
+- Non vérifié : la Fire TV.
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3013,6 +3046,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-071 | Créée et faite : Retour depuis un épisode ramène à la série (`episodeBack`) ; à valider sur la Fire TV |
 | 2026-11-01 | T-070 | Créée et faite : « Qui est-ce ? » au démarrage seulement, promotions de Stremio supprimées, contour de la carte d'aperçu ; sélection sur `#app`, rangées préparées au démarrage ; à valider sur la Fire TV |
 | 2026-11-01 | T-069 | Créée et faite : carte d'aperçu et bande-annonce sur TV ; Qui est-ce ?, rangées masquées (T-054), Cette semaine, glissade, panneau d'informations, barre du haut ; à valider sur la Fire TV |
 | 2026-11-01 | T-068 | Créée et faite : émulateur Fire TV ; sélection TV (contour jamais coupé, point de départ, déplacements), défilement fluide, loupe, « Aucun flux trouvé » ; à valider sur la Fire TV |

@@ -8642,6 +8642,28 @@
   // (hidden by EXTRAS_CSS). Once signed in: the account's profiles, then "Who's watching?"
   // ---------------------------------------------------------------------------
 
+  // A series' page: picking an episode puts its streams in place of the series in the history (Stremio
+  // replaces the page), so Back skipped the series and went all the way Home. The series is kept: a
+  // copy of it goes into the history first, and that's what the episode replaces. If nothing opened
+  // after all, the copy goes again.
+  const episodeBack = {
+    at: 0,
+    onClick: (e) => episodeBack.keep(e.target),
+    onKey: (e) => { if (e.key === "Enter") episodeBack.keep(e.target); },
+    keep(target) {
+      if (!(target instanceof Element) || !target.closest('#app [class*="videos-list"] [class*="video-container"]')) return;
+      const parts = (location.hash || "").replace(/^#\/?/, "").split("/");
+      // (from the series' own page only: between two episodes, Stremio replacing is what's wanted)
+      if (parts[0] !== "detail" || parts[1] !== "series" || !parts[2] || parts[3]) return;
+      // OK sends a key and a click: one copy
+      if (Date.now() - this.at < 800) return;
+      this.at = Date.now();
+      const here = location.hash;
+      history.pushState(history.state, "", here);
+      setTimeout(() => { if (location.hash === here) history.back(); }, 1000);
+    },
+  };
+
   // Stremio's own promotions (a pop-up offering an addon, Halloween films…) aren't Nathflix's: never
   // shown (EXTRAS_CSS), and closed as they come, as their close button would (Stremio then doesn't
   // bring them back). Under Who's watching, one kept the remote's selection.
@@ -16119,6 +16141,8 @@
     }
     for (const type of ["pointerdown", "mousedown", "touchstart"]) window.addEventListener(type, onPortalPress, { capture: true, passive: false });
     window.addEventListener("click", onPortalClick, true);
+    document.addEventListener("click", episodeBack.onClick, true);
+    document.addEventListener("keydown", episodeBack.onKey, true);
     portalSizer.observe(document.body, { childList: true });
     themeLinkWatch.observe(document.head, { childList: true });
     ensureExtrasStyle();
@@ -16278,6 +16302,8 @@
       keyNav.exit();
       for (const type of ["pointerdown", "mousedown", "touchstart"]) window.removeEventListener(type, onPortalPress, true);
       window.removeEventListener("click", onPortalClick, true);
+      document.removeEventListener("click", episodeBack.onClick, true);
+      document.removeEventListener("keydown", episodeBack.onKey, true);
       portalSizer.disconnect();
       if (sfx.ctx) sfx.ctx.close().catch(() => {});
       hero.remove();
