@@ -3021,7 +3021,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la vraie clé TMDB de l'utilisateur (non lue), la TV.
 
 **Livraison**
-- Commits : ce commit
+- Commits : `ad213ff`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
