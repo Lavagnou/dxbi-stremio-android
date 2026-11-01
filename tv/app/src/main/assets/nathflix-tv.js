@@ -97,6 +97,8 @@
   tv.deviceInfo = () => native.deviceInfo();
   // the app plays the intro film itself (Intro.kt): the plugin's splash stays out of the way
   tv.nativeIntro = true;
+  // the native player on a TV has Next episode and plays the next one by itself (the plugin shows that setting)
+  tv.tvNext = true;
   // when the app was opened (ms since 1970; 0 from an older app): the performance readout's start-up time
   tv.launchedAt = native.launchedAt();
 
@@ -710,8 +712,8 @@
     if (location.hash !== hash) { handoff = null; return; }
     handoff = { hash, videoId, started: Date.now() };
     veil(true, false);
-    // Phones and tablets: the player's Episodes and Next episode, and how it behaves when you leave
-    const mobile = PHONE ? mobilePlayback(state, meta, video, metaPath) : {};
+    // The player's Episodes and Next episode, and (phones and tablets) how it behaves when you leave
+    const mobile = mobilePlayback(state, meta, video, metaPath);
     native.play(JSON.stringify({
       ...mobile,
       hash,
@@ -733,6 +735,8 @@
       url,
       title: meta.name || state.title || stream.title || "Nathflix",
       subtitle: episode,
+      // (the TV player writes the episode Netflix's way: "S1:E3 “Pilot”")
+      ...(video && video.season != null ? { season: video.season, episodeNumber: video.episode || 0, episodeTitle: video.title || video.name || "" } : {}),
       startMs: resumeMs,
       headers,
       subtitles,
@@ -752,7 +756,7 @@
     return !id || id === video;
   }
 
-  // Episodes and Next episode for the phone and tablet player: where the page goes for each (the
+  // Episodes and Next episode for the native player: where the page goes for each (the
   // player hands the route back as it closes). The next episode's player when Stremio already knows
   // its stream (same release), otherwise its list of streams, like Stremio's own "play next"
   function mobilePlayback(state, meta, video, metaPath) {

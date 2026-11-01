@@ -61,9 +61,9 @@ import java.util.concurrent.TimeUnit
 /**
  * The native player: plays the stream Stremio picked (MKV, HEVC, HDR and surround sound included,
  * as far as the device's hardware can), with the addons' subtitles. Reports its position back so the
- * watch progress is kept. A TV gets Media3's controls, steered with the remote; a phone or tablet
- * gets Netflix-like touch controls ([MobilePlayerControls]), picture-in-picture, Next episode and
- * playback that carries on in the background ([PlaybackService]).
+ * watch progress is kept. A TV gets Netflix-like controls steered with the remote ([TvPlayerControls]);
+ * a phone or tablet gets Netflix-like touch controls ([MobilePlayerControls]), picture-in-picture and
+ * playback that carries on in the background ([PlaybackService]). Both have Episodes and Next episode.
  */
 @OptIn(UnstableApi::class)
 class PlayerActivity : AppCompatActivity() {
@@ -80,6 +80,8 @@ class PlayerActivity : AppCompatActivity() {
     // Phones and tablets
     private val mobile by lazy { Device.isMobile(this) }
     private var controls: MobilePlayerControls? = null
+    // TVs
+    private var tvControls: TvPlayerControls? = null
     private var session: MediaSession? = null
     private var controller: ListenableFuture<MediaController>? = null
     private var pipWanted = false
@@ -239,18 +241,7 @@ class PlayerActivity : AppCompatActivity() {
             .build()
         player = exo
         playerView.player = exo
-        if (mobile) {
-            setUpMobile(stream, exo)
-        } else {
-            // Animated, the controls never fully go: they shrink to a thin bar, and the title (which
-            // follows them) stayed on screen over the film
-            playerView.setControllerAnimationEnabled(false)
-            playerView.setControllerVisibilityListener(PlayerView.ControllerVisibilityListener { visibility ->
-                titleBar.visibility = visibility
-                // The remote starts on play/pause, and the arrows move between the controls from there
-                if (visibility == View.VISIBLE) playerView.findViewById<View>(androidx.media3.ui.R.id.exo_play_pause)?.requestFocus()
-            })
-        }
+        if (mobile) setUpMobile(stream, exo) else setUpTv(stream)
 
         // Subtitles start off, like Netflix (and Nathflix's default): pick one from the subtitles button.
         // Files with several audio tracks (dual-audio releases) start in Stremio's audio language
@@ -292,9 +283,9 @@ class PlayerActivity : AppCompatActivity() {
         exo.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 if (state != Player.STATE_ENDED) return
-                // Phones and tablets go on to the next episode, like Netflix (unless Up next is off)
+                // On to the next episode, like Netflix (unless that's switched off in Nathflix settings)
                 val next = nextRoute
-                if (mobile && autoNext && next != null) finishWith(ended = true, playRoute = next) else finishWith(ended = true)
+                if (autoNext && next != null) finishWith(ended = true, playRoute = next) else finishWith(ended = true)
             }
 
             // A subtitle switched on mid-line only shows from its next line: a seek to where we are
@@ -313,14 +304,14 @@ class PlayerActivity : AppCompatActivity() {
         exo.prepare()
         exo.playWhenReady = true
         handler.postDelayed(reportProgress, PROGRESS_INTERVAL_MS)
-        if (segments.isNotEmpty() || (mobile && nextRoute != null)) handler.postDelayed(checkSkip, 500)
+        if (segments.isNotEmpty() || nextRoute != null) handler.postDelayed(checkSkip, 500)
         if (torrent) handler.post(torrentStatus)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            // Back leaves the player straight away, like Netflix (the position is kept); on a phone it
-            // first closes an open panel (Speed, Audio & Subtitles, Episodes)
+            // Back leaves the player straight away, like Netflix (the position is kept); it first
+            // closes an open panel (Speed, Audio & Subtitles, Episodes)
             override fun handleOnBackPressed() {
-                if (controls?.back() == true) return
+                if (controls?.back() == true || tvControls?.back() == true) return
                 finishWith()
             }
         })
@@ -328,18 +319,21 @@ class PlayerActivity : AppCompatActivity() {
 
     /**
      * With the controls hidden, the remote works like Netflix's: left/right skip 10 seconds, OK
-     * pauses or plays. With the controls showing, the arrows move between them as usual.
+     * pauses or plays (or presses Skip Intro while it's up), up and down bring the controls. With
+     * the controls showing, the arrows move between them.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val exo = player ?: return super.dispatchKeyEvent(event)
         if (event.action == KeyEvent.ACTION_DOWN) {
             when (event.keyCode) {
-                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_SPACE -> { exo.playWhenReady = !exo.playWhenReady; playerView.showController(); return true }
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, KeyEvent.KEYCODE_SPACE -> { exo.playWhenReady = !exo.playWhenReady; tvControls?.show(); return true }
                 KeyEvent.KEYCODE_MEDIA_PLAY -> { exo.play(); return true }
-                KeyEvent.KEYCODE_MEDIA_PAUSE -> { exo.pause(); playerView.showController(); return true }
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> { exo.pause(); return true }
                 KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seek(+1); return true }
                 KeyEvent.KEYCODE_MEDIA_REWIND -> { seek(-1); return true }
             }
+            val tv = tvControls
+            if (tv != null) return tvKey(tv, event, exo) || super.dispatchKeyEvent(event)
             // OK presses Skip while it's up (and the controls aren't)
             if (showing != null && !playerView.isControllerFullyVisible && (event.keyCode == KeyEvent.KEYCODE_DPAD_CENTER || event.keyCode == KeyEvent.KEYCODE_ENTER)) {
                 doSkip()
@@ -361,6 +355,31 @@ class PlayerActivity : AppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 
+    // The TV's remote while the controls (or a panel) aren't up
+    private fun tvKey(tv: TvPlayerControls, event: KeyEvent, exo: ExoPlayer): Boolean {
+        if (tv.panelOpen) return false
+        if (tv.shown) {
+            tv.poke()
+            return false
+        }
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                // Skip Intro (or Next Episode) while it's up
+                if (skipButton.visibility == View.VISIBLE) {
+                    skipButton.performClick()
+                } else {
+                    exo.playWhenReady = !exo.playWhenReady
+                    tv.show()
+                }
+            }
+            KeyEvent.KEYCODE_DPAD_LEFT -> seek(-1)
+            KeyEvent.KEYCODE_DPAD_RIGHT -> seek(+1)
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> tv.show()
+            else -> return false
+        }
+        return true
+    }
+
     private fun segmentEnd(s: Segment, durationMs: Long): Long =
         if (s.end < 0) durationMs else (s.end * 1000).toLong()
 
@@ -376,27 +395,28 @@ class PlayerActivity : AppCompatActivity() {
             doSkip(seg)
             return
         }
-        // Phones and tablets: during the credits, or the last half minute, Next episode takes the
-        // skip button's place, like Netflix
-        val wantNext = mobile && nextRoute != null && (seg?.type == "credits" || (seg == null && duration - now < NEXT_WINDOW_MS))
+        // During the credits, or the last half minute, Next episode takes the skip button's place,
+        // like Netflix
+        val wantNext = nextRoute != null && (seg?.type == "credits" || (seg == null && duration - now < NEXT_WINDOW_MS))
         if (wantNext) {
             if (!nextShowing) {
                 nextShowing = true
                 showing = null
                 skipButton.text = Lang.text(this, R.string.player_next_short)
                 skipButton.visibility = View.VISIBLE
+                skipShown()
             }
             return
         }
         if (nextShowing) {
             nextShowing = false
             showing = null
-            skipButton.visibility = View.GONE
+            hideSkip()
         }
         if (seg == showing) return
         showing = seg
         if (seg == null) {
-            skipButton.visibility = View.GONE
+            hideSkip()
             return
         }
         skipButton.text = Lang.text(this, when (seg.type) {
@@ -405,7 +425,26 @@ class PlayerActivity : AppCompatActivity() {
             else -> R.string.player_skip_credits
         })
         skipButton.visibility = View.VISIBLE
-        if (!playerView.isControllerFullyVisible) skipButton.requestFocus()
+        skipShown()
+    }
+
+    // The skip button came up: the remote goes to it, unless the TV's controls (or a panel) are up,
+    // where it sits above them
+    private fun skipShown() {
+        val tv = tvControls
+        when {
+            tv == null -> skipButton.requestFocus()
+            tv.shown -> tv.placeSkip()
+            !tv.panelOpen -> skipButton.requestFocus()
+        }
+    }
+
+    private fun hideSkip() {
+        val had = skipButton.isFocused
+        skipButton.visibility = View.GONE
+        if (!had) return
+        val tv = tvControls
+        if (tv != null && tv.shown) tv.focusPlay() else playerView.requestFocus()
     }
 
     private fun doSkip(seg: Segment? = showing) {
@@ -414,8 +453,7 @@ class PlayerActivity : AppCompatActivity() {
         val duration = exo.duration.takeIf { it != C.TIME_UNSET } ?: return
         exo.seekTo(segmentEnd(s, duration).coerceAtMost(duration))
         showing = null
-        skipButton.visibility = View.GONE
-        playerView.requestFocus()
+        hideSkip()
     }
 
     private fun seek(direction: Int) {
@@ -447,6 +485,7 @@ class PlayerActivity : AppCompatActivity() {
         // the session goes now, not when Android gets round to destroying this screen: the next
         // episode's player may already be starting
         controls?.release()
+        tvControls?.release()
         releaseSession()
         finish()
     }
@@ -462,6 +501,7 @@ class PlayerActivity : AppCompatActivity() {
         // released now, not when Android gets round to destroying it: the new player's session takes
         // the same name, and only one at a time may have it
         controls?.release()
+        tvControls?.release()
         releaseSession()
         player?.release()
         player = null
@@ -475,13 +515,7 @@ class PlayerActivity : AppCompatActivity() {
     private fun setUpMobile(stream: JSONObject, exo: ExoPlayer) {
         playerView.useController = false
         titleBar.visibility = View.GONE
-        val episodes = stream.optJSONArray("episodes")?.let { list ->
-            (0 until list.length()).mapNotNull { i ->
-                val o = list.optJSONObject(i) ?: return@mapNotNull null
-                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optString("thumbnail"), o.optBoolean("current"))
-            }
-        } ?: emptyList()
-        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodes, stream.optInt("season", 0),
+        val c = MobilePlayerControls(this, exo, stream.optString("title"), stream.optString("subtitle"), episodesOf(stream), stream.optInt("season", 0),
             stream.optJSONObject("next")?.optString("label")?.takeIf { nextRoute != null }, pipWanted)
         // over the picture, under the skip button and the torrent's status
         findViewById<FrameLayout>(R.id.player_root).addView(c.view, 1, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
@@ -505,6 +539,50 @@ class PlayerActivity : AppCompatActivity() {
         })
         updatePip()
     }
+
+    // ---- TVs
+
+    private fun setUpTv(stream: JSONObject) {
+        val exo = player ?: return
+        playerView.useController = false
+        titleBar.visibility = View.GONE
+        val c = TvPlayerControls(this, exo, stream.optString("title"), episodeLine(stream), episodesOf(stream), stream.optInt("season", 0),
+            nextRoute != null, skipButton, playerView.subtitleView)
+        // over the picture, under the skip button and the torrent's status
+        findViewById<FrameLayout>(R.id.player_root).addView(c.view, 1, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        tvControls = c
+        // Skip Intro / Next Episode like the prototype: white with the next icon while the remote is on it
+        val focus = ContextCompat.getColorStateList(this, R.color.tc_on_focus)
+        skipButton.setBackgroundResource(R.drawable.tc_skip_bg)
+        skipButton.setTextColor(focus)
+        skipButton.gravity = android.view.Gravity.CENTER_VERTICAL
+        ContextCompat.getDrawable(this, R.drawable.ic_tv_next)?.mutate()?.let { icon ->
+            val size = (16 * resources.displayMetrics.density).toInt()
+            icon.setBounds(0, 0, size, size)
+            skipButton.setCompoundDrawablesRelative(icon, null, null, null)
+            skipButton.compoundDrawablePadding = (8 * resources.displayMetrics.density).toInt()
+            skipButton.compoundDrawableTintList = focus
+        }
+    }
+
+    // "S1:E3 “Pilot”" (Netflix's way), from the episode's numbers; the page's own line otherwise
+    private fun episodeLine(stream: JSONObject): String {
+        val season = stream.optInt("season", 0)
+        val episode = stream.optInt("episodeNumber", 0)
+        if (season <= 0 || episode <= 0) return stream.optString("subtitle")
+        val name = stream.optString("episodeTitle")
+        return if (name.isEmpty()) Lang.text(this, R.string.player_episode_line_short, season, episode)
+        else Lang.text(this, R.string.player_episode_line, season, episode, name)
+    }
+
+    // The season's episodes the page sent, for the Episodes panel (empty for a film)
+    private fun episodesOf(stream: JSONObject): List<MobilePlayerControls.Episode> =
+        stream.optJSONArray("episodes")?.let { list ->
+            (0 until list.length()).mapNotNull { i ->
+                val o = list.optJSONObject(i) ?: return@mapNotNull null
+                MobilePlayerControls.Episode(o.optString("route"), o.optInt("episode"), o.optString("title"), o.optString("overview"), o.optString("thumbnail"), o.optBoolean("current"))
+            }
+        } ?: emptyList()
 
     fun leave() = finishWith()
 
@@ -622,6 +700,8 @@ class PlayerActivity : AppCompatActivity() {
         handler.removeCallbacksAndMessages(null)
         controls?.release()
         controls = null
+        tvControls?.release()
+        tvControls = null
         releaseSession()
         player?.release()
         player = null

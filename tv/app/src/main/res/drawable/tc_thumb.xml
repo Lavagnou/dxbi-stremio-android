@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An episode's picture before it has loaded (or when there's none), TV player -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#FF3B414A" />
+    <corners android:radius="5dp" />
+</shape>

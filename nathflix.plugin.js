@@ -551,7 +551,7 @@
     { key: "profileSync", type: "toggle", label: t("Sync profiles and settings with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC and HDR subtitles (your TMDB and MDBList keys do follow you). It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
     { key: "backgroundPlay", type: "toggle", label: t("Keep playing in the background"), description: t("The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification."), defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
-    { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true },
+    { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true, tvNext: true },
     { key: "pip", type: "toggle", label: t("Picture-in-picture button"), description: t("Keep watching in a small floating window while you use other apps. In the Nathflix app it also keeps playing while you browse Nathflix."), defaultValue: DEFAULTS.pip },
     { key: "addonTools", type: "toggle", label: t("Addon order & backup"), description: t("Adds a button to the Addons page to reorder your addons (the order streams and catalogs appear in) and to back them up or restore them."), defaultValue: DEFAULTS.addonTools },
     { key: "externalPlayer", type: "toggle", label: t("Open in mpv / VLC button"), description: t("Adds a button to the player that hands the stream to mpv or VLC (only shown when one is installed). Handy when a file stutters or won't play here: they handle more formats and are lighter on slower PCs."), defaultValue: DEFAULTS.externalPlayer },
@@ -677,7 +677,7 @@
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
   function registerSchema() {
     // (profile sync only shows once Nathflix has a sync server)
-    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
+    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly || (o.tvNext && IN_TV && !!(window.__nathflixTv && window.__nathflixTv.tvNext))) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
   }
 
   // Clears what's registered and registers the schema again, one at a time: two at once (start-up and

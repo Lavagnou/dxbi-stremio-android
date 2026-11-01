@@ -95,11 +95,12 @@ Le reste du dépôt :
     - sur téléphone et tablette, seulement si une flèche vient d'y mener. Le focus automatique de Stremio ne verrouille jamais (sinon le clavier ne s'ouvre pas à la connexion).
     - Toucher un champ verrouillé le libère.
   - Fait le **handoff de lecture** (`startHandoff`) : quand Stremio ouvre `#/player/…`, le flux est envoyé au lecteur natif.
-- **`nathflix-tv.js` → lecteur (téléphone et tablette)** :
-  - `mobilePlayback()` ajoute au JSON de `native.play` :
-    - `episodes` : la saison, chaque épisode avec sa `route` et sa `thumbnail` ; `season` ;
+- **`nathflix-tv.js` → lecteur (TV, téléphone et tablette)** :
+  - `mobilePlayback()` ajoute au JSON de `native.play` (malgré son nom, pour tous les appareils) :
+    - `episodes` : la saison, chaque épisode avec sa `route` et sa `thumbnail` ; `season` (avec `episodeNumber` et `episodeTitle`, ajoutés par `startHandoff`) ;
     - `next` : `label` et `route` (le lecteur du prochain épisode si Stremio connaît son flux, `nextVideo.deepLinks.player`, sinon sa liste de flux) ;
-    - `mobile` : `{ pip, background, autoNext }`, tirés des réglages.
+    - `mobile` : `{ pip, background, autoNext }`, tirés des réglages (`pip` et `background` ne servent qu'au téléphone et à la tablette).
+  - `tv.tvNext = true` : le lecteur TV a l'épisode suivant. Le plugin n'affiche le réglage `autoNext` (`tvNext: true` dans `SCHEMA`) sur TV que s'il le voit.
   - `closeHandoff(…, playRoute)` remplace la page du lecteur par cette route (`replaceRoute`), sinon fait `history.back()`.
 - **`Bridge.kt`** : interface JS `window.NathflixTV`.
   - Chaque méthode `@JavascriptInterface` prend `token` en premier argument et le vérifie avec `allowed()`. `isPhone()` et `version()` font exception.
@@ -108,18 +109,23 @@ Le reste du dépôt :
   - En-têtes `proxyHeaders` (le User-Agent de l'addon remplace celui de Nathflix), sous-titres des addons, style des sous-titres Stremio.
   - Boutons Skip intro/recap/crédits, ±10 s.
   - Renvoie la position toutes les 5 s.
-  - **TV** : contrôles Media3 à la télécommande ; Home met en pause (`onPause`).
+  - **TV** (`setUpTv`) : `useController = false`, avec à la place `TvPlayerControls` ; `tvKey()` gère la télécommande quand ils sont masqués (gauche/droite ±10 s, OK pause ou « Passer », haut/bas les affichent) ; Home met en pause (`onPause`).
   - **Téléphone et tablette** (`setUpMobile`) :
     - `useController = false`, avec à la place `MobilePlayerControls` ;
     - picture-in-picture (`pipParams`, `onUserLeaveHint`, entrée automatique dès Android 12) ; fermer la petite fenêtre ferme le lecteur ;
     - `MediaSession`, confiée à `PlaybackService` pour la lecture en arrière-plan ;
     - pause dans `onStop` seulement si l'arrière-plan est coupé ;
-    - « Next episode » prend la place du bouton Skip pendant le générique ou les 30 dernières secondes ;
-    - épisode suivant automatique à la fin.
+  - **Partout** : « Next episode » prend la place du bouton Skip pendant le générique ou les 30 dernières secondes ; épisode suivant automatique à la fin (réglage `autoNext`).
   - **Routes rendues à la page** : `finishWith(playRoute = …)` renvoie à la page la route où aller (épisode suivant ou épisode choisi), via `PlaybackBus.closed`.
   - **Un seul lecteur à la fois** : un nouveau film ferme celui qui reste en picture-in-picture (`current`, `closeQuietly`), avec son torrent (sauf s'il lit le même).
   - **Un lecteur remplacé se tait** : il garde `ownPlayback` (l'`activePlayback` du bus à sa création) et n'envoie progression et fermeture que tant qu'il est celui du bus (`ownsPlayback()`).
   - **Session média** : id unique à chaque lecteur, et libérée dès `finishWith()`. Media3 refuse deux sessions de même id, et l'épisode suivant démarre souvent avant le `onDestroy` du précédent.
+- **`TvPlayerControls.kt`** (+ `res/layout/player_tv_controls.xml`, `ic_tv_*`, `tc_*`, `color/tc_on_focus`) : contrôles TV faits comme ceux de Netflix, d'après le prototype validé par l'utilisateur (sans Vitesse).
+  - Haut : Retour et « Revoir depuis le début » (rond blanc et nom en capitales sous l'icône sélectionnée), série et « S1 : É3 « Titre » » à droite.
+  - Bas : bouton lecture (gauche/droite ±10 s, haut vers les icônes ou « Passer l'intro », bas vers la rangée), temps, barre `TvTimeBar`, durée ; rangée Audio et sous-titres / Épisodes / Épisode suivant.
+  - Masquées après 5 s de lecture, restent en pause. Les sous-titres et le bouton Skip remontent au-dessus (`lift`).
+  - Panneaux dans `tc_panel` : Audio et sous-titres appliqués dès le choix (pas d'« Appliquer »), Épisodes en cartes avec le résumé de la carte sélectionnée. Retour ferme le panneau.
+- **`PlayerTracks.kt`** : choix et noms des pistes, partagés par les deux contrôles.
 - **`MobilePlayerControls.kt`** (+ `res/layout/player_mobile_controls.xml`, icônes `res/drawable/ic_*.xml`, `mc_*.xml`) : contrôles, clone de ceux de Netflix, gonflés dans la langue de Nathflix (`Lang.context`).
   - Haut : retour, titre sur une ligne, PiP.
   - Centre : −10 s, lecture, +10 s.
@@ -127,7 +133,7 @@ Le reste du dépôt :
   - Gestes : tap, double tap ±10 s, glisser à gauche pour la luminosité et à droite pour le volume (pas près des bords haut et bas, réservés aux gestes d'Android).
   - Panneaux faits en code dans `mc_panel_body` :
     - Vitesse : cinq points sur une ligne ;
-    - Audio et sous-titres : deux colonnes ; le choix (`pickedAudio`, `pickedText`) n'est appliqué qu'à « Appliquer » (`TrackSelectionOverride`) ;
+    - Audio et sous-titres : deux colonnes ; le choix (`pickedAudio`, `pickedText`) n'est appliqué qu'à « Appliquer » (`PlayerTracks.select`) ;
     - Épisodes : cartes avec image (`Thumbs.kt` : OkHttp, cache mémoire) et résumé.
 - **`PlaybackService.kt`** : `MediaSessionService` (media3-session) qui garde le film en arrière-plan, avec la notification. La session appartient à `PlayerActivity`, qui la passe via `PlaybackService.session`.
 - **`PlaybackBus.kt`** : état de lecture partagé (`activePlayback`, `pendingClose`). Il survit au redémarrage de la page ou de `MainActivity` pendant une lecture.

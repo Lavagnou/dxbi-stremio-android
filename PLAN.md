@@ -124,6 +124,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-073 | Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées | À valider | P1 | plugin | T-027, T-066 | 2026-11-01 |
 | T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | Terminé | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
 | T-075 | Résumé resté en anglais sur la fiche d'un titre sans note IMDb | À valider | P2 | plugin | T-072 | 2026-11-01 |
+| T-076 | Lecteur TV comme celui de Netflix (prototype validé) | À valider | P1 | TV, plugin | — | 2026-11-01 |
 
 ---
 
@@ -3157,6 +3158,54 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `e81da46`
 - Version / CHANGELOG : à la prochaine release
 
+### T-076 — Lecteur TV comme celui de Netflix (prototype validé)
+
+- **Statut :** À valider (sur la TV de l'utilisateur, avec la build Dev)
+- **Priorité :** P1
+- **Cible :** TV (APK), plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> L'interface du player sur TV est vraiment pas super niveau design, ça correspond pas du tout a celui de Netflix.
+
+(photo du lecteur Netflix sur sa TV ; il ne veut pas des choix de langue de Netflix à cet endroit, mais les autres boutons du lecteur Nathflix). Prototype Claude Design « Lecteur TV Nathflix » validé : « Top, comme ça j'aime bien oui, mais enlève le paramètre de vitesse ».
+
+**Critères d'acceptation**
+- [x] En haut à gauche, Retour et « Revoir depuis le début » : rond blanc sur l'icône sélectionnée, son nom en capitales dessous
+- [x] En haut à droite, la série en gras et l'épisode (« S1 : É3 « Titre » »)
+- [x] En bas, gros bouton lecture, temps écoulé, barre rouge, durée ; puis Audio et sous-titres · Épisodes · Épisode suivant (pas de Vitesse)
+- [x] Télécommande : sur lecture, gauche/droite = ±10 s, haut = icônes (ou « Passer l'intro »), bas = la rangée ; commandes masquées : comme avant (±10 s, OK = pause, haut/bas affichent les commandes)
+- [x] Audio et sous-titres en deux colonnes, appliqué dès le choix ; Épisodes en cartes avec le résumé de l'épisode sélectionné ; Retour ferme le panneau et revient au bouton
+- [x] Les sous-titres et « Passer l'intro » remontent au-dessus des commandes
+- [x] « Épisode suivant » à la place de « Passer » pendant le générique et les 30 dernières secondes, et épisode suivant automatique, aussi sur TV (réglage `autoNext`)
+
+**Notes techniques**
+- `TvPlayerControls.kt` (nouveau) + `res/layout/player_tv_controls.xml` : dimensions du prototype divisées par 2 en dp (marges 56dp, icônes 36dp, lecture 56dp, pastilles 34dp/13sp, titre 22sp). Fonds au focus (`tc_*_bg`), couleur `color/tc_on_focus` (noir sur blanc au focus), icônes à trait `ic_tv_*`, barre `TvTimeBar` (dessinée, plus épaisse quand lecture a le focus). Masquage après 5 s pendant la lecture ; en pause, elles restent.
+- `PlayerActivity` : sur TV, `useController = false` et `setUpTv()` (plus de `title_bar` ni de commandes Media3) ; `tvKey()` gère la télécommande quand les commandes sont masquées ; `skipShown()` / `hideSkip()` placent le focus ; « Passer l'intro » au style du prototype (`tc_skip_bg`, `ic_tv_next`, dimens TV). `episodesOf()` et `episodeLine()` (chaînes `player_episode_line*`).
+- `PlayerTracks.kt` (nouveau) : `select`, `name`, `textOff`, partagés avec `MobilePlayerControls`.
+- `nathflix-tv.js` : `mobilePlayback()` pour tous les appareils (épisodes, `next`), plus `season` / `episodeNumber` / `episodeTitle` ; `tv.tvNext = true`.
+- Plugin : `autoNext` porte `tvNext: true` et s'affiche sur TV seulement si la couche TV a `tvNext` (une vieille APK n'a pas l'épisode suivant automatique).
+- Nouvelles chaînes FR/EN : `player_restart`, `player_episode_line`, `player_episode_line_short`, `player_episode_card`, `player_back_to_video`.
+
+**Vérification**
+- `./gradlew assembleDebug` (JDK 17) : OK. `node --check` plugin et `nathflix-tv.js` : OK.
+- Émulateur Fire_TV (1920×1080, 320 dpi), build Dev, lecteur ouvert par le bridge sur une vidéo de test publique (HLS Big Buck Bunny de test-streams.mux.dev, épisodes fictifs, sous-titres de test) : jamais un titre du compte ; la page, restée sur « Qui est-ce ? » sans validation, ignore le lecteur (pas de `handoff`) ; app arrêtée après.
+  - commandes, focus sur lecture / icônes (nom dessous) / pastilles, « Passer l'intro » remonté puis atteint par haut : conformes au prototype ;
+  - Audio et sous-titres : « English » appliqué tout de suite, coche déplacée, Retour revient sur « Audio et sous-titres » ;
+  - sous-titres au-dessus des commandes, puis redescendus quand elles partent ;
+  - « Revoir depuis le début » : retour à 0:00 ;
+  - Épisodes : épisode en cours sélectionné avec sa progression, le résumé suit la carte ;
+  - « Épisode suivant » sur TV dans les 30 dernières secondes ; fin de la vidéo : retour à la page.
+  - Corrigé pendant le test (signalé aussi par l'utilisateur) : le bouton lecture agrandi au focus était coupé en haut (`clipChildren` de `tc_controls`).
+- Non vérifié : la vraie TV (Fire TV), un vrai épisode et son passage à l'épisode suivant, les vignettes d'épisodes (celles de test sont refusées par leur serveur).
+
+**Livraison**
+- Commits : à venir
+- Version / CHANGELOG : nouvelle APK, release 0.7.0 à proposer
+
 <!--
 ### T-000 — Titre court
 
@@ -3237,6 +3286,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | Date | Tâche | Événement |
 |---|---|---|
 | 2026-11-01 | T-075 | Créée et faite : résumé en français aussi sur les fiches sans note IMDb (`localMeta.titleOf`) |
+| 2026-11-01 | T-076 | Créée et faite : lecteur TV comme celui de Netflix (`TvPlayerControls`), Épisodes et Épisode suivant sur TV |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

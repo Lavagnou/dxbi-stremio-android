@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The player's controls on a TV, made like Netflix's: Back and Restart at the top left, the show and
+     the episode at the top right, then play, the times and the bar, and a row of buttons at the bottom.
+     The panels (Audio & Subtitles, Episodes) are made in code in tc_panel. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <FrameLayout
+        android:id="@+id/tc_controls"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="170dp"
+            android:background="@drawable/tc_scrim_top" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="260dp"
+            android:layout_gravity="bottom"
+            android:background="@drawable/tc_scrim_bottom" />
+
+        <FrameLayout
+            android:id="@+id/tc_top"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="56dp"
+            android:layout_marginTop="36dp"
+            android:layout_marginEnd="56dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/tc_back"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@drawable/tc_icon_bg"
+                    android:contentDescription="@string/player_back"
+                    android:focusable="true"
+                    android:padding="7dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_tv_back" />
+
+                <ImageButton
+                    android:id="@+id/tc_restart"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="18dp"
+                    android:background="@drawable/tc_icon_bg"
+                    android:contentDescription="@string/player_restart"
+                    android:focusable="true"
+                    android:padding="7dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_tv_restart" />
+            </LinearLayout>
+
+            <!-- The name of the icon the remote is on, under it -->
+            <TextView
+                android:id="@+id/tc_icon_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="43dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.06"
+                android:maxLines="1"
+                android:textAllCaps="true"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="invisible" />
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginStart="200dp"
+                android:gravity="end"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tc_title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:maxLines="1"
+                    android:textColor="@android:color/white"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tc_episode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif-medium"
+                    android:maxLines="1"
+                    android:textColor="#DBFFFFFF"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/tc_bottom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginStart="56dp"
+            android:layout_marginEnd="56dp"
+            android:layout_marginBottom="36dp"
+            android:clipChildren="false"
+            android:clipToPadding="false"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipChildren="false"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <ImageButton
+                    android:id="@+id/tc_play"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:background="@drawable/tc_play_bg"
+                    android:contentDescription="@string/player_play_pause"
+                    android:focusable="true"
+                    android:padding="15dp"
+                    android:scaleType="fitCenter"
+                    android:src="@drawable/ic_pause" />
+
+                <TextView
+                    android:id="@+id/tc_elapsed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="20dp"
+                    android:fontFamily="sans-serif-medium"
+                    android:fontFeatureSettings="tnum"
+                    android:minWidth="48dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+
+                <com.lavagnou.nathflix.TvTimeBar
+                    android:id="@+id/tc_bar"
+                    android:layout_width="0dp"
+                    android:layout_height="12dp"
+                    android:layout_marginStart="20dp"
+                    android:layout_marginEnd="20dp"
+                    android:layout_weight="1" />
+
+                <TextView
+                    android:id="@+id/tc_total"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif-medium"
+                    android:fontFeatureSettings="tnum"
+                    android:gravity="end"
+                    android:minWidth="48dp"
+                    android:textColor="@android:color/white"
+                    android:textSize="16sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="22dp"
+                android:clipChildren="false"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tc_audio"
+                    style="@style/Nathflix.TvPill"
+                    android:drawableStart="@drawable/ic_tv_audio"
+                    android:text="@string/player_audio_subtitles" />
+
+                <TextView
+                    android:id="@+id/tc_episodes"
+                    style="@style/Nathflix.TvPill"
+                    android:drawableStart="@drawable/ic_tv_episodes"
+                    android:text="@string/player_episodes" />
+
+                <TextView
+                    android:id="@+id/tc_next"
+                    style="@style/Nathflix.TvPill"
+                    android:drawableStart="@drawable/ic_tv_next"
+                    android:text="@string/player_next_episode" />
+            </LinearLayout>
+        </LinearLayout>
+    </FrameLayout>
+
+    <FrameLayout
+        android:id="@+id/tc_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:visibility="gone" />
+</FrameLayout>

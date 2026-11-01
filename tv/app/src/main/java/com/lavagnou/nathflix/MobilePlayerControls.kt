@@ -24,9 +24,7 @@ import android.widget.TextView
 import androidx.annotation.OptIn
 import androidx.media3.common.C
 import androidx.media3.common.Format
-import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
@@ -38,7 +36,7 @@ import kotlin.math.abs
  * The player's controls on a phone or tablet, made like Netflix's app: a tap shows or hides them,
  * a double tap on the left or right skips 10 seconds back or forward, sliding up or down on the left
  * changes the brightness and on the right the volume. Lock keeps stray touches away while watching.
- * Its texts follow Nathflix's language (Lang). A TV keeps Media3's own controls, steered with the remote.
+ * Its texts follow Nathflix's language (Lang). A TV has its own, steered with the remote ([TvPlayerControls]).
  */
 @OptIn(UnstableApi::class)
 class MobilePlayerControls(
@@ -499,36 +497,9 @@ class MobilePlayerControls(
         list.addView(row)
     }
 
-    private fun select(type: Int, group: Tracks.Group?, index: Int) {
-        val b = player.trackSelectionParameters.buildUpon().clearOverridesOfType(type)
-        if (group == null) b.setTrackTypeDisabled(type, true)
-        else b.setTrackTypeDisabled(type, false).setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, index))
-        player.trackSelectionParameters = b.build()
-    }
+    private fun select(type: Int, group: Tracks.Group?, index: Int) = PlayerTracks.select(player, type, group, index)
 
-    private fun trackName(f: Format, audio: Boolean): String {
-        val locale = Lang.locale(activity)
-        val language = f.language?.takeIf { it.isNotEmpty() && it != "und" }?.let { java.util.Locale.forLanguageTag(it).getDisplayLanguage(locale).replaceFirstChar { c -> c.titlecase(locale) } }
-        val name = f.label?.takeIf { it.isNotEmpty() } ?: language ?: ui.getString(if (audio) R.string.player_audio else R.string.player_subtitles)
-        val channels = if (audio) when (f.channelCount) {
-            1 -> " · " + ui.getString(R.string.track_mono)
-            2 -> " · " + ui.getString(R.string.track_stereo)
-            6 -> " · 5.1"
-            8 -> " · 7.1"
-            else -> ""
-        } else ""
-        val format = if (audio) when (f.sampleMimeType) {
-            MimeTypes.AUDIO_AC3 -> " · Dolby Digital"
-            MimeTypes.AUDIO_E_AC3, MimeTypes.AUDIO_E_AC3_JOC -> " · Dolby Digital+"
-            MimeTypes.AUDIO_TRUEHD -> " · TrueHD"
-            MimeTypes.AUDIO_DTS, MimeTypes.AUDIO_DTS_HD, MimeTypes.AUDIO_DTS_EXPRESS -> " · DTS"
-            MimeTypes.AUDIO_AAC -> " · AAC"
-            MimeTypes.AUDIO_OPUS -> " · Opus"
-            MimeTypes.AUDIO_FLAC -> " · FLAC"
-            else -> ""
-        } else ""
-        return name + channels + format
-    }
+    private fun trackName(f: Format, audio: Boolean) = PlayerTracks.name(ui, f, audio)
 
     // Episodes: the season's episodes in a row of cards (picture, title, summary), the one playing outlined
     private fun openEpisodes(): Unit = openPanel { body ->

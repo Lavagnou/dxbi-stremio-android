@@ -36,6 +36,11 @@
     <string name="player_next_short">Épisode suivant</string>
     <string name="track_mono">Mono</string>
     <string name="track_stereo">Stéréo</string>
+    <string name="player_restart">Revoir depuis le début</string>
+    <string name="player_episode_line">S%1$d : É%2$d « %3$s »</string>
+    <string name="player_episode_line_short">S%1$d : É%2$d</string>
+    <string name="player_episode_card">É%1$d · %2$s</string>
+    <string name="player_back_to_video">Retour pour revenir au film</string>
 
     <string name="error_refused">le serveur l\'a refusé</string>
     <string name="error_connection">la connexion a échoué</string>

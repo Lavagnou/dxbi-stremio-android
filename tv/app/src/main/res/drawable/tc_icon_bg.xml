@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The TV player's top icons (Back, Restart): a white disc under the one the remote is on -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="oval"><solid android:color="#FFFFFFFF" /></shape>
+    </item>
+    <item>
+        <shape android:shape="oval"><solid android:color="#00000000" /></shape>
+    </item>
+</selector>
