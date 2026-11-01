@@ -133,6 +133,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-076 | Lecteur TV comme celui de Netflix (prototype validé) | À valider | P1 | TV, plugin | — | 2026-11-01 |
 | T-077 | Dégradé de « Qui est-ce ? » dans la couleur d'accent | À valider | P2 | plugin | — | 2026-11-01 |
 | T-078 | Release 0.7.0 (lecteur TV comme Netflix, dégradé du choix de profil) | Terminé | P1 | release, tv, plugin, app | T-075 à T-077 | 2026-11-01 |
+| T-080 | TV : OK maintenu ouvre le menu d'un titre (plus de clics en boucle) ; 3 points masqués ; Retour sur la page d'un titre | À valider | P1 | plugin | T-010 | 2026-11-01 |
 
 ---
 
@@ -3494,6 +3495,49 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `195bbc4` (la fiche a suivi dans un commit séparé : le script de PLAN.md avait échoué)
 - Version / CHANGELOG : à la prochaine release
 
+### T-080 — TV : OK maintenu ouvre le menu d'un titre ; 3 points masqués ; Retour sur la page d'un titre
+
+- **Statut :** À valider (test sur la Fire TV ; Retour non reproduit)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-010
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> * Quand je laisse appuyer la touche ok/entrée de ma télécommande, ça fait le bruit du clic en boucle et fait freeze pendant plusieurs secondes l'app, ça devrait ouvrir le menu contextuel plutôt.
+> * Sur la page d'une série, d'un épisode ou d'un film, le bouton retour de la télécommande ne fonctionne pas
+> * Les 3 petits points qui ouvrent le menu contextuel sont encore visibles sur les apps.
+
+**Critères d'acceptation**
+- [x] OK maintenu sur un titre qui a un menu (Continuer de regarder) ouvre ce menu, sans ouvrir le titre ; la télécommande se déplace dans le menu, OK choisit, Retour le ferme et rend la sélection au titre
+- [x] OK maintenu ailleurs n'appuie qu'une fois (plus de clics ni de sons en boucle)
+- [x] Plus de 3 points sur les cartes (TV, téléphone, PC) ; appui long et clic droit ouvrent toujours le menu
+- [ ] Retour sur la page d'un titre : cause non trouvée (non reproduit)
+- [ ] Vérifié sur la Fire TV
+
+**Notes techniques**
+- **Cause du clic en boucle et du gel** : la télécommande répète OK tant qu'il est enfoncé, et chaque répétition cliquait ce qui était sélectionné. Le « clic » est le son d'interface de Nathflix (`onSoundClick`, « select » sur une carte), joué à chaque clic. Le titre s'ouvrait en boucle ; sur sa page, les répétitions suivantes appuyaient sur « Lancer S1 É1 » / « Lecture » (`.dx-play-ep`, sélectionné à l'arrivée). Dans Chrome (TV, invité), Entrée maintenue sur un film : avant, le bouton passait à « Finding streams… » (un film allait démarrer) ; après, il reste intact.
+- **WebView Android** : elle ne marque pas les répétitions (`e.repeat` reste faux), et après un appui long (`input keyevent --longpress` sur l'émulateur) elle n'envoie pas toujours le relâchement. `okHold` (après `cardPress`) tient donc son propre état : une touche OK qui arrive alors qu'OK est encore enfoncé, moins d'1 s après la précédente (`e.timeStamp`, l'heure d'envoi : une page occupée voit le vrai rythme), est une répétition, avalée (`preventDefault` + `stopImmediatePropagation`, écouteur `keydown` sur `window` en capture, avant ceux de Stremio et de `keyNav`).
+- **Menu** : sur une carte avec menu (`cardPress.menuOf`), OK n'ouvre plus le titre à l'appui mais au relâchement. Maintenu, le menu s'ouvre à la première répétition (comme Android compte un appui long), ou après 600 ms : `menu.click()` sur le bouton caché de Stremio, son « menu », puis la sélection sur le premier choix (`[role="menu"] [role="menuitem"]`). Haut et bas passent d'un choix à l'autre (Stremio), OK choisit.
+- **Retour dans le menu** : `cardPress.closeMenu()`, appelé par `closePreview()` (donc par le Retour de la couche TV). Le menu de Stremio se ferme sur Échap envoyé à l'intérieur (un clic sur son bouton ne le fermait pas) ; puis la sélection revient au lien du titre. Le sélecteur de menus de `tv.back` (`menu-container` + `open`) ne trouvait pas ce menu (`menu-container-…`, `role="menu"`) : sans cela, Retour serait allé à l'écran précédent.
+- `okHold` tourne partout sauf sur téléphone et tablette (`IN_MOBILE`) : sur PC, Entrée maintenue au clavier ouvre aussi le menu, et une carte s'ouvre au relâchement.
+- **3 points** : règle du thème (`menu-label-container` dans les cartes) en `visibility: hidden` et `pointer-events: none`. Le bouton garde sa place dans le coin bas droit : Stremio ouvre son menu à côté (le menu est dans un calque à part, `layer-…`, donc visible). Caché ainsi, il ne peut plus recevoir la sélection. La barre de progression ne s'arrête plus avant lui. Seules les cartes de la bibliothèque (Continuer de regarder) ont ce menu chez Stremio.
+- **Retour sur la page d'un titre** : non reproduit sur l'émulateur Fire TV (compte de l'utilisateur, « Qui est-ce ? » validé sur Nathan), dans tous ces cas : page ouverte par OK sur une carte (tout de suite, après l'ouverture de la carte d'aperçu, après sa bande-annonce), par « Plus d'infos » du billboard, par l'adresse ; série, épisode, film ; sélection déplacée sur la page, jusqu'au champ « Rechercher des vidéos » ; épisode choisi puis Retour deux fois ; après un appui long ; processeur de la WebView bridé ×6. À chaque fois `tv.back()` fait `history.back()` et la page précédente revient. Rien de caché ne retient Retour (`modal-container`, menus, carte d'aperçu, « Qui est-ce ? »). Piste : les clics en boucle de l'appui long empilaient des pages (titre, puis épisode par « Lancer ») ; à revoir avec l'utilisateur, avec les étapes exactes.
+
+**Vérification**
+- `node --check` (plugin, `nathflix-tv.js`), `node tools/bundle-theme.mjs`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Émulateur Fire TV, compte de l'utilisateur, plugin poussé en 0.7.99, avec un garde-fou qui bloque et note tout clic sur les cartes de Continuer de regarder (`emu/holdmenu.mjs`, scratchpad) : appui long → menu ouvert, « Détails » sélectionné, aucun clic sur la carte ; droite sans effet ; Retour → menu fermé, sélection sur la carte ; OK court → un seul clic (bloqué) ; appui long puis OK sur « Détails » → page de l'épisode, Retour → Accueil. Capture : plus de 3 points, menu sous la carte avec « Détails » entouré.
+- Émulateur, titre sans menu, appui long : la page s'ouvre une fois, rien n'y est pressé ensuite.
+- Chrome (`perf2/okhold-pc.mjs`, scratchpad), invité, PC et TV : Entrée sur une carte ouvre le titre (un `pushState`) ; Entrée maintenue (16 répétitions) l'ouvre une seule fois.
+- `tools/perf-bench.mjs --tv` et `--pc` (1 run) : parcours de contrôle sans erreur.
+- Non vérifié : la Fire TV ; le téléphone (appui long inchangé, le bouton caché reçoit le même `click()` que sur TV).
+
+**Livraison**
+- Commits : à venir
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3586,6 +3630,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-049 | Référence Fire TV 4K (photos, 0.7.0) : démarrage 11414 ms |
 | 2026-11-01 | T-057 | Abandonné : app PC au repos, fenêtre transparente ou opaque, GPU ~0 % et processeur identiques |
 | 2026-11-01 | T-079 | Créée et faite : mesure à l'écran sur la dernière minute, part de Nathflix par touche ; les lectures de `ctx` sont celles de Stremio au démarrage |
+| 2026-11-01 | T-080 | Créée et faite : OK maintenu ouvre le menu d'un titre et n'appuie plus en boucle, 3 points masqués ; Retour sur la page d'un titre non reproduit |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

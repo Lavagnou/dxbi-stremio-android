@@ -860,11 +860,12 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     opacity: 0;
 }
 
-/* Card menu dots: Stremio places them for its title bar, which the rows here hide, so they landed
-   on the progress bar. A small round button in the bottom-right corner instead, the progress bar
-   stopping short of it */
+/* Card menu dots: never shown, like Netflix. The menu opens from a held finger or OK, or a right
+   click (the plugin presses the hidden button), so the button stays in place, in the card's
+   bottom-right corner, for Stremio to open its menu from there. Hidden, the remote can't land on it */
 #app [class*="meta-item-container"] [class*="menu-label-container"] {
-    z-index: 6 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
     top: auto !important;
     left: auto !important;
     right: 0.3rem !important;
@@ -872,23 +873,6 @@ body:not(.dx-discover-picked) #app [class*="discover-content"] [class*="meta-ite
     width: 1.6rem !important;
     height: 1.6rem !important;
     padding: 0 !important;
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50% !important;
-    background: rgba(12, 12, 14, 0.62) !important;
-    backdrop-filter: blur(6px);
-}
-
-#app [class*="meta-item-container"] [class*="menu-label-container"] svg {
-    position: static !important;
-    width: 1rem !important;
-    height: 1rem !important;
-    color: #fff !important;
-}
-
-#app [class*="meta-item-container"]:has([class*="menu-label-container"]) [class*="progress-bar-layer"] {
-    right: 2.3rem;
 }
 
 /* Placeholders while loading */
