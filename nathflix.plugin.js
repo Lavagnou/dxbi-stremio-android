@@ -1855,7 +1855,7 @@
     // { name, description, genres, trailer } for a title with an IMDb id, or null; kept with the other
     // metadata (three days)
     get(type, imdbId) {
-      if (!this.on() || !isImdb(imdbId)) return Promise.resolve(null);
+      if (!this.on() || !(isImdb(imdbId) || /^tmdb:\d+$/.test(imdbId))) return Promise.resolve(null);
       const kind = type === "movie" ? "movie" : "tv";
       const key = `local:${LOCALE}:${kind}:${imdbId}`;
       const cached = readCached(key);
@@ -1879,10 +1879,15 @@
         return r.json();
       };
       const lang = LOCALE.split("-")[0];
-      const found = await get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`);
-      const hit = ((kind === "movie" ? found.movie_results : found.tv_results) || [])[0];
-      if (!hit) return null;
-      const d = await get(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(hit.id)}?language=${LOCALE}&append_to_response=videos&include_video_language=${lang}`);
+      // (an addon's own TMDB id needs no looking up)
+      let tmdbId = /^tmdb:\d+$/.test(imdbId) ? imdbId.slice(5) : null;
+      if (!tmdbId) {
+        const found = await get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`);
+        const hit = ((kind === "movie" ? found.movie_results : found.tv_results) || [])[0];
+        if (!hit) return null;
+        tmdbId = hit.id;
+      }
+      const d = await get(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(tmdbId)}?language=${LOCALE}&append_to_response=videos&include_video_language=${lang}`);
       // a trailer in the language (a teaser when there's no trailer), official ones first
       const videos = ((d.videos && d.videos.results) || []).filter((v) => v && v.site === "YouTube" && v.iso_639_1 === lang && /^(Trailer|Teaser)$/.test(v.type) && v.key);
       videos.sort((x, y) => (y.type === "Trailer") - (x.type === "Trailer") || !!y.official - !!x.official);
@@ -1906,21 +1911,36 @@
       return out;
     },
 
+    // The title a summary box shows: [type, id] from its page's address (a title's page) or its link to
+    // that page (Discover's side panel), an IMDb or TMDB id; else from its IMDb link. Only the IMDb link
+    // was read, and a title page without an IMDb rating stayed in English.
+    titleOf(box) {
+      const detail = box && box.querySelector('a[href*="#/detail/"]');
+      const where = (detail ? detail.getAttribute("href") : location.hash).match(/#\/detail\/(movie|series)\/([^/?]+)/);
+      if (!where) return null;
+      let id = "";
+      try { id = decodeURIComponent(where[2]); } catch (_) { /* odd address */ }
+      if (!isImdb(id) && !/^tmdb:\d+$/.test(id)) {
+        const link = box && box.querySelector('a[href*="imdb"]');
+        let href = "";
+        try { href = link ? decodeURIComponent(link.getAttribute("href")) : ""; } catch (_) { /* odd link */ }
+        id = (href.match(/tt\d+/) || [])[0] || "";
+      }
+      return id ? [where[1], id] : null;
+    },
+
     // A title's page: its trailer button plays the trailer in the language, when TMDB has one (already
     // fetched for the summary), full screen in Nathflix's own player; Stremio's otherwise
     onTrailer: (e) => {
       if (e.type === "keydown" && e.key !== "Enter") return;
       const button = e.target instanceof Element && e.target.closest('#app [class*="action-button-container"][class*="wide"]');
       if (!button || !localMeta.on()) return;
-      const m = (location.hash || "").match(/^#\/detail\/(movie|series)\/([^/?]+)/);
-      const box = button.closest('[class*="meta-preview"]');
-      const link = box && box.querySelector('a[href*="imdb"]');
-      const imdb = m && (isImdb(decodeURIComponent(m[2])) ? decodeURIComponent(m[2]) : link && (decodeURIComponent(link.getAttribute("href")).match(/tt\d+/) || [])[0]);
-      const local = imdb ? readCached(`local:${LOCALE}:${m[1] === "movie" ? "movie" : "tv"}:${imdb}`) : null;
+      const title = localMeta.titleOf(button.closest('[class*="meta-preview"]'));
+      const local = title ? readCached(`local:${LOCALE}:${title[0] === "movie" ? "movie" : "tv"}:${title[1]}`) : null;
       if (!local || !local.trailer) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      theatre.open({ id: local.trailer, start: 0, title: local.name || "", logo: art.logo(imdb), href: location.hash.replace(/^#/, "") });
+      theatre.open({ id: local.trailer, start: 0, title: local.name || "", logo: isImdb(title[1]) ? art.logo(title[1]) : "", href: location.hash.replace(/^#/, "") });
     },
 
     // Stremio's summary of the title on show (a title's page, Discover's side panel), in the language
@@ -1928,11 +1948,9 @@
       if (!this.on()) return;
       for (const box of document.querySelectorAll('#app [class*="meta-preview-container"], #app [class*="meta-preview-"][class*="animation"]')) {
         if (!box.checkVisibility()) continue;
-        const imdb = [...box.querySelectorAll('a[href*="imdb"]')].map((a) => (decodeURIComponent(a.getAttribute("href")).match(/tt\d+/) || [])[0]).find(Boolean);
-        const detail = box.querySelector('a[href*="#/detail/"]');
-        const type = ((detail ? detail.getAttribute("href") : location.hash).match(/#\/detail\/(movie|series)\//) || [])[1];
-        if (!imdb || !type) continue;
-        this.get(type, imdb).then((local) => {
+        const title = this.titleOf(box);
+        if (!title) continue;
+        this.get(title[0], title[1]).then((local) => {
           const desc = local && local.description && box.querySelector('[class*="description-container"]');
           if (!desc || !box.isConnected) return;
           // (the text after its "Summary" heading; compared first: each write makes the page change again)

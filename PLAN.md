@@ -123,6 +123,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-072 | Titres, résumés, genres et bandes-annonces en français (TMDB) | À valider | P1 | plugin | — | 2026-11-01 |
 | T-073 | Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées | À valider | P1 | plugin | T-027, T-066 | 2026-11-01 |
 | T-074 | Release 0.6.1 (télécommande TV, carte d'aperçu, titres en français, synchro des profils) | Terminé | P1 | release, tv, plugin, app | T-067 à T-073 | 2026-11-01 |
+| T-075 | Résumé resté en anglais sur la fiche d'un titre sans note IMDb | À valider | P2 | plugin | T-072 | 2026-11-01 |
 
 ---
 
@@ -3118,6 +3119,44 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `6dddc16` (`0.6.1: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.6.1
 
+### T-075 — Résumé resté en anglais sur la fiche d'un titre sans note IMDb
+
+- **Statut :** À valider (sur l'appareil, avec la clé TMDB de l'utilisateur)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-072
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Parfois certaines description des séries sont bien en français mais dans la page details ça revient en anglais. Ca ne le fait pas sur tout.
+
+(captures : VisionQuest, résumé français sur le billboard, anglais sur sa fiche ; la fiche montre les notes RT, Metacritic et Letterboxd, pas de note IMDb)
+
+**Critères d'acceptation**
+- [x] Le résumé de la fiche et du panneau de Découvrir passe en français même sans note IMDb sur la page
+
+**Notes techniques**
+- **Cause** : `localMeta.page()` ne trouvait l'identifiant IMDb du titre que dans le lien de sa note IMDb. Une fiche sans note IMDb (comme VisionQuest) n'en a pas, et son résumé restait en anglais ; le billboard, lui, connaît l'identifiant.
+- **Correction** : `localMeta.titleOf(box)` prend le type et l'identifiant dans l'adresse de la page (`#/detail/<type>/<id>`) ou dans le lien vers la fiche (panneau de Découvrir), puis dans le lien IMDb en dernier recours. Les identifiants TMDB d'une extension (`tmdb:<n>`) sont aussi pris, sans recherche par IMDb (`fetch` lit directement le titre). Le bouton « Bande-annonce » passe par le même `titleOf`.
+
+**Vérification**
+- `node --check` : OK.
+- Chrome, TMDB simulé (`fr-test-noimdb.mjs`, scratchpad : tous les liens IMDb retirés de la page, comme sur une fiche sans note IMDb) :
+
+  | | 0.6.1 | Ce commit |
+  |---|---|---|
+  | Fiche d'un film | résumé anglais | résumé français |
+  | Panneau de Découvrir | résumé anglais | résumé français |
+  | Bouton « Bande-annonce » | bande-annonce française | bande-annonce française |
+
+- Non vérifié : la vraie clé de l'utilisateur, un titre à identifiant `tmdb:` (aucun sur le compte invité).
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3197,6 +3236,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-075 | Créée et faite : résumé en français aussi sur les fiches sans note IMDb (`localMeta.titleOf`) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
