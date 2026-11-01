@@ -109,6 +109,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | Bloqué | P1 | plugin, tv | T-041 | 2026-10-31 |
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
+| T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -3270,6 +3271,48 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `b2cd1ce` (`0.7.0: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.7.0
 
+### T-052 — Plugin chargé par adresse sur Android (cache de compilation)
+
+- **Statut :** Abandonné (aucune des deux variantes ne raccourcit le démarrage)
+- **Priorité :** P1
+- **Cible :** tv
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Continue la suite du chantier
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-052)
+
+**Critères d'acceptation**
+- [x] Mesure de référence du temps de chargement du plugin
+- [x] Variante A (`shouldInterceptRequest`) mesurée
+- [x] Variante B (petit serveur local, cache HTTP) mesurée
+- [x] Garder la variante qui gagne, sinon abandonner et le noter
+
+**Notes techniques**
+- **Mesure gardée** : `nathflix-tv.js` note la durée de compilation et d'exécution du plugin (`window.__nathflixTvPluginMs`) ; la mesure à l'écran l'affiche (« Plugin chargé en N ms ») et `window.__nathflix.startup()` donne le temps de démarrage. Servira à T-053.
+- **Mesure sur l'émulateur Fire_TV** (Android TV 14 x86, 1920×1080), lancements à chaud (`launchperf.mjs`, scratchpad : arrêt de l'app, lancement, lecture des deux temps par le débogueur de la WebView, sans rien toucher au compte), à la place des photos de la Fire TV. L'émulateur est bien plus rapide qu'une Fire TV : les chiffres servent à comparer, pas à prédire.
+
+  | | Plugin chargé (ms, lancements 2 à 6) | Démarrage (ms, médiane) |
+  |---|---|---|
+  | Référence : plugin écrit dans la page | 80–107 | 2410 |
+  | A : même adresse que Stremio, servie par `shouldInterceptRequest` | 124–181 | 2295 |
+  | B : `127.0.0.1:47811`, NanoHTTPD, cache HTTP (vérifié : 0 octet transféré au relancement) | 145–253 | 2517 |
+
+- **Pourquoi aucun gain** : l'analyse du plugin (1,1 Mo) ne pèse que 15 à 40 ms sur l'émulateur (`new Function(source)`) ; le reste est son exécution. Chargé par adresse, le script s'exécute de façon asynchrone et attend son tour sur le fil principal, ce qui annule le gain du cache. Le démarrage ne bouge pas (écarts dans le bruit des mesures).
+- Le code des deux variantes est gardé dans le scratchpad (`perf2/t052-variants-a-b.patch`) si un essai sur la vraie Fire TV paraît utile un jour.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js` ; traductions (`fr-missing.mjs` : les 2 faux positifs connus) ; Kotlin inchangé.
+- La ligne « Plugin chargé en N ms » : lue sur l'émulateur par `__nathflixTvPluginMs`.
+
+**Livraison**
+- Commits : à venir (mesure seulement ; pas de changement de chargement)
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3354,6 +3397,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-077 | Créée et faite : dégradé de « Qui est-ce ? » dans la couleur d'accent |
 | 2026-11-01 | T-078 | Créée : release 0.7.0 ; réservation de T-062 passée à 0.8.0 |
 | 2026-11-01 | T-078 | Terminé : release 0.7.0 publiée (11 fichiers, APK 700 signée) |
+| 2026-11-01 | T-052 | Abandonné : plugin par adresse (variantes A et B) sans gain sur l'émulateur ; mesure « Plugin chargé en N ms » gardée |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

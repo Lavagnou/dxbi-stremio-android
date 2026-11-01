@@ -919,7 +919,10 @@
         console.error("[Nathflix TV] plugin crashed", err);
       }
     })();`;
+    // how long the plugin took to compile and run, for the performance readout
+    const started = performance.now();
     document.body.append(script);
+    window.__nathflixTvPluginMs = Math.round(performance.now() - started);
   }
 
   // Text boxes (Search, an episode list's search): the TV's keyboard opened the moment the

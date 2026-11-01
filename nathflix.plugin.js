@@ -8321,6 +8321,8 @@
         t("Main loop: {n} times a minute, {ms} ms a minute", { n: rate(perf.counts.sync || 0), ms: rate(perf.ms.sync || 0) }),
         t("Saves a minute: {n}", { n: rate(perf.counts.saveLocal || 0) }),
         ...(startup.ms ? [startup.fromApp ? t("Start-up: {ms} ms from the app's opening", { ms: startup.ms }) : t("Start-up: {ms} ms from the page's start", { ms: startup.ms })] : []),
+        // (Nathflix for Android: how long the plugin took to compile and run)
+        ...(typeof window.__nathflixTvPluginMs === "number" ? [t("Plugin loaded in {ms} ms", { ms: window.__nathflixTvPluginMs })] : []),
       ];
     },
 
@@ -16413,6 +16415,7 @@
     settings,
     // counters for the measurement bench (tools/perf-bench.mjs) and anyone curious in the console
     perf: () => perf.snapshot(),
+    startup: () => ({ ms: startup.ms, fromApp: startup.fromApp }),
     // the language Nathflix speaks ("fr" or "en") and its texts, for Nathflix for Android's own screens
     lang: LANG,
     t,
@@ -17418,6 +17421,7 @@ vec4 hook() {
       "Saves a minute: {n}": "Enregistrements par minute : {n}",
       "Start-up: {ms} ms from the app's opening": "Démarrage : {ms} ms depuis l'ouverture de l'app",
       "Start-up: {ms} ms from the page's start": "Démarrage : {ms} ms depuis le début de la page",
+      "Plugin loaded in {ms} ms": "Plugin chargé en {ms} ms",
     };
   }
 
