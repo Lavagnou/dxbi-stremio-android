@@ -509,7 +509,7 @@
     },
     { key: "librarySort", type: "toggle", label: t("Library: sort by year & rating, filter by genre"), description: t("Extra sort buttons and a genre filter on the Library page."), defaultValue: DEFAULTS.librarySort },
     { key: "reviews", type: "toggle", label: t("Reviews on title pages"), description: t("Rotten Tomatoes and Metacritic scores next to the IMDb rating, and a Reviews button with what critics said (from Wikidata and Wikipedia, no account needed)."), defaultValue: DEFAULTS.reviews },
-    { key: "tmdbKey", type: "input", label: t("Reviews: TMDB key (optional)"), description: t("Adds audience reviews. Free: sign up at themoviedb.org, then Settings → API, and paste the API key or the read access token. It's only sent to TMDB."), defaultValue: DEFAULTS.tmdbKey },
+    { key: "tmdbKey", type: "input", label: t("TMDB key (optional)"), description: t("Adds audience reviews, and titles' summaries, genres and trailers in your language when TMDB has them. Free: sign up at themoviedb.org, then Settings → API, and paste the API key or the read access token. It's only sent to TMDB."), defaultValue: DEFAULTS.tmdbKey },
     { key: "mdblistKey", type: "input", label: t("Reviews: MDBList key (optional)"), description: t("Adds fresher scores, including Rotten Tomatoes audience, Letterboxd and Trakt. Free (1,000 titles a day): sign in at mdblist.com, then Preferences → API key. It's only sent to MDBList."), defaultValue: DEFAULTS.mdblistKey },
     { key: "trailers", type: "toggle", label: t("Trailers in hover cards"), description: t("Rest on a title and its trailer starts playing in the card, muted (tap the speaker for sound)."), defaultValue: DEFAULTS.trailers },
     {
@@ -1321,6 +1321,12 @@
         for (let i = 0; i < usable.length && first < 0; i++) if (await this.artLoads(usable[i])) first = i;
         if (gen !== this.gen) return this.items;
         this.items = first < 0 ? [] : usable.slice(first, first + 6);
+        // in Nathflix's language where TMDB has it (three seconds at most: the billboard doesn't wait on it)
+        if (localMeta.on() && this.items.length) {
+          const local = await Promise.race([Promise.all(this.items.map((m) => localMeta.get(m.type, m.id))), new Promise((r) => setTimeout(() => r(null), 3000))]);
+          if (gen !== this.gen) return this.items;
+          if (local) this.items = this.items.map((m, i) => localMeta.apply(m, local[i]));
+        }
         // Nothing at all (no network yet: a TV often starts before its Wi-Fi): tried again in a minute,
         // rather than no billboard until the next restart
         if (!this.items.length) setTimeout(() => { if (gen === this.gen && !this.items.length) { this.loading = null; scheduleSync(); } }, 60000);
@@ -1457,7 +1463,7 @@
           <div class="dx-hero-backdrop" data-bg="${esc(cssUrl(art.background(m.id)))}"></div>
           <div class="dx-hero-content">
             <div class="dx-hero-kicker"><b>NATHFLIX</b>${type === "series" ? t("Series") : t("Film")}</div>
-            <img class="dx-hero-logo" src="${art.logo(m.id)}" alt="${esc(m.name)}" draggable="false">
+            <img class="dx-hero-logo" src="${art.logo(m.id)}" alt="${esc(m.localName || m.name)}" draggable="false">
             <div class="dx-hero-meta">${metaBits.join("")}</div>
             <p class="dx-hero-desc">${esc(m.description)}</p>
             <div class="dx-hero-actions">
@@ -1835,8 +1841,113 @@
   // Posters that already print a rating on the artwork — don't add a second one
   const RATED_POSTER = /ratingposterdb|\/rpdb\/|top-?posters|toppostersapi|easyratings|ratings?[-_]?posters?/i;
 
-  // Everything we know about a title: the addon's own data first, Cinemeta fills the gaps
-  async function getInfo(type, id) {
+  // Titles in Nathflix's language: name, summary, genres and trailer from TMDB, with the user's own key
+  // (the TMDB key setting). Stremio's own data (Cinemeta) is in English only, and so were the
+  // billboard, the details cards, a title's summary and its trailer. Without a key, or where TMDB has
+  // nothing in the language, English stays.
+  const localMeta = {
+    pending: new Map(),
+
+    on() {
+      return LANG !== "en" && !!String(settings.tmdbKey || "").trim();
+    },
+
+    // { name, description, genres, trailer } for a title with an IMDb id, or null; kept with the other
+    // metadata (three days)
+    get(type, imdbId) {
+      if (!this.on() || !isImdb(imdbId)) return Promise.resolve(null);
+      const kind = type === "movie" ? "movie" : "tv";
+      const key = `local:${LOCALE}:${kind}:${imdbId}`;
+      const cached = readCached(key);
+      if (cached !== undefined) return Promise.resolve(cached);
+      if (!this.pending.has(key)) {
+        this.pending.set(key, this.fetch(kind, imdbId)
+          .then((found) => { writeCached(key, found); return found; })
+          // (a failure isn't kept: tried again next time)
+          .catch(() => null)
+          .finally(() => this.pending.delete(key)));
+      }
+      return this.pending.get(key);
+    },
+
+    async fetch(kind, imdbId) {
+      const token = String(settings.tmdbKey).trim();
+      const bearer = token.startsWith("eyJ");
+      const get = async (url) => {
+        const r = await fetch(bearer ? url : `${url}&api_key=${encodeURIComponent(token)}`, { headers: bearer ? { Authorization: `Bearer ${token}` } : {}, signal: timeoutSignal(8000) });
+        if (!r.ok) throw new Error(`TMDB ${r.status}`);
+        return r.json();
+      };
+      const lang = LOCALE.split("-")[0];
+      const found = await get(`https://api.themoviedb.org/3/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`);
+      const hit = ((kind === "movie" ? found.movie_results : found.tv_results) || [])[0];
+      if (!hit) return null;
+      const d = await get(`https://api.themoviedb.org/3/${kind}/${encodeURIComponent(hit.id)}?language=${LOCALE}&append_to_response=videos&include_video_language=${lang}`);
+      // a trailer in the language (a teaser when there's no trailer), official ones first
+      const videos = ((d.videos && d.videos.results) || []).filter((v) => v && v.site === "YouTube" && v.iso_639_1 === lang && /^(Trailer|Teaser)$/.test(v.type) && v.key);
+      videos.sort((x, y) => (y.type === "Trailer") - (x.type === "Trailer") || !!y.official - !!x.official);
+      return {
+        name: String(d.title || d.name || ""),
+        description: String(d.overview || "").slice(0, 600),
+        genres: (d.genres || []).map((g) => g && g.name).filter(Boolean).slice(0, 4),
+        trailer: videos[0] ? videos[0].key : null,
+      };
+    },
+
+    // A title's data with what TMDB has in the language put over it. The name goes apart (localName):
+    // the original one is what's saved to the library.
+    apply(meta, local) {
+      if (!local) return meta;
+      const out = { ...meta };
+      if (local.name) out.localName = local.name;
+      if (local.description) out.description = local.description;
+      if (local.genres && local.genres.length) out.genres = local.genres;
+      if (local.trailer) out.trailer = local.trailer;
+      return out;
+    },
+
+    // A title's page: its trailer button plays the trailer in the language, when TMDB has one (already
+    // fetched for the summary), full screen in Nathflix's own player; Stremio's otherwise
+    onTrailer: (e) => {
+      if (e.type === "keydown" && e.key !== "Enter") return;
+      const button = e.target instanceof Element && e.target.closest('#app [class*="action-button-container"][class*="wide"]');
+      if (!button || !localMeta.on()) return;
+      const m = (location.hash || "").match(/^#\/detail\/(movie|series)\/([^/?]+)/);
+      const box = button.closest('[class*="meta-preview"]');
+      const link = box && box.querySelector('a[href*="imdb"]');
+      const imdb = m && (isImdb(decodeURIComponent(m[2])) ? decodeURIComponent(m[2]) : link && (decodeURIComponent(link.getAttribute("href")).match(/tt\d+/) || [])[0]);
+      const local = imdb ? readCached(`local:${LOCALE}:${m[1] === "movie" ? "movie" : "tv"}:${imdb}`) : null;
+      if (!local || !local.trailer) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      theatre.open({ id: local.trailer, start: 0, title: local.name || "", logo: art.logo(imdb), href: location.hash.replace(/^#/, "") });
+    },
+
+    // Stremio's summary of the title on show (a title's page, Discover's side panel), in the language
+    page() {
+      if (!this.on()) return;
+      for (const box of document.querySelectorAll('#app [class*="meta-preview-container"], #app [class*="meta-preview-"][class*="animation"]')) {
+        if (!box.checkVisibility()) continue;
+        const imdb = [...box.querySelectorAll('a[href*="imdb"]')].map((a) => (decodeURIComponent(a.getAttribute("href")).match(/tt\d+/) || [])[0]).find(Boolean);
+        const detail = box.querySelector('a[href*="#/detail/"]');
+        const type = ((detail ? detail.getAttribute("href") : location.hash).match(/#\/detail\/(movie|series)\//) || [])[1];
+        if (!imdb || !type) continue;
+        this.get(type, imdb).then((local) => {
+          const desc = local && local.description && box.querySelector('[class*="description-container"]');
+          if (!desc || !box.isConnected) return;
+          // (the text after its "Summary" heading; compared first: each write makes the page change again)
+          const text = [...desc.childNodes].find((n) => n.nodeType === 3 && n.nodeValue.trim());
+          if (text && text.nodeValue !== local.description) text.nodeValue = local.description;
+          else if (!text && desc.textContent.trim() !== local.description) desc.append(local.description);
+        });
+      }
+    },
+  };
+
+  // Everything we know about a title: the addon's own data first, Cinemeta fills the gaps. `local`: in
+  // Nathflix's language too, where it's read (a details card): never for the badges on every poster,
+  // a TMDB request each
+  async function getInfo(type, id, local = false) {
     await coreMeta.refresh();
     const fromAddon = coreMeta.get(type, id);
     const imdbId = isImdb(id) ? id : fromAddon && fromAddon.imdbId;
@@ -1853,7 +1964,7 @@
     }
     info.imdbId = imdbId || null;
     if (!info.imdbRating && !info.score && animeScore.parse(id)) info.score = await animeScore.get(id);
-    return info;
+    return local && imdbId ? localMeta.apply(info, await localMeta.get(type, imdbId)) : info;
   }
 
   // The rating to show for a title: IMDb when known, otherwise an anime score
@@ -2401,7 +2512,7 @@
       const key = `${info.type}:${info.id}`;
       if (this.prep && this.prep.key === key) return this.prep.promise;
       const promise = (async () => {
-        const meta = (await Promise.race([getInfo(info.type, info.id), new Promise((r) => setTimeout(() => r(undefined), 900))])) || coreMeta.get(info.type, info.id) || {};
+        const meta = (await Promise.race([getInfo(info.type, info.id, true), new Promise((r) => setTimeout(() => r(undefined), 900))])) || coreMeta.get(info.type, info.id) || {};
         const urls = [artFor(meta, info.id, "background"), artFor(meta, info.id, "logo"), info.poster].filter(Boolean);
         await Promise.race([Promise.all(urls.map((u) => decodeImage(u))), new Promise((r) => setTimeout(r, 1200))]);
         return meta;
@@ -2540,7 +2651,7 @@
         <div class="dx-preview-ghost"></div>
         <div class="dx-preview-media" data-href="${esc(href)}" style="background-image:${media}">
           ${logoUrl ? `<img alt="" src="${esc(logoUrl)}">` : ""}
-          <div class="dx-preview-name">${esc(name)}</div>
+          <div class="dx-preview-name">${esc(meta.localName || name)}</div>
         </div>
         <div class="dx-preview-body">
           <div class="dx-preview-actions">
@@ -2566,7 +2677,7 @@
       this.refreshLibrary();
 
       // Details and artwork were fetched and decoded while the pointer rested (never more than ~1s)
-      const metaPromise = getInfo(info.type, info.id);
+      const metaPromise = getInfo(info.type, info.id, true);
       const meta = (await this.prepare(card)) || {};
       if (token !== this.token) return;
       if (!this.active(card)) {
@@ -2826,7 +2937,7 @@
       requestAnimationFrame(() => wrap.classList.add("is-open"));
       preview.refreshLibrary().catch(() => { /* the button still works */ });
       let meta = {};
-      try { meta = (await getInfo(info.type, info.id)) || {}; } catch (_) { /* card details only */ }
+      try { meta = (await getInfo(info.type, info.id, true)) || {}; } catch (_) { /* card details only */ }
       if (token !== this.token || !wrap.isConnected) return;
       if (typeof meta.inLibrary === "boolean") {
         if (meta.inLibrary) preview.library.ids.add(info.id);
@@ -2863,7 +2974,7 @@
         <div class="dxm-top">
           <div class="dxm-poster"${poster ? ` style="background-image:${esc(cssUrl(poster))}"` : ""}></div>
           <div class="dxm-head">
-            <h2>${esc(name)}</h2>
+            <h2>${esc(meta.localName || name)}</h2>
             ${facts ? `<div class="dxm-facts">${facts}</div>` : ""}
             ${genres ? `<div class="dxm-genres">${esc(genres)}</div>` : ""}
             ${meta.description ? `<p class="dxm-desc">${esc(meta.description)}</p>` : ""}
@@ -8221,7 +8332,7 @@
       ? [updateRoute, brandTitle, checkScrolled, () => addonTools.ensure(), communitySync]
       : [updateRoute, brandTitle, checkScrolled, () => player.ensure(), () => { convert.ensure().catch(() => { /* player state not ready */ }); }, () => convert.confirmHevc(), () => externalDefault.ensure(), () => placeholder.ensure(), () => playbackHelp.ensure(), () => scrub.ensure(), () => enhance.ensure(), () => watchParty.ensure(), () => skip.ensure(), () => tune.ensure(), () => streamInfo.ensure(), () => addonTools.ensure(), communitySync];
     if (currentRoute() === "detail") steps.push(() => streamTools.ensure());
-    steps.push(() => perfReadout.ensure(), () => stremioPromo.ensure(), () => signInGate.check(), () => langWatch.check(), () => profileDefaults.watch(), () => cloudSync.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
+    steps.push(() => perfReadout.ensure(), () => stremioPromo.ensure(), () => localMeta.page(), () => signInGate.check(), () => langWatch.check(), () => profileDefaults.watch(), () => cloudSync.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
     if (currentRoute() !== "player") {
       steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, () => homeArrange.apply(), updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
       // (TV: Home's first rows that show, whatever rows are switched off among the first ones asked for)
@@ -16142,6 +16253,8 @@
     for (const type of ["pointerdown", "mousedown", "touchstart"]) window.addEventListener(type, onPortalPress, { capture: true, passive: false });
     window.addEventListener("click", onPortalClick, true);
     document.addEventListener("click", episodeBack.onClick, true);
+    document.addEventListener("click", localMeta.onTrailer, true);
+    document.addEventListener("keydown", localMeta.onTrailer, true);
     document.addEventListener("keydown", episodeBack.onKey, true);
     portalSizer.observe(document.body, { childList: true });
     themeLinkWatch.observe(document.head, { childList: true });
@@ -16216,6 +16329,11 @@
     },
     // Nathflix TV's Back button: closes an open hover card, keeping its title selected (true if one was open)
     closePreview() {
+      // a trailer full screen
+      if (theatre.el) {
+        theatre.close();
+        return true;
+      }
       // the PIN keypad, then Who's watching (which stays when it's locked)
       if (pinPad.el) {
         pinPad.cancel();
@@ -16303,6 +16421,8 @@
       for (const type of ["pointerdown", "mousedown", "touchstart"]) window.removeEventListener(type, onPortalPress, true);
       window.removeEventListener("click", onPortalClick, true);
       document.removeEventListener("click", episodeBack.onClick, true);
+      document.removeEventListener("click", localMeta.onTrailer, true);
+      document.removeEventListener("keydown", localMeta.onTrailer, true);
       document.removeEventListener("keydown", episodeBack.onKey, true);
       portalSizer.disconnect();
       if (sfx.ctx) sfx.ctx.close().catch(() => {});
@@ -16477,8 +16597,8 @@ vec4 hook() {
       "Extra sort buttons and a genre filter on the Library page.": "Des boutons de tri en plus et un filtre par genre sur la page Bibliothèque.",
       "Reviews on title pages": "Critiques sur les pages des titres",
       "Rotten Tomatoes and Metacritic scores next to the IMDb rating, and a Reviews button with what critics said (from Wikidata and Wikipedia, no account needed).": "Les notes Rotten Tomatoes et Metacritic à côté de la note IMDb, et un bouton Critiques avec l'avis de la presse (d'après Wikidata et Wikipédia, sans compte).",
-      "Reviews: TMDB key (optional)": "Critiques : clé TMDB (facultatif)",
-      "Adds audience reviews. Free: sign up at themoviedb.org, then Settings → API, and paste the API key or the read access token. It's only sent to TMDB.": "Ajoute les avis du public. Gratuit : inscrivez-vous sur themoviedb.org, puis Settings → API, et collez la clé d'API ou le jeton d'accès en lecture. Elle n'est envoyée qu'à TMDB.",
+      "TMDB key (optional)": "Clé TMDB (facultatif)",
+      "Adds audience reviews, and titles' summaries, genres and trailers in your language when TMDB has them. Free: sign up at themoviedb.org, then Settings → API, and paste the API key or the read access token. It's only sent to TMDB.": "Ajoute les avis du public, ainsi que les résumés, genres et bandes-annonces des titres dans votre langue quand TMDB les a. Gratuit : inscrivez-vous sur themoviedb.org, puis Settings → API, et collez la clé d'API ou le jeton d'accès en lecture. Elle n'est envoyée qu'à TMDB.",
       "Reviews: MDBList key (optional)": "Critiques : clé MDBList (facultatif)",
       "Adds fresher scores, including Rotten Tomatoes audience, Letterboxd and Trakt. Free (1,000 titles a day): sign in at mdblist.com, then Preferences → API key. It's only sent to MDBList.": "Ajoute des notes plus à jour, dont celle du public de Rotten Tomatoes, Letterboxd et Trakt. Gratuit (1 000 titres par jour) : connectez-vous sur mdblist.com, puis Preferences → API key. Elle n'est envoyée qu'à MDBList.",
       "Trailers in hover cards": "Bandes-annonces dans les aperçus",

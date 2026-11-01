@@ -120,6 +120,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-069 | TV : carte d'aperçu et bande-annonce sur le titre sélectionné ; défauts trouvés avec le compte de l'utilisateur | À valider | P1 | plugin, tv | T-068 | 2026-11-01 |
 | T-070 | « Qui est-ce ? » au démarrage seulement ; fenêtres promotionnelles de Stremio supprimées ; contour de la carte d'aperçu TV | À valider | P1 | plugin, tv | T-069 | 2026-11-01 |
 | T-071 | Retour depuis un épisode : la page de la série, pas l'Accueil | À valider | P2 | plugin | — | 2026-11-01 |
+| T-072 | Titres, résumés, genres et bandes-annonces en français (TMDB) | À valider | P1 | plugin | — | 2026-11-01 |
 
 ---
 
@@ -2967,6 +2968,62 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `dc2b2cb`
 - Version / CHANGELOG : à la prochaine release
 
+### T-072 — Titres, résumés, genres et bandes-annonces en français (TMDB)
+
+- **Statut :** À valider (sur l'appareil, avec la clé TMDB de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Les séries et films sont affichés en Anglais, avec la description en anglais aussi, et pareil pour les bande d'annonces. On pourrait pas avoir les descriptions et bande d'annonces en Français ou c'est que c'est lié aux catalogues ?
+
+> Oui j'ai deja des clés TMDB et MDB que j'ai deja mis dans l'app deja.
+
+> Si ça trouve aucune bande d'annonce en français il faudrait retomber sur la bande d'annonce en anglaise
+
+**Critères d'acceptation**
+- [x] Avec une clé TMDB et Nathflix en français : résumé du billboard, titre et genres de la carte d'aperçu, résumé de la fiche et du panneau de Découvrir en français
+- [x] Bande-annonce française dans la carte d'aperçu et par le bouton « Bande-annonce » de la fiche, sinon l'anglaise
+- [x] Sans clé, rien ne change et rien n'est demandé à TMDB
+- [ ] Vérifié avec la vraie clé de l'utilisateur
+
+**Notes techniques**
+- **Cause** : Nathflix montre les données de l'extension de chaque rangée et complète avec Cinemeta, qui n'existe qu'en anglais. La fiche d'un titre vient de la première extension de la liste capable de la fournir (Cinemeta chez l'utilisateur).
+- **`localMeta`** (avant `getInfo`) : actif si `LANG !== "en"` et une clé TMDB est réglée.
+  - `get(type, imdb)` : `/find/<imdb>?external_source=imdb_id`, puis `/<movie|tv>/<id>?language=fr-FR&append_to_response=videos&include_video_language=fr` : titre, résumé (600 caractères au plus), genres, bande-annonce YouTube en français (« Trailer » avant « Teaser », officielles d'abord). Clé d'API ou jeton (`eyJ…`, en `Bearer`), comme pour les critiques. Gardé avec les autres métadonnées (`readCached`, 3 jours) ; un échec n'est pas gardé.
+  - `apply()` : résumé, genres et bande-annonce par-dessus ; le titre traduit va dans `localName` (le nom d'origine reste celui envoyé à la bibliothèque par « Ma liste »).
+- **Où** :
+  - billboard : ses titres sont traduits avant d'être dessinés (3 s d'attente au plus) ;
+  - carte d'aperçu et feuille titre du téléphone : `getInfo(type, id, true)`. Jamais pour les badges des affiches (`getInfo` sans le troisième argument) : une requête TMDB par affiche ;
+  - fiche et panneau de Découvrir (`localMeta.page()`, étape de `sync()`) : le texte du `description-container` de Stremio est remplacé, comparé avant d'écrire ;
+  - bouton « Bande-annonce » de la fiche (`localMeta.onTrailer`, clic et Entrée) : la bande-annonce française dans le lecteur plein écran de Nathflix (`theatre`) si elle est connue ; sinon celui de Stremio. Retour la ferme sur TV (`closePreview`).
+- **Repli** : sans bande-annonce française, celle de l'extension ou de Cinemeta (anglaise) reste ; sans résumé français, l'anglais.
+- Réglage « Clé TMDB (facultatif) » : libellé et description mis à jour (traduits). CLAUDE.md : `localMeta`.
+
+**Vérification**
+- `node --check` : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus.
+- Chrome (PC, invité, Nathflix en français), TMDB simulé par le banc (`fr-test.mjs`, scratchpad : réponses françaises fabriquées, pas de vraie clé) :
+
+  | | Résultat |
+  |---|---|
+  | Billboard | résumé français |
+  | Carte d'aperçu | titre et genres français ; « Ma liste » garde le nom d'origine ; bande-annonce française |
+  | Fiche, Découvrir | résumé français |
+  | Bouton « Bande-annonce » | lecteur de Nathflix sur la bande-annonce française (« Trailer » choisi avant « Teaser ») |
+  | Requêtes TMDB | 2 par titre (6 titres du billboard, puis les titres ouverts), toutes avec la clé, aucune en double |
+  | Sans bande-annonce française | carte : celle de Cinemeta ; bouton : celui de Stremio ; résumé toujours en français |
+  | Sans clé | tout comme avant, aucune requête TMDB |
+
+- Non vérifié : la vraie clé TMDB de l'utilisateur (non lue), la TV.
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3046,6 +3103,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-072 | Créée et faite : titres, résumés, genres et bandes-annonces en français par TMDB (`localMeta`), anglais en repli ; à valider avec la vraie clé |
 | 2026-11-01 | T-071 | Créée et faite : Retour depuis un épisode ramène à la série (`episodeBack`) ; à valider sur la Fire TV |
 | 2026-11-01 | T-070 | Créée et faite : « Qui est-ce ? » au démarrage seulement, promotions de Stremio supprimées, contour de la carte d'aperçu ; sélection sur `#app`, rangées préparées au démarrage ; à valider sur la Fire TV |
 | 2026-11-01 | T-069 | Créée et faite : carte d'aperçu et bande-annonce sur TV ; Qui est-ce ?, rangées masquées (T-054), Cette semaine, glissade, panneau d'informations, barre du haut ; à valider sur la Fire TV |
