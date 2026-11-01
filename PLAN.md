@@ -3340,8 +3340,8 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
   | Série | Tel quel : plugin (ms) / démarrage (ms) | Minifié |
   |---|---|---|
   | 1 | 104 / 2687 | 102 / 2496 |
-  | 2 (machine plus chargée) | 103 / 2693 | 186 / 4375 |
-  | 3 (machine plus chargée) | 176 / 4528 | 190 / 4359 |
+  | 2 | 103 / 2693 | 186 / 4375 (la machine ralentit pendant cette mesure) |
+  | 3 (machine encore ralentie) | 176 / 4528 | 190 / 4359 |
 
 - **Pourquoi** : comme vu dans T-052, l'analyse du script ne pèse que 15 à 40 ms sur l'émulateur ; le temps du plugin est son exécution, que la minification ne change pas. Les écarts sont dans le bruit. Pas de minification : le plugin reste lisible partout, et pas de nouvelle étape de build ni de risque (noms de fonctions, regex de `Updates.forTv`).
 
