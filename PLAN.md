@@ -120,7 +120,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-060 | Étude : Stremio Web embarqué dans l'APK | Terminé | P3 | tv | T-052 | 2026-11-02 |
 | T-079 | Mesure à l'écran : la dernière minute, et la part de Nathflix par touche | À valider | P1 | plugin | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
-| T-062 | Release 0.8.0 (performances, OK maintenu, Continuer de regarder, billboard, synchro) | En cours | P1 | release, tv, plugin, app | T-049 à T-085 | 2026-11-02 |
+| T-062 | Release 0.8.0 (performances, OK maintenu, Continuer de regarder, billboard, synchro) | Terminé | P1 | release, tv, plugin, app | T-049 à T-085 | 2026-11-02 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
@@ -3890,7 +3890,7 @@ Puis, le lendemain (2026-11-02) :
 
 ### T-062 — Release 0.8.0 (performances, OK maintenu, Continuer de regarder, billboard, synchro)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin, app
 - **Dépend de :** T-049 à T-085
@@ -3905,8 +3905,8 @@ Puis, le lendemain (2026-11-02) :
 
 **Critères d'acceptation**
 - [x] `@version 0.8.0`, section `## 0.8.0` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.8.0`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 800, plugin embarqué en 0.8.0
+- [x] CI verte, tag `v0.8.0`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 800, plugin embarqué en 0.8.0
 
 **Notes techniques**
 - **Contenu** : T-049 (mises à jour vérifiées après la page), T-051 (réglage « Rendu allégé sur TV », coupé), T-079 (mesure à l'écran sur la dernière minute), T-080 (OK maintenu, 3 points masqués), T-081 (genres et acteurs en mode léger, Partager retiré), T-082 (défilement allégé), T-083 (Continuer de regarder ouvre la série), T-084 (billboard écrasé), T-085 (synchro de l'ordre de l'Accueil) ; et de T-052 / T-055 ce qui est resté (temps de chargement du plugin dans la mesure à l'écran, outils du banc).
@@ -3915,10 +3915,13 @@ Puis, le lendemain (2026-11-02) :
 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
+- CI verte sur `d70461e` (Cross-platform, mpv Windows, Android test build avec R8), puis tag `v0.8.0` : run Release 41363250144, tous les jobs verts (publish, android, desktop ×5).
+- Release : les 11 fichiers (installeur et portable Windows, `.blockmap`, 2 dmg, 2 AppImage, APK, 3 `latest*.yml`), ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé que la 0.7.0) ; `com.lavagnou.nathflix`, versionCode 800, versionName 0.8.0 ; plugin embarqué en 0.8.0 ; T-051 présent après R8 (`tvLowRes` dans le dex, `tv.lowRes` dans `nathflix-tv.js`, `tvFeature` dans le plugin).
 
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `d70461e` (`0.8.0: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.0
 
 <!--
 ### T-000 — Titre court
@@ -4027,6 +4030,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-060 | Étude faite : Stremio Web vient déjà du cache de son service worker ; recommandation : ne pas l'embarquer (décision de l'utilisateur) |
 | 2026-11-02 | T-060 | Terminé : l'utilisateur est d'accord pour ne pas embarquer Stremio Web |
 | 2026-11-02 | T-062 | En cours : release 0.8.0 demandée par l'utilisateur |
+| 2026-11-02 | T-062 | Terminé : release 0.8.0 publiée (11 fichiers, APK 800 signée par la clé de release, plugin 0.8.0) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
