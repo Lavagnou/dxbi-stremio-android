@@ -139,6 +139,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-082 | Défilement : moins de travail à chaque image (`onScroll`) | À valider | P1 | plugin | T-041 | 2026-11-02 |
 | T-083 | Continuer de regarder : une série ouvre sa page, pas son épisode | À valider | P2 | plugin | T-012 | 2026-11-02 |
 | T-084 | Billboard écrasé (seul le bas visible) quand l'Accueil est réorganisé | À valider | P1 | plugin | — | 2026-11-02 |
+| T-085 | Ordre de l'Accueil pas répercuté sur les autres appareils (synchro plus rapide, réception même quand un envoi est refusé) | À valider | P1 | plugin | T-027 | 2026-11-02 |
 
 ---
 
@@ -3744,6 +3745,47 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-085 — Ordre de l'Accueil pas répercuté sur les autres appareils
+
+- **Statut :** À valider (sur les appareils de l'utilisateur ; cause exacte non trouvée)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-027
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Et j'ai réorganisé l'ordre de mes catalogues mais sur mes autres appareils c'est pas répercuté, la sync ne fonctionne pas
+
+**Critères d'acceptation**
+- [x] Un nouvel ordre de l'Accueil part dans les 2 s
+- [x] Les autres appareils le prennent en ouvrant l'Accueil, ou en 2 minutes au plus à l'écran
+- [x] Un appareil dont un envoi est refusé reçoit quand même ce que les autres ont changé
+- [ ] Vérifié sur les appareils de l'utilisateur
+
+**Notes techniques**
+- **Ce qui marche** : l'émulateur Fire TV (compte de l'utilisateur, dernier plugin) a reçu l'ordre fait par l'utilisateur (`homeRows:main`, enregistré le 2026-11-01 à 22:17 UTC : 66 rangées ordonnées, 19 masquées) et l'applique : 63 rangées présentes, toutes reconnues et classées, 17 masquées. Le Worker a donc bien reçu l'ordre. Le code de synchronisation et d'« Organiser l'Accueil » est identique en 0.7.0 (comparé) : ce n'est pas une version en retard.
+- **Causes possibles chez l'utilisateur** (non observables d'ici) :
+  - délai : un appareil resté à l'écran ne relisait le compte que toutes les 5 minutes (ou en revenant au premier plan, ou quand la fenêtre reprend le focus), et l'ordre ne partait que 20 s après le changement ;
+  - un appareil bloqué : envoi et réception passent par la même requête. Si le Worker refuse ce que l'appareil envoie (400 : une clé ou une heure qu'il refuse ; 413 : trop gros), l'appareil ne recevait plus rien, et réessayait au bout de 1, 5 puis 15 minutes ;
+  - session refusée (401) : l'appareil s'arrête jusqu'à une nouvelle connexion (« Reconnectez-vous à Stremio… » dans les Réglages) ; pas changé ici.
+- **Changements** (`cloudSync`) :
+  - `changed()` : `homeRows:*` part au bout de 2 s (comme `played:*`) : il est enregistré une fois, quand « Organiser l'Accueil » se ferme ;
+  - `onHome()`, appelé par `updateRoute()` à l'arrivée sur l'Accueil : une synchronisation si la dernière a plus de 30 s ;
+  - toutes les 2 minutes (au lieu de 5) tant que Nathflix est à l'écran (le Worker accepte 30 synchronisations par minute et par compte) ;
+  - envoi refusé (400 ou 413) : une requête sans rien envoyer suit, pour recevoir et fusionner ce que les autres ont changé.
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Émulateur, compte de l'utilisateur : synchronisations au démarrage (1 s et 4 s) ; Réglages 40 s puis Accueil → une synchronisation (79 s) ; Découvrir puis Accueil dans les 30 s → aucune de plus. Requêtes lues dans `performance.getEntriesByType("resource")`.
+- Chrome, faux compte et faux Worker (`perf2/sync-refused.mjs`, scratchpad) qui refuse tout envoi (400) et donne l'ordre de l'Accueil d'un autre appareil à une requête vide. Avant : un envoi refusé, rien de reçu. Après : l'envoi refusé est suivi d'une requête vide, et l'ordre de l'autre appareil est reçu (`homeRows:main`).
+- Non vérifié : les appareils de l'utilisateur. Le statut de la synchronisation est dans Réglages (« Profils et réglages synchronisés… il y a N min », ou un message d'erreur) : à regarder sur l'appareil qui ne suit pas.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release (l'APK TV et l'app PC prennent le plugin de la release)
+
 <!--
 ### T-000 — Titre court
 
@@ -3845,6 +3887,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-082 | Créée et faite : défilement allégé (`preview.marked`, barres gardées, `scrollKind`), JS de Nathflix −25 à −40 % en descendant les rangées |
 | 2026-11-02 | T-083 | Créée et faite : une série de Continuer de regarder ouvre sa page (« Reprendre ») |
 | 2026-11-02 | T-084 | Créée et faite : billboard écrasé sur un Accueil réorganisé (`flex-shrink: 0`) |
+| 2026-11-02 | T-085 | Créée et faite : ordre de l'Accueil envoyé en 2 s, synchro en ouvrant l'Accueil et toutes les 2 min, réception même après un envoi refusé ; cause exacte chez l'utilisateur non trouvée |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

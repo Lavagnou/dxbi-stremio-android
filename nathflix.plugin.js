@@ -1104,6 +1104,7 @@
       if (route === "board") {
         homeArrange.preloaded = false;
         homeRows.preload();
+        cloudSync.onHome();
       }
     }
   }
@@ -8754,7 +8755,14 @@
       if (!SYNCED.test(key) || !this.on()) return;
       this.dirty.add(key);
       this.keepDirty();
-      this.schedule(/^(played:|libraryOwners$)/.test(key) ? 2000 : 20000);
+      // (a new order for Home too: it's saved once, as Organise Home closes, and is looked for on the
+      // other devices straight away)
+      this.schedule(/^(played:|homeRows:|libraryOwners$)/.test(key) ? 2000 : 20000);
+    },
+
+    // Home opened: what other devices changed (Home's order, hidden titles…), every 30 s at most
+    onHome() {
+      if (this.on() && !document.hidden && Date.now() - this.lastTry > 30000) this.run();
     },
 
     // What's still to send is kept on the device: a reload (Stremio's language changing, an update of
@@ -8856,6 +8864,17 @@
           // nothing is lost: what was being sent goes again next time
           for (const e of entries) this.dirty.add(e.k);
           const status = r ? r.status : 0;
+          // What this device sends was turned down (too big, or not taken), not the device itself:
+          // what the others changed still comes. Sending and receiving went together, so one entry the
+          // account wouldn't take kept the device from ever getting anything again
+          if ((status === 400 || status === 413) && entries.length) {
+            const pull = await post([]);
+            if (pull && pull.ok) {
+              const answer = await pull.json().catch(() => ({}));
+              this.merge(Array.isArray(answer.entries) ? answer.entries : []);
+              if (Number(answer.now)) this.local(sinceKey, String(answer.now));
+            }
+          }
           if (status === 401) {
             this.state = "rejected";
             this.rejectedKey = auth.key;
@@ -9046,10 +9065,10 @@
       document.addEventListener("visibilitychange", this.onVisible);
       // Stremio fetches the account's library again when the window gets the focus (a computer's
       // window stays visible behind others): the profiles' share of it comes at the same time, and
-      // every five minutes while Nathflix is on screen
+      // every two minutes while Nathflix is on screen
       this.onFocus = () => { if (this.on() && !document.hidden && Date.now() - this.lastTry > 15000) this.run(); };
       window.addEventListener("focus", this.onFocus);
-      this.tick = setInterval(() => { if (this.on() && !document.hidden && Date.now() - this.lastTry > 5 * 60000) this.run(); }, 60000);
+      this.tick = setInterval(() => { if (this.on() && !document.hidden && Date.now() - this.lastTry > 2 * 60000) this.run(); }, 60000);
       // what an earlier run of the page didn't get to send
       try { for (const k of JSON.parse(this.local("nathflix.syncDirty") || "[]")) if (SYNCED.test(k)) this.dirty.add(k); } catch (_) { /* nothing kept */ }
       setTimeout(() => this.run(), 3000);
