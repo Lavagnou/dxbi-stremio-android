@@ -2735,7 +2735,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
   | Liste (visible / contenu) | 231 / 231 px, sans défilement | 209 / 304 px, défile |
 
 **Livraison**
-- Commits : ce commit
+- Commits : `75a02f6`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
