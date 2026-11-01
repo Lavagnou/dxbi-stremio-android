@@ -2734,6 +2734,8 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
   | En-tête | 72 / 86 px | 86 / 86 px |
   | Liste (visible / contenu) | 231 / 231 px, sans défilement | 209 / 304 px, défile |
 
+- « Ordre et sauvegarde » des extensions (même défaut, signalé aussi par l'utilisateur ; `addons-check.mjs`, fenêtre de 360 px) : ligne 22 / 34 px → 46 / 46 px, en-tête 59 / 86 px → 86 / 86 px, la liste défile.
+
 **Livraison**
 - Commits : `75a02f6`
 - Version / CHANGELOG : à la prochaine release
