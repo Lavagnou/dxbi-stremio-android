@@ -3081,7 +3081,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : deux vrais appareils avec le compte de l'utilisateur.
 
 **Livraison**
-- Commits : ce commit
+- Commits : `f9db738`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
