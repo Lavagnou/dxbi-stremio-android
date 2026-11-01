@@ -2821,7 +2821,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la Fire TV, et le compte de l'utilisateur (une trentaine de rangées, Continuer à regarder, profils).
 
 **Livraison**
-- Commits : ce commit
+- Commits : `432118a`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
