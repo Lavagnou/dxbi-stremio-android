@@ -110,6 +110,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
+| T-053 | Plugin minifié pour l'APK et l'app | Abandonné | P2 | tv, app, tools | T-052 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -3313,6 +3314,44 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : à venir (mesure seulement ; pas de changement de chargement)
 - Version / CHANGELOG : à la prochaine release
 
+### T-053 — Plugin minifié pour l'APK et l'app
+
+- **Statut :** Abandonné (aucun gain mesurable au chargement)
+- **Priorité :** P2
+- **Cible :** tv, app, tools
+- **Dépend de :** T-052
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Continue la suite du chantier
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-053)
+
+**Critères d'acceptation**
+- [x] Mesurer le gain avant de toucher à Gradle, à l'app et à la CI
+- [x] Garder seulement si le chargement du plugin raccourcit
+
+**Notes techniques**
+- **Essai** (`perf2/minify-try.mjs`, scratchpad) : le plugin TV (intro et shaders retirés comme `Updates.forTv`), numéroté 0.7.99, tel quel puis minifié par terser 5 (`compress.passes: 2`, `mangle`), poussé dans `files/` de la build Dev sur l'émulateur Fire_TV ; 6 lancements à chaud chacun, alternés (`launchperf.mjs`).
+- Taille : 1100 Ko → 764 Ko (−30 % seulement : le thème intégré, les images du logo et le dictionnaire français sont des chaînes que la minification ne réduit pas).
+
+  | Série | Tel quel : plugin (ms) / démarrage (ms) | Minifié |
+  |---|---|---|
+  | 1 | 104 / 2687 | 102 / 2496 |
+  | 2 (machine plus chargée) | 103 / 2693 | 186 / 4375 |
+  | 3 (machine plus chargée) | 176 / 4528 | 190 / 4359 |
+
+- **Pourquoi** : comme vu dans T-052, l'analyse du script ne pèse que 15 à 40 ms sur l'émulateur ; le temps du plugin est son exécution, que la minification ne change pas. Les écarts sont dans le bruit. Pas de minification : le plugin reste lisible partout, et pas de nouvelle étape de build ni de risque (noms de fonctions, regex de `Updates.forTv`).
+
+**Vérification**
+- `node --check` de la sortie minifiée : OK ; elle a tourné sur l'émulateur (le temps de démarrage est relevé par le plugin lui-même).
+- Plugin d'essai retiré de la build Dev après la mesure.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
 <!--
 ### T-000 — Titre court
 
@@ -3398,6 +3437,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-078 | Créée : release 0.7.0 ; réservation de T-062 passée à 0.8.0 |
 | 2026-11-01 | T-078 | Terminé : release 0.7.0 publiée (11 fichiers, APK 700 signée) |
 | 2026-11-01 | T-052 | Abandonné : plugin par adresse (variantes A et B) sans gain sur l'émulateur ; mesure « Plugin chargé en N ms » gardée |
+| 2026-11-01 | T-053 | Abandonné : plugin minifié (−30 %) sans gain de chargement sur l'émulateur |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
