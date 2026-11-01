@@ -2964,7 +2964,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Non vérifié : la Fire TV.
 
 **Livraison**
-- Commits : ce commit
+- Commits : `dc2b2cb`
 - Version / CHANGELOG : à la prochaine release
 
 <!--
