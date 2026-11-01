@@ -6,7 +6,7 @@ Ce petit serveur garde les profils Nathflix de chaque personne et les donne à t
 - « Continuer de regarder » retirés ;
 - propriétaires de la bibliothèque, titres autorisés aux enfants, code parental ;
 - statistiques par profil ;
-- les réglages de Nathflix changés à la main (sauf ceux propres à chaque appareil : mode léger, apparence intégrée, clés TMDB et MDBList…).
+- les réglages de Nathflix changés à la main (sauf ceux propres à chaque appareil : mode léger, apparence intégrée…), clés TMDB et MDBList comprises.
 
 Il n'y a pas de compte à créer : chacun est reconnu par son **compte Stremio**.
 

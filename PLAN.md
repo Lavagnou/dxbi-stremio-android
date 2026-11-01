@@ -121,6 +121,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-070 | « Qui est-ce ? » au démarrage seulement ; fenêtres promotionnelles de Stremio supprimées ; contour de la carte d'aperçu TV | À valider | P1 | plugin, tv | T-069 | 2026-11-01 |
 | T-071 | Retour depuis un épisode : la page de la série, pas l'Accueil | À valider | P2 | plugin | — | 2026-11-01 |
 | T-072 | Titres, résumés, genres et bandes-annonces en français (TMDB) | À valider | P1 | plugin | — | 2026-11-01 |
+| T-073 | Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées | À valider | P1 | plugin | T-027, T-066 | 2026-11-01 |
 
 ---
 
@@ -3024,6 +3025,65 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `ad213ff`
 - Version / CHANGELOG : à la prochaine release
 
+### T-073 — Profils : un titre lancé sur un 2e profil apparaissait dans le 1er sur un autre appareil ; clés TMDB et MDBList synchronisées
+
+- **Statut :** À valider (sur deux vrais appareils)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-027, T-066
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> * Il y a un bug avec les profils.
+> Si je lis un film ou une série depuis un 2nd profil, il n'apparaît pas dans le premier profil. Le problème c'est que quand je vais sur un autre appareil, la il apparait sur le premier profil.
+> Corrige ça, avec une synchro via mon compte.
+> * Dans les réglages Nathflix synchronisé, je voudrais rajouté les clés TMDB et MDBList pour pas avoir a les retaper a chaque fois.
+> Et au passage vérifie que ça se synchronise bien et que sur un nouvel appareil ça se charge bien aussi pour tout les paramètres synchro.
+
+**Critères d'acceptation**
+- [x] Un titre lancé sur le 2e profil n'apparaît pas dans le 1er profil sur un autre appareil, même resté ouvert
+- [x] Les clés TMDB et MDBList suivent le compte, y compris celles déjà saisies avant
+- [x] Un nouvel appareil reçoit profils, attributions des titres, titres lancés et réglages, et les garde après un redémarrage
+- [ ] Vérifié sur deux vrais appareils
+
+**Notes techniques**
+- **Ce qui décide** : « Continuer à regarder » d'un profil ne montre un titre que s'il est à lui (`libraryOwners`, un titre sans propriétaire étant au premier profil) et, dès qu'un profil l'a lancé (`played:<profil>`), seulement aux profils qui l'ont lancé. Sans ces deux clés à jour, l'autre appareil le donne au premier profil.
+- **Causes trouvées** (banc à trois appareils, `profiles-sync-e2e.mjs`, scratchpad : Worker en mémoire, compte de test) :
+  1. un appareil resté ouvert ne relisait le compte qu'en revenant au premier plan, alors que Stremio relit la bibliothèque du compte dès que la fenêtre reprend le focus : le titre arrivait par Stremio sans son attribution ;
+  2. ce qui restait à envoyer (`cloudSync.dirty`) n'existait qu'en mémoire : un rechargement de la page (langue de Stremio, mise à jour de Nathflix, page rendue après un plantage) ou l'app fermée avant l'envoi le perdait, et le titre lancé ne partait jamais ;
+  3. `libraryOwners` était fusionné en bloc (le plus récent gagne tout), et le Worker ne renvoie pas à un appareil ce que son envoi remplace : deux appareils attribuant chacun un titre, l'une des attributions se perdait ;
+  4. un titre lancé partait au bout de 20 s.
+- **Corrections** (`cloudSync`) :
+  - relecture du compte quand la fenêtre reprend le focus (au plus toutes les 15 s) et toutes les 5 min tant que Nathflix est à l'écran ;
+  - `keepDirty()` : la liste à envoyer est gardée dans `localStorage` (`nathflix.syncDirty`) et reprise au démarrage ;
+  - `libraryOwners` fusionné titre par titre ; avant d'envoyer une clé fusionnée élément par élément (`MERGED` : `libraryOwners`, `settings`, `stats:*`, `played:*`), `run()` lit d'abord ce que les autres appareils ont envoyé et le fusionne ;
+  - `played:*` et `libraryOwners` partent au bout de 2 s ;
+  - `viewerLibrary.forget` garde une liste vide au lieu d'effacer l'entrée (avec la fusion titre par titre, une entrée effacée reviendrait).
+- **Clés TMDB et MDBList** : retirées de `settingsSync.LOCAL`. `settingsSync.seed()` envoie une fois celles qu'un appareil avait déjà et que le compte n'a pas (seuls les réglages changés à la main partaient). Description de la synchro (traduite), README du Worker et CLAUDE.md mis à jour. Le Worker n'a pas changé (la clé `settings` existait).
+
+**Vérification**
+- `node --check` : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus. `tools/profile-sync/test.mjs` : OK. Banc des réglages de T-066 (`settings-sync-e2e.mjs`) : 9/9.
+- Banc à trois appareils (A : clés saisies avant, 2e profil qui lance un titre ; B : ouvert tout du long, jamais rechargé ; C : appareil neuf) :
+
+  | Vérification | Avant (plugin publié) | Après |
+  |---|---|---|
+  | B reçoit les clés TMDB et MDBList | ✗ | ✓ |
+  | A envoie le titre lancé | ✗ (perdu au rechargement de la page) | ✓ en 2 s |
+  | B, resté ouvert, apprend que le titre est au 2e profil quand sa fenêtre reprend le focus | ✗ | ✓ |
+  | B : le titre n'est pas dans « Continuer à regarder » du 1er profil | ✗ (le bug) | ✓ |
+  | Deux appareils attribuent chacun un titre en même temps : les deux restent | ✗ | ✓ |
+  | C (neuf) : profils, attributions, titres lancés, clés, accent ; mode léger de l'appareil gardé | ✗ en partie | ✓ |
+  | C : réglages encore là après redémarrage | ✗ | ✓ |
+
+  Après : 21 vérifications sur 21 ; avant : 10 échecs.
+- Non vérifié : deux vrais appareils avec le compte de l'utilisateur.
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3103,6 +3163,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
 | 2026-11-01 | T-072 | Créée et faite : titres, résumés, genres et bandes-annonces en français par TMDB (`localMeta`), anglais en repli ; à valider avec la vraie clé |
 | 2026-11-01 | T-071 | Créée et faite : Retour depuis un épisode ramène à la série (`episodeBack`) ; à valider sur la Fire TV |
 | 2026-11-01 | T-070 | Créée et faite : « Qui est-ce ? » au démarrage seulement, promotions de Stremio supprimées, contour de la carte d'aperçu ; sélection sur `#app`, rangées préparées au démarrage ; à valider sur la Fire TV |

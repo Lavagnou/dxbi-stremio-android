@@ -548,7 +548,7 @@
     { key: "watchStats", type: "toggle", label: t("Watch stats"), description: t("Counts how long you watch (on this PC only). See them under your profile menu → Your stats."), defaultValue: DEFAULTS.watchStats },
     { key: "whoIsWatching", type: "toggle", label: t("Ask who's watching"), description: t("Choose your profile when Nathflix opens, when you come back to it and on Home after a film. Each profile has its own library, Continue Watching, stats, volume and party name."), defaultValue: DEFAULTS.whoIsWatching },
     { key: "profileLock", type: "select", label: t("Lock profiles after inactivity"), description: t("After this long without anyone using Nathflix (never during a film), Who's watching comes back, and viewers with a PIN need it. Give a viewer a PIN in Who's watching → Manage viewers. It keeps the family out of each other's profiles: it isn't strong security."), defaultValue: DEFAULTS.profileLock, options: [{ label: t("Never"), value: "off" }, { label: t("After {n} minutes", { n: 5 }), value: "5" }, { label: t("After {n} minutes", { n: 15 }), value: "15" }, { label: t("After {n} minutes", { n: 30 }), value: "30" }, { label: t("After 1 hour"), value: "60" }] },
-    { key: "profileSync", type: "toggle", label: t("Sync profiles and settings with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC, HDR subtitles and your TMDB and MDBList keys. It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
+    { key: "profileSync", type: "toggle", label: t("Sync profiles and settings with my Stremio account"), description: t("Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC and HDR subtitles (your TMDB and MDBList keys do follow you). It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back."), defaultValue: DEFAULTS.profileSync },
     { key: "mobilePip", type: "toggle", label: t("Picture-in-picture"), description: t("Leaving Nathflix while a video plays keeps it going in a small window over your other apps."), defaultValue: DEFAULTS.mobilePip, mobileOnly: true },
     { key: "backgroundPlay", type: "toggle", label: t("Keep playing in the background"), description: t("The sound carries on with the screen off or Nathflix in the background, with play and pause in the notification."), defaultValue: DEFAULTS.backgroundPlay, mobileOnly: true },
     { key: "autoNext", type: "toggle", label: t("Play the next episode automatically"), description: t("When an episode ends, the next one starts (same release when your addons have it, otherwise its list of streams)."), defaultValue: DEFAULTS.autoNext, mobileOnly: true },
@@ -8383,7 +8383,22 @@
   // are keys of the person's own
   let settingsReady = Promise.resolve();
   const settingsSync = {
-    LOCAL: new Set(["lightMode", "perfOverlay", "profileSync", "builtInTheme", "convertVideo", "enhance", "tvTorrents", "trailers", "trailerDelay", "externalPlayer", "hdrSubtitles", "tmdbKey", "mdblistKey"]),
+    LOCAL: new Set(["lightMode", "perfOverlay", "profileSync", "builtInTheme", "convertVideo", "enhance", "tvTorrents", "trailers", "trailerDelay", "externalPlayer", "hdrSubtitles"]),
+    // Synced since they were typed in on each device (the TMDB and MDBList keys): a device that has one
+    // the account hasn't sends it once, as only settings changed by hand go out otherwise
+    SEED: ["tmdbKey", "mdblistKey"],
+    seeded: false,
+    seed() {
+      if (this.seeded) return;
+      this.seeded = true;
+      const synced = store.get("settings", null) || {};
+      const add = {};
+      for (const key of this.SEED) {
+        if (synced[key] || this.LOCAL.has(key) || settings[key] === DEFAULTS[key]) continue;
+        add[key] = { v: settings[key], t: Date.now() };
+      }
+      if (Object.keys(add).length) store.set("settings", { ...synced, ...add });
+    },
     // the settings as last seen, to tell what a save changed (some code sets a value before saving it)
     seen: null,
 
@@ -8445,6 +8460,8 @@
   // What's synced: the profiles and their choices, and Nathflix's settings (settingsSync), never caches
   const SYNCED = /^(viewers|libraryOwners|kidsAllow|parentPin|settings|(homeRows|hidden|cwDismissed|stats|played):[\w-]{1,40})$/;
   const SYNC_MAX_VALUE = 100 * 1024;
+  // (synced keys merged item by item when two devices changed them: cloudSync.merge)
+  const MERGED = /^(libraryOwners|settings|(stats|played):[\w-]{1,40})$/;
 
   const cloudSync = {
     dirty: new Set(),
@@ -8481,19 +8498,29 @@
       return null;
     },
 
-    // store.set calls this: a synced key changed here, to send in a moment
+    // store.set calls this: a synced key changed here, to send in a moment. Who started or owns a title
+    // goes out within seconds: another device reading the account's library before it got them put
+    // the title in the first profile's Continue Watching
     changed(key) {
       if (!SYNCED.test(key) || !this.on()) return;
       this.dirty.add(key);
-      this.schedule();
+      this.keepDirty();
+      this.schedule(/^(played:|libraryOwners$)/.test(key) ? 2000 : 20000);
     },
 
-    // 20 s after the last change, and never more than a minute after the first one
-    schedule() {
+    // What's still to send is kept on the device: a reload (Stremio's language changing, an update of
+    // Nathflix, the TV app bringing the page back after a crash) or the app closed too soon dropped it,
+    // and a title just played was never sent
+    keepDirty() {
+      this.local("nathflix.syncDirty", this.dirty.size ? JSON.stringify([...this.dirty]) : null);
+    },
+
+    // `wait` (20 s) after the last change, and never more than a minute after the first one
+    schedule(wait = 20000) {
       const now = Date.now();
       if (!this.firstDirty) this.firstDirty = now;
       clearTimeout(this.timer);
-      this.timer = setTimeout(() => this.run(), Math.max(0, Math.min(20000, this.firstDirty + 60000 - now)));
+      this.timer = setTimeout(() => this.run(), Math.max(0, Math.min(wait, this.firstDirty + 60000 - now)));
     },
 
     // A synced entry as sent: stats too big lose their posters first (the other device keeps its own),
@@ -8543,7 +8570,29 @@
         this.local("nathflix.syncAccount", auth.id);
         const sinceKey = "nathflix.syncSince:" + auth.id;
         const first = !this.local(sinceKey);
-        const since = Number(this.local(sinceKey)) || 0;
+        let since = Number(this.local(sinceKey)) || 0;
+        const post = (entries) => fetch(SYNC_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Stremio ${auth.key}` },
+          body: JSON.stringify({ since, entries }),
+          signal: timeoutSignal(15000),
+          keepalive: keepalive && JSON.stringify(entries).length < 60000,
+        }).catch(() => null);
+        // Keys merged item by item (who has each title, what each viewer played, stats, settings): what
+        // other devices sent since is read and merged first. The account keeps only the newest whole
+        // value, and doesn't hand back what a device's send replaced: a title claimed on the TV was
+        // lost to the computer's claim of another, and fell back to the first profile.
+        if (!first && !keepalive && [...this.dirty].some((k) => MERGED.test(k))) {
+          const before = await post([]);
+          if (before && before.ok) {
+            const answer = await before.json().catch(() => ({}));
+            this.merge(Array.isArray(answer.entries) ? answer.entries : []);
+            if (Number(answer.now)) {
+              since = Number(answer.now);
+              this.local(sinceKey, String(since));
+            }
+          }
+        }
         // what to send (200 at most a time: the rest goes right after)
         const keys = [...this.dirty].filter((k) => store.data[k]);
         const entries = [];
@@ -8553,18 +8602,7 @@
           this.dirty.delete(k);
           if (e) entries.push(e);
         }
-        let r;
-        try {
-          r = await fetch(SYNC_ENDPOINT, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Stremio ${auth.key}` },
-            body: JSON.stringify({ since, entries }),
-            signal: timeoutSignal(15000),
-            keepalive: keepalive && JSON.stringify(entries).length < 60000,
-          });
-        } catch (_) {
-          r = null;
-        }
+        const r = await post(entries);
         if (!r || !r.ok) {
           // nothing is lost: what was being sent goes again next time
           for (const e of entries) this.dirty.add(e.k);
@@ -8600,6 +8638,7 @@
       } finally {
         this.busy = false;
         this.firstDirty = 0;
+        this.keepDirty();
         if (this.dirty.size && this.state === "ok") this.schedule();
       }
     },
@@ -8653,6 +8692,24 @@
           }
           const ours = !same(merged, e.v);
           store.put(e.k, { t: ours ? Date.now() : Math.max(e.t, mine ? mine.t : 0), v: merged });
+          if (ours) this.dirty.add(e.k);
+          changed.add(e.k);
+          continue;
+        }
+        // Who has each title: title by title, so a title claimed on one device isn't lost to another
+        // device's claim of a different one (the newer whole list won, and the title fell back to the
+        // first profile). For a title both changed, the newer list.
+        if (e.k === "libraryOwners" && mine && mine.v && e.v && typeof e.v === "object") {
+          const newer = Number(e.t) > Number(mine.t);
+          const merged = { ...mine.v };
+          for (const [id, list] of Object.entries(e.v)) if (!(id in merged) || newer) merged[id] = list;
+          const same = (a, b) => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((id) => JSON.stringify(a[id]) === JSON.stringify(b[id]));
+          if (same(merged, mine.v)) {
+            if (!same(merged, e.v)) this.dirty.add(e.k);
+            continue;
+          }
+          const ours = !same(merged, e.v);
+          store.put(e.k, { t: ours ? Date.now() : Math.max(e.t, mine.t), v: merged });
           if (ours) this.dirty.add(e.k);
           changed.add(e.k);
           continue;
@@ -8738,12 +8795,23 @@
         } else if (Date.now() - this.lastTry > 15000) this.run();
       };
       document.addEventListener("visibilitychange", this.onVisible);
+      // Stremio fetches the account's library again when the window gets the focus (a computer's
+      // window stays visible behind others): the profiles' share of it comes at the same time, and
+      // every five minutes while Nathflix is on screen
+      this.onFocus = () => { if (this.on() && !document.hidden && Date.now() - this.lastTry > 15000) this.run(); };
+      window.addEventListener("focus", this.onFocus);
+      this.tick = setInterval(() => { if (this.on() && !document.hidden && Date.now() - this.lastTry > 5 * 60000) this.run(); }, 60000);
+      // what an earlier run of the page didn't get to send
+      try { for (const k of JSON.parse(this.local("nathflix.syncDirty") || "[]")) if (SYNCED.test(k)) this.dirty.add(k); } catch (_) { /* nothing kept */ }
       setTimeout(() => this.run(), 3000);
+      settingsReady.then(() => store.ready).then(() => settingsSync.seed()).catch(() => { /* next start */ });
     },
 
     stop() {
       clearTimeout(this.timer);
+      clearInterval(this.tick);
       if (this.onVisible) document.removeEventListener("visibilitychange", this.onVisible);
+      if (this.onFocus) window.removeEventListener("focus", this.onFocus);
     },
   };
 
@@ -11212,7 +11280,6 @@
         if (!rest.length && item && !item.removed && dispatch) {
           try { dispatch({ action: "Ctx", args: { action: "RemoveFromLibrary", args: itemId } }); } catch (_) { /* stays */ }
         }
-        if (!rest.length) delete owners[itemId];
       }
       // (when the first viewer goes, the next one in line takes over the unclaimed titles)
       store.set("libraryOwners", owners);
@@ -17014,7 +17081,7 @@ vec4 hook() {
       "Set a parental PIN": "Définir un code parental",
       "Parental PIN": "Code parental",
       "Sync profiles and settings with my Stremio account": "Synchroniser les profils et les réglages avec mon compte Stremio",
-      "Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC, HDR subtitles and your TMDB and MDBList keys. It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back.": "Vos profils (avec leurs avatars, codes, rangées de l'Accueil, titres masqués et statistiques) et les réglages de Nathflix que vous changez vous suivent sur tous les appareils connectés au même compte Stremio. Quelques-uns restent propres à chaque appareil\u00a0: mode léger, mesure des performances, apparence intégrée, conversion vidéo et upscaler du PC, torrents sur TV, bandes-annonces des cartes, mpv ou VLC, sous-titres HDR et vos clés TMDB et MDBList. Tout est gardé sur le serveur de synchronisation de Nathflix, sous votre compte\u00a0; les codes ne partent que sous une forme illisible.",
+      "Your profiles (with their avatars, PINs, Home rows, hidden titles and stats) and the Nathflix settings you change follow you on every device signed in to the same Stremio account. A few stay on each device: light mode, the performance readout, the built-in look, the PC's video conversion and upscaler, TV torrents, trailers in hover cards, mpv or VLC and HDR subtitles (your TMDB and MDBList keys do follow you). It's all kept on Nathflix's sync server, under your account; PINs only ever leave as a code that can't be read back.": "Vos profils (avec leurs avatars, codes, rangées de l'Accueil, titres masqués et statistiques) et les réglages de Nathflix que vous changez vous suivent sur tous les appareils connectés au même compte Stremio. Quelques-uns restent propres à chaque appareil\u00a0: mode léger, mesure des performances, apparence intégrée, conversion vidéo et upscaler du PC, torrents sur TV, bandes-annonces des cartes, mpv ou VLC et sous-titres HDR (vos clés TMDB et MDBList, elles, vous suivent). Tout est gardé sur le serveur de synchronisation de Nathflix, sous votre compte\u00a0; les codes ne partent que sous une forme illisible.",
       "Sign in to Stremio to sync your profiles": "Connectez-vous à Stremio pour synchroniser vos profils",
       "Sign in to Stremio again to sync your profiles": "Reconnectez-vous à Stremio pour synchroniser vos profils",
       "Your profiles are too big to sync": "Vos profils sont trop volumineux pour être synchronisés",
