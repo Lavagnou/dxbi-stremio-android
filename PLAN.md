@@ -115,6 +115,9 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-055 | `keyNav` sans remesure | Abandonné | P1 | plugin, tools | T-041 | 2026-11-01 |
 | T-056 | Desktop : iframe de bande-annonce unique, observateurs du preload | Abandonné | P2 | plugin, app | T-041 | 2026-11-01 |
 | T-057 | Desktop : fenêtre transparente seulement pendant mpv (étude) | Abandonné | P2 | app | T-041 | 2026-11-01 |
+| T-058 | Thème découpé par appareil à la construction (étude) | Abandonné | P2 | plugin, tools | T-041 | 2026-11-02 |
+| T-059 | Ordonnanceur à budget (étude) | Abandonné | P2 | plugin | T-041 | 2026-11-02 |
+| T-060 | Étude : Stremio Web embarqué dans l'APK | À valider | P3 | tv | T-052 | 2026-11-02 |
 | T-079 | Mesure à l'écran : la dernière minute, et la part de Nathflix par touche | À valider | P1 | plugin | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
@@ -3786,6 +3789,105 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release (l'APK TV et l'app PC prennent le plugin de la release)
 
+### T-058 — Thème découpé par appareil à la construction (étude)
+
+- **Statut :** Abandonné (gain trop faible : ~30 ms par démarrage sur TV, ~0,5 s une fois par mise à jour)
+- **Priorité :** P2
+- **Cible :** plugin, tools
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Je dois aller me coucher, avance tout le chantier en autonome au maximum pour demain quand je me réveillerais
+
+> Continue tant qu'il reste des taches à faire. Si il y a des choix bloquants que j'ai à faire de mon coté pour certains changements, tu devras les noter mais continuer à avancer seul et me donner ces questions dans le message final
+
+(phase 3 du plan, `docs/perf/2026-10-31-plan-performance.md` : « à proposer avant de commencer » ; l'utilisateur a demandé d'avancer seul)
+
+**Critères d'acceptation**
+- [x] Mesure avant : ce que coûte l'affûtage du thème (`sharpen`) au démarrage
+- [x] Proposer le découpage seulement si le gain est net
+
+**Notes techniques**
+- **Copie affûtée en cache** (cas normal) : émulateur Fire TV, compte de l'utilisateur, processeur ×6 (`emu/sharpcost.mjs`, scratchpad) : `nathflix.sharp.dx-builtin-theme` (239 Ko, lecture + `JSON.parse` 4 ms, empreinte du texte d'origine 15,8 ms), `nathflix.sharp.dx-extras-style` (69 Ko, 0 + 12,1 ms). Environ 30 ms par démarrage, sur 11,4 s à la Fire TV.
+- **Sans copie** (premier démarrage après une mise à jour de Stremio ou de Nathflix) : profil processeur d'un rechargement, ×6 (`emu/sharpcold.mjs`) : 535 ms sous `sharpen.run`, une fois.
+- Le découpage à la construction ne ferait que la partie « règles des autres appareils » (`prune`) ; la traduction des sélecteurs en vraies classes de Stremio (`rules`) dépend de la feuille de style de Stremio en direct et resterait à faire sur l'appareil. Gain possible : une partie des 535 ms une fois par mise à jour, et les ~16 ms de l'empreinte (calculable à la construction pour le thème intégré, pas pour `EXTRAS_CSS` traduit). Trop peu pour trois variantes du thème dans le plugin et l'APK.
+
+**Vérification**
+- Mesures ci-dessus ; aucun code changé.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
+### T-059 — Ordonnanceur à budget (étude)
+
+- **Statut :** Abandonné (rien à ordonnancer : le temps de Nathflix est sur le chemin de la touche, pas en tâches de fond)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Je dois aller me coucher, avance tout le chantier en autonome au maximum pour demain quand je me réveillerais
+
+> Continue tant qu'il reste des taches à faire. Si il y a des choix bloquants que j'ai à faire de mon coté pour certains changements, tu devras les noter mais continuer à avancer seul et me donner ces questions dans le message final
+
+(phase 3 du plan : « à proposer avant de commencer »)
+
+**Critères d'acceptation**
+- [x] Mesure avant : tâches longues et part de Nathflix en descendant 10 rangées (TV)
+- [x] Proposer seulement si une file de tâches de fond peut gagner quelque chose
+
+**Notes techniques**
+- **Mesure** (émulateur Fire TV, compte de l'utilisateur, Accueil, 10 × Bas, processeur ×6, profil processeur `emu/rowsprof.mjs`). Première mesure : 12,9 s dont 11,6 s inoccupées, JS de Nathflix 345 ms, Stremio 142 ms, travail du navigateur 746 ms. Elle a montré `onScroll` et `preview.close()` qui fouillaient la page à chaque image : corrigé à part (T-082, −25 à −40 %).
+- **Après T-082**, ce qui reste de Nathflix (641 à 799 ms sur 10 touches, ×6) : `focus()` et ce qu'il déclenche dans le navigateur (~140 ms), les pas du défilement doux de `keyNav` (`step`, ~120 ms), `onScroll` lui-même (~45 ms), la recherche des rangées (`rows`, `carouselRows`, `loadingBetween`, ~100 ms). Tout est sur le chemin de la touche : c'est ce qui la fait répondre. Ni `syncCards` ni `decorate` n'apparaissent en haut du profil pendant la navigation.
+- Un ordonnanceur à budget étale des tâches de fond ; il n'y en a presque pas ici, et la réponse aux touches ne peut pas attendre. Le reste à gagner est du côté du dessin de la page sur l'appareil (T-051, à mesurer sur la Fire TV).
+
+**Vérification**
+- Mesures ci-dessus ; aucun code changé pour T-059 (le correctif trouvé est T-082).
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
+### T-060 — Étude : Stremio Web embarqué dans l'APK
+
+- **Statut :** À valider (recommandation : ne pas le faire ; décision de l'utilisateur)
+- **Priorité :** P3
+- **Cible :** tv
+- **Dépend de :** T-052
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Je dois aller me coucher, avance tout le chantier en autonome au maximum pour demain quand je me réveillerais
+
+> Continue tant qu'il reste des taches à faire. Si il y a des choix bloquants que j'ai à faire de mon coté pour certains changements, tu devras les noter mais continuer à avancer seul et me donner ces questions dans le message final
+
+(phase 3 du plan : étude seulement, sans implémentation ; décision de l'utilisateur)
+
+**Critères d'acceptation**
+- [x] Ce que coûte aujourd'hui le chargement de Stremio Web au démarrage
+- [x] Faisabilité technique et licence
+- [x] Recommandation écrite
+- [ ] Décision de l'utilisateur
+
+**Notes techniques**
+- **Aujourd'hui** (émulateur Fire TV, démarrage à chaud, compte de l'utilisateur ; `performance.getEntriesByType`) : la page est contrôlée par le service worker de Stremio (Workbox, `__WB_REVISION__`). Tous ses gros fichiers viennent de son cache, rien par le réseau (`transferSize` 0) : `main.js` 10 030 Ko en 481 ms, `main.css` 417 Ko en 259 ms, la page en 1189 ms (par le service worker). Embarquer Stremio Web ne gagnerait du téléchargement qu'au premier lancement et après chaque mise à jour de Stremio Web ; le temps d'analyse et d'exécution de `main.js` resterait le même.
+- **Technique** : servir les fichiers depuis l'APK sur l'origine `https://web.stremio.com` (pour garder le `localStorage`, la session et les données de Nathflix) passe par `shouldInterceptRequest`. T-052 a mesuré ce chemin pour le seul plugin : plus lent que la référence (124 à 181 ms contre 80 à 107). Il faudrait aussi suivre chaque version de Stremio Web (nouvelle APK à chaque fois, ou téléchargement à part, ce qui revient au cache actuel), et l'APK prendrait ~15 Mo (bundle de 10 Mo, WASM de 5,7 Mo).
+- **Licence** : Stremio Web est publié sous GPL ; Nathflix est sous GPL-3.0-or-later. Le redistribuer dans l'APK obligerait à suivre ses conditions (sources, mentions), en plus de la question de la marque Stremio. Pas bloquant en soi, mais une charge de plus.
+- **Recommandation** : ne pas le faire. Le gain est nul au démarrage habituel (déjà en cache), le chemin technique est plus lent, et la maintenance suit chaque version de Stremio.
+
+**Vérification**
+- Mesures ci-dessus ; aucun code changé.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
 <!--
 ### T-000 — Titre court
 
@@ -3888,6 +3990,9 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-083 | Créée et faite : une série de Continuer de regarder ouvre sa page (« Reprendre ») |
 | 2026-11-02 | T-084 | Créée et faite : billboard écrasé sur un Accueil réorganisé (`flex-shrink: 0`) |
 | 2026-11-02 | T-085 | Créée et faite : ordre de l'Accueil envoyé en 2 s, synchro en ouvrant l'Accueil et toutes les 2 min, réception même après un envoi refusé ; cause exacte chez l'utilisateur non trouvée |
+| 2026-11-02 | T-058 | Abandonné : l'affûtage du thème coûte ~30 ms par démarrage (cache) et ~0,5 s une fois par mise à jour |
+| 2026-11-02 | T-059 | Abandonné : le temps de Nathflix est sur le chemin de la touche, rien à ordonnancer ; le correctif trouvé est T-082 |
+| 2026-11-02 | T-060 | Étude faite : Stremio Web vient déjà du cache de son service worker ; recommandation : ne pas l'embarquer (décision de l'utilisateur) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
