@@ -113,6 +113,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-053 | Plugin minifié pour l'APK et l'app | Abandonné | P2 | tv, app, tools | T-052 | 2026-11-01 |
 | T-055 | `keyNav` sans remesure | Abandonné | P1 | plugin, tools | T-041 | 2026-11-01 |
 | T-056 | Desktop : iframe de bande-annonce unique, observateurs du preload | Abandonné | P2 | plugin, app | T-041 | 2026-11-01 |
+| T-057 | Desktop : fenêtre transparente seulement pendant mpv (étude) | Abandonné | P2 | app | T-041 | 2026-11-01 |
+| T-079 | Mesure à l'écran : la dernière minute, et la part de Nathflix par touche | À valider | P1 | plugin | T-041 | 2026-11-01 |
 | T-061 | Release 0.6.0 (performances, réglages synchronisés, bouton Lecture des films) | Terminé | P1 | release, tv, plugin, app | T-042 à T-066 | 2026-10-31 |
 | T-062 | Release 0.8.0 (performances, phase 2 : T-052 à T-057) — réservée | À faire | P1 | release, tv, plugin, app | T-052 à T-057 | 2026-10-31 |
 | T-063 | Bouton « Lecture » de la page des flux plus bas que ses voisins (PC, TV) | Terminé | P2 | plugin | T-012 | 2026-10-31 |
@@ -2578,6 +2580,7 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Dans Chrome (TV, invité, mesure à l'écran activée) : « Start-up: 1994 ms from the page's start » s'affiche (Stremio en anglais pour l'invité).
 - Kotlin : compilé par la CI `android-dev.yml` (voir le journal).
 - Non vérifié : la Fire TV.
+- **Référence Fire TV 4K** (photos de l'utilisateur, 2026-11-01, release 0.7.0, mode léger activé, 4 cœurs, 2 Go) : « Démarrage : 11414 ms depuis l'ouverture de l'app ». Pendant la navigation : réponse aux touches 40 à 112 ms en général, jusqu'à 1416 ms au pire ; 14 à 30 blocages en 10 s (3,7 à 6,6 s en tout, le plus long 0,9 à 1,1 s) ; 4683 à 5179 éléments. Sur l'émulateur, le même démarrage prend ~2,3 s.
 
 **Livraison**
 - Commits : `ed1ed1a`
@@ -3422,6 +3425,75 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 **Livraison**
 - Commits : aucun code (fiche seulement)
 
+### T-057 — Desktop : fenêtre transparente seulement pendant mpv (étude)
+
+- **Statut :** Abandonné (aucun écart entre fenêtre transparente et opaque)
+- **Priorité :** P2
+- **Cible :** app
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Oui tu peux lancer l'app
+
+(chantier performance, `docs/perf/2026-10-31-plan-performance.md`, T-057 : étude, puis proposition seulement si l'écart est net, 2× ou plus au repos)
+
+**Critères d'acceptation**
+- [x] Mesurer le GPU et le processeur au repos, fenêtre transparente puis opaque
+- [x] Proposer une voie seulement si l'écart est net
+
+**Notes techniques**
+- **Montage** : l'app construite depuis les sources (`npm ci`, `npm run dist`), lancée avec son propre dossier de données (`--user-data-dir` dans le scratchpad) pour ne toucher ni aux données ni au compte de l'app installée ; mode invité ; mpv coupé (`NATHFLIX_MPV=0`) ; la transparence réglée par le fichier `transparency` du dossier de données (comme quand mpv est actif). Accueil chargé (80 à 281 titres), 25 s de repos, puis 30 s de mesure : compteurs Windows « GPU Engine » (moteur 3D) des processus de l'app, et temps processeur (`perf2/t057-gpu.ps1`, scratchpad).
+- **Résultats** (alternés, deux fois chacun) :
+
+  | Fenêtre | GPU 3D de l'app (moyenne / pic) | Processeur de l'app |
+  |---|---|---|
+  | Opaque | 0,0 % / 0,1 % | 1,4 % d'un cœur |
+  | Transparente | 0,0 % / 0,0 % | 1,9 % |
+  | Opaque | 0,0 % / 0,1 % | 1,8 % |
+  | Transparente | 0,3 % / 2,5 % | 3,6 % |
+
+- Au repos, aucune des deux ne sollicite le GPU, et l'écart de processeur est dans le bruit : rien à proposer.
+
+**Vérification**
+- Mesure seulement ; aucun code changé. Processus de l'app arrêtés après chaque mesure.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
+### T-079 — Mesure à l'écran : la dernière minute, et la part de Nathflix par touche
+
+- **Statut :** À valider (photo de la mesure sur la Fire TV)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-041
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> J'ai joints des photos de tests de performances sur ma FireTV 4K
+
+**Critères d'acceptation**
+- [x] Les lectures du cœur, la boucle principale et les enregistrements « par minute » portent sur la dernière minute
+- [x] Une ligne donne le temps de Nathflix dans chaque touche de la télécommande
+
+**Notes techniques**
+- **Ce que montraient les photos** (Fire TV 4K, 0.7.0, mode léger) : « ctx 100, board 26 » lectures par minute, « boucle principale : 19 fois par minute, 1457 ms ». Ces valeurs étaient des moyennes **depuis le début de la page** : le démarrage, où Stremio lit son contexte des centaines de fois, les gonflait longtemps après.
+- **Qui lit le cœur** : copie du plugin qui note l'appelant de chaque lecture (`perf2/make_callers.py`, scratchpad). Sur l'émulateur, compte de l'utilisateur (« Qui est-ce ? » validé sur Nathan, lecture seule) : au démarrage, 149 lectures de `ctx`, dont 146 par Stremio lui-même (`main.js`) et 3 par Nathflix ; ensuite, au repos, **aucune** lecture en 60 s, et quelques-unes en naviguant. En invité dans Chrome : aucune non plus au repos. Rien à réduire côté Nathflix.
+- **Correction de la mesure** : `perfReadout.counters()` garde une copie des compteurs chaque seconde (`history`) et calcule les taux sur la dernière minute ; dans les 10 premières secondes de la mesure, la moyenne depuis le début reste la seule disponible. Nouvelle ligne « Part de Nathflix par touche : N ms » (compteur `keyNav` de T-055), traduite.
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Chrome, TV, invité, mesure activée (`perf2/readout-test.mjs`, scratchpad) : à 15 s, « ctx 564 » (moyenne depuis le début, la rafale du démarrage) ; à 75 s, après 6 touches, « library 1 », « boucle principale : 0 fois par minute », « Part de Nathflix par touche : 1 ms ».
+- Non vérifié : la Fire TV (prochaine photo).
+
+**Livraison**
+- Commits : `195bbc4` (la fiche a suivi dans un commit séparé : le script de PLAN.md avait échoué)
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3511,6 +3583,9 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | — | Test mpv (Windows) en échec sur `2f13276` : l'image de l'Accueil prise pendant un fondu du billboard (238 points changés au lieu de 0) ; relancé, il passe. `tools/mpv-test.mjs` remesure l'Accueil 2,5 s plus tard s'il bouge |
 | 2026-11-01 | T-055 | Abandonné : le profil des touches montre que les mesures de `keyNav` ne coûtent presque rien ; deux pistes essayées sans gain ; compteur `keyNav` et `--profile` du banc gardés |
 | 2026-11-01 | T-056 | Abandonné : observateurs du preload sans coût mesurable (0 appel au repos) ; iframe réutilisée écartée (historique de Retour) |
+| 2026-11-01 | T-049 | Référence Fire TV 4K (photos, 0.7.0) : démarrage 11414 ms |
+| 2026-11-01 | T-057 | Abandonné : app PC au repos, fenêtre transparente ou opaque, GPU ~0 % et processeur identiques |
+| 2026-11-01 | T-079 | Créée et faite : mesure à l'écran sur la dernière minute, part de Nathflix par touche ; les lectures de `ctx` sont celles de Stremio au démarrage |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
