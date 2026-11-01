@@ -116,6 +116,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
 | T-066 | Réglages de Nathflix synchronisés avec le compte Stremio | À valider | P1 | plugin, tools | T-027 | 2026-10-31 |
 | T-067 | « Organiser l'Accueil » : textes des rangées superposés | Terminé | P2 | plugin | — | 2026-11-01 |
+| T-068 | TV : sélection à la télécommande (contour coupé, point de départ, déplacements) et défilement fluide | À valider | P1 | plugin, tv | T-046, T-054 | 2026-11-01 |
 
 ---
 
@@ -2740,6 +2741,89 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `75a02f6`
 - Version / CHANGELOG : à la prochaine release
 
+### T-068 — TV : sélection à la télécommande (contour coupé, point de départ, déplacements) et défilement fluide
+
+- **Statut :** À valider (sur la Fire TV, avec le compte de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-046, T-054
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Crée un émulateur de FireTV avec Android Studio […] teste l'application dessus et essaie d'identifier des bugs ou des ralentissement sur l'app pour les corriger.
+
+> Sur TV la selection des éléments est pas trop intuitive et elle est souvent bugé(coupé, pas bien visible, mal placé par défault, etc..), teste bien tout ça pour le corriger
+
+> Sur "Lecture", le bord gauche du contour est légèrement rogné […] C'est mineur mais il faut la corriger, c'est le genre d'exemple dont je parlais.
+
+> Sur TV aussi quand on descend la page avec la touche de flèche vers le bas, ça scroll d'un coup, ce qui renforce l'impression de lags/freeze. Il faudrait un scroll fluide quand on descend/remonte la page.
+
+> Quand on ouvre la page d'une série ou d'un film (ou sur les pages épisodes aussi) la sélection du bouton par défaut devrait être sur le bouton de lecture
+
+**Critères d'acceptation**
+- [x] Le contour de la sélection n'est jamais coupé (boutons, pastilles, lignes de Réglages, filtres, Calendrier…)
+- [x] Une page s'ouvre avec quelque chose de sélectionné ; la page d'un film, d'une série ou d'un épisode sur son bouton de lecture
+- [x] Les déplacements suivent ce qu'on attend (menu du haut ↔ page, menu de Réglages, retour sur une page)
+- [x] La page défile de façon fluide, sans perte de réactivité mesurable
+- [ ] Vérifié sur la Fire TV avec le compte de l'utilisateur
+
+**Notes techniques**
+- **Émulateur** : AVD `Fire_TV` (Android TV 14, x86, profil `tv_1080p`, 2 Go, WebView 113). Le SDK n'a pas d'image Amazon, et les images Android TV 9 et 11 ont une WebView trop ancienne (< 100). Build « Nathflix Dev » de la pré-release `dev`, avec le plugin de travail déposé dans `files/` en version 0.6.99, plus récente que celle de l'APK (`Updates.pluginSource`). Banc par CDP (`adb forward` vers `webview_devtools_remote_<pid>`), touches par `adb shell input keyevent`, processeur bridé ×12 (`Emulation.setCPUThrottlingRate`) pour approcher une clé TV.
+- **Contour coupé** : sur TV, le contour de sélection est un `outline` à 3 px de l'élément, et Stremio coupe toutes ses boîtes (`* { overflow: hidden }`). `ringRoom` (TV, `focusin`/`focusout`) remonte les boîtes qui le coupent :
+  - une boîte qui ne défile pas reçoit `dx-ring-room` (`overflow: clip` et `overflow-clip-margin: 10px`), plus `dx-ring-flow` (`display: flow-root`) si elle est en `block`, pour garder son propre contexte de formatage ;
+  - dans une boîte qui défile, ou que l'élément remplit en largeur, le contour passe à l'intérieur (`dx-ring-in`). Il est resserré sur la partie visible quand l'élément dépasse une boîte fixe (icônes rondes Ma liste et Vu, `--dx-ring-in`) ;
+  - les boîtes en `display: contents` sont ignorées : elles n'ont pas de boîte (les filtres de Découvrir prenaient un décalage de −261 px).
+- **Point de départ** :
+  - `keyNav.defaultPick()` essaie, dans l'ordre : le titre quitté sur cette page, le Play du billboard, le `.dx-play-ep` d'une fiche, sa première source, son premier épisode, la section de Réglages en cours, le premier titre. Chaque piste est testée seule, avant le parcours complet de la page.
+  - `keyNav.land()` (étape de `sync()`, TV) le sélectionne à l'arrivée sur une page, une fois par visite, sauf sous « Qui est-ce ? », une fenêtre ou le splash.
+  - Une fiche attend 1,5 s son bouton de lecture, qui arrive après les sources. Le parcours complet n'est fait qu'une fois par page, et une passe est programmée à 1,6 s pour une page qui ne bouge plus.
+  - `remember()` garde le titre quitté (par son adresse) pour le retour sur la page.
+- **Déplacements (TV)** :
+  - du menu du haut vers le bas : `defaultPick` ;
+  - vers le haut, le menu n'est atteint qu'une fois la page revenue en haut, et sur l'onglet de la page en cours. Le premier onglet `selected` trouvé était celui d'une page précédente, que Stremio garde cachée ;
+  - sinon, `beyond()` va à l'élément le plus proche hors de l'écran, dans la boîte qui défile ;
+  - menu de Réglages : la flèche bas ne quitte plus la liste par le bas, et la flèche droite mène en haut de la section affichée.
+- **Défilement** : `SCROLL = "smooth"` partout. Il était instantané sur TV depuis dx.bi, quand une clé avait toutes les rangées et leurs effets à dessiner. Un `scroll-margin` (12 px, 2,5 rem pour un titre) garde visibles le contour et le haut de la rangée suivante.
+- **Autres défauts trouvés** :
+  - la loupe de recherche repliée (fenêtres de moins de 1450 px, donc toujours sur TV) sortait de sa case et passait sous l'avatar : le champ caché gardait ses 35 px de marge intérieure. Sur PC à 1280 px, elle était collée à l'icône des profils ;
+  - l'anneau sur une affiche claire était peu visible : un trait sombre est ajouté à l'intérieur de l'anneau blanc ;
+  - les barres de défilement étaient visibles sur TV : elles sont masquées ;
+  - le bouton de lecture restait sur « Recherche des flux… » quand aucune extension n'avait de source : il affiche « Aucun flux trouvé » dès que Stremio affiche son message (`message-container` de la liste) ;
+  - le bord gauche du contour de « Lecture » était rogné de 1 px, car le bouton grossit à la sélection : marge du billboard portée de 8 à 10 px.
+- **Non traité** : dans le panneau d'informations de Stremio (fiche, Découvrir), la description, la distribution ou les réalisateurs sont coupés au bas de leur zone qui défile. Ce n'est pas lié à la sélection.
+
+**Vérification**
+- `node --check` : OK. Traductions : `fr-missing.mjs` ne signale que les deux faux positifs connus.
+- Émulateur, en invité. Parcours aux flèches avec, à chaque appui, l'élément sélectionné, sa part visible et ce qui coupe son contour (`nav.mjs`, scratchpad).
+  - **Avant** :
+    - contour coupé sur « Lecture » (1 px), la note IMDb, les pastilles d'acteurs, « Profils », « Statistiques » et « Addons » (seul le trait du bas restait), « Connexion » du Calendrier (seuls les coins restaient), le curseur de zoom ;
+    - rien de sélectionné à l'arrivée sur une fiche, Découvrir, Réglages, Extensions et Calendrier ;
+    - du menu vers le billboard, la flèche bas menait à « Plus d'infos » ;
+    - vers le haut depuis la page, la flèche menait à l'onglet le plus proche, en sautant ce qui était au-dessus hors de l'écran.
+  - **Après**, tour complet de 67 appuis (Accueil, fiche d'un film, d'une série, d'un épisode, Découvrir et ses filtres, Extensions, Calendrier, Réglages, menu du haut) :
+    - aucune sélection perdue, aucun contour coupé ; seules les icônes rondes Ma liste et Vu dépassent de leur pastille (dessin de Stremio), avec leur anneau resserré ;
+    - arrivées : Accueil → Lecture, film → Lecture, série → « Lancer S1 É1 », épisode → « Lancer l'épisode », Découvrir → premier titre, Réglages → Général, Extensions → Installées, Calendrier → Connexion ;
+    - Retour depuis une fiche → le titre quitté.
+- Défilement de l'Accueil (6 appuis bas puis 6 haut), processeur bridé ×12, 4 passes de chaque, à la suite :
+
+  | | Appui (médiane) | Pire appui | Images > 34 ms |
+  |---|---|---|---|
+  | Plugin d'avant (saut) | 48–64 ms | 80–112 ms | 3–5 |
+  | Ce plugin (fluide) | 56–64 ms | 72–104 ms | 3–7 |
+
+  Pas d'écart mesurable. Avec le même code et le défilement en saut : 64–72 ms, 6 à 9 images lentes.
+- PC (Chrome, invité), barre du haut :
+  - à 1280 px, la loupe est dans sa case : 1078–1106 px avant, 1043–1071 px après, pour une case de 1038–1075 px ;
+  - à 1600 px : identique.
+- Journal de la page pendant les tests : aucune erreur de Nathflix.
+- Non vérifié : la Fire TV, et le compte de l'utilisateur (une trentaine de rangées, Continuer à regarder, profils).
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -2819,6 +2903,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-068 | Créée et faite : émulateur Fire TV ; sélection TV (contour jamais coupé, point de départ, déplacements), défilement fluide, loupe, « Aucun flux trouvé » ; à valider sur la Fire TV |
 | 2026-11-01 | T-067 | Créée et faite : lignes de « Organiser l'Accueil » écrasées (`flex: none`) |
 | 2026-10-31 | T-061 | Fait : release v0.6.0 publiée (11 fichiers, APK signée vérifiée, versionCode 600) |
 | 2026-10-31 | T-061 | Release 0.6.0 en cours : version montée, CHANGELOG ; Worker redéployé (clé `settings`) |

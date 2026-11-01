@@ -401,6 +401,12 @@ body[data-dx-route="board"] #app [class*="board-container"] [class*="nav-content
         opacity: var(--dx-search-open, 0);
     }
 
+    /* folded to its magnifier, the hidden field gives up its padding (it pushed the magnifier out
+       of its box, under the profile picture) */
+    #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:not(:focus-within):not(.active) [class*="search-input"] {
+        padding: 0;
+    }
+
     #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"]:focus-within,
     #app [class*="main-nav-bars-container"] nav[class*="horizontal-nav-bar"] [class*="search-bar-container"].active {
         position: relative;
@@ -4550,6 +4556,41 @@ html.dx-light {
     z-index: 2;
 }
 
+/* Stremio cuts every box at its edges: the boxes around the selection let its ring show, or the
+   ring is drawn inside it when they can't (the plugin marks them as the selection moves: ringRoom) */
+.dx-tv .dx-ring-room {
+    overflow: clip !important;
+    overflow-clip-margin: 10px !important;
+}
+
+.dx-tv .dx-ring-flow {
+    display: flow-root !important;
+}
+
+.dx-tv .dx-ring-in:focus-visible {
+    outline-offset: var(--dx-ring-in, -3px) !important;
+}
+
+/* what the page scrolls to stops short of its edges, ring and all, and a title with the next row
+   peeking in */
+.dx-tv #app :is(a, button, input, [tabindex]) {
+    scroll-margin: 12px;
+}
+
+.dx-tv #app [class*="meta-item-container"] {
+    scroll-margin: 2.5rem;
+}
+
+/* no scroll bars: the remote scrolls */
+.dx-tv * {
+    scrollbar-width: none;
+}
+
+.dx-tv ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+}
+
 /* controls drawn square get softened corners, so their ring isn't boxy */
 .dx-tv #app :is([class*="nav-tab-button"], [class*="horizontal-nav-bar"] [class*="button-container"], [class*="horizontal-nav-bar"] [class*="submit-button-container"], [class*="label-container"]):focus-visible {
     border-radius: var(--dx-radius-s);
@@ -4565,7 +4606,7 @@ html.dx-light {
 .dx-tv .dx-hero-content,
 .dx-tv .dx-hero-actions {
     overflow: clip !important;
-    overflow-clip-margin: 8px;
+    overflow-clip-margin: 10px;
 }
 
 .dx-tv #app .dxl-tools {
@@ -4590,9 +4631,10 @@ html.dx-light {
     transform: none !important;
 }
 
+/* (a dark line inside the ring keeps it plain on a light poster) */
 .dx-tv #app [class*="meta-item-container"]:focus-within [class*="poster-container"]::after,
 .dx-tv body #app [class*="discover-content"] [class*="meta-item-container"].selected:focus-within:not(.hovered):not(.active) [class*="poster-container"]::after {
-    box-shadow: inset 0 0 0 3px var(--dx-focus, #fff);
+    box-shadow: inset 0 0 0 3px var(--dx-focus, #fff), inset 0 0 0 5px rgba(0, 0, 0, 0.65);
 }
 
 /* TV (and light mode): a stick's graphics chip redraws whatever moves or is blurred, every frame, and
@@ -4658,8 +4700,7 @@ html.dx-light {
     filter: brightness(0.45);
 }
 
-/* TV: the page jumps instead of gliding, so the selection never waits off screen for a slow scroll
-   (rows still glide sideways: the plugin asks for that itself) */
+/* TV: Stremio's own scrolling jumps; the glides that follow the remote are asked for by the plugin */
 .dx-tv #app * {
     scroll-behavior: auto !important;
 }
