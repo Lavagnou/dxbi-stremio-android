@@ -12597,6 +12597,7 @@
     ensure() {
       const box = currentRoute() === "detail" ? document.querySelector('[class*="metadetails-container"] [class*="meta-preview-container"]') : null;
       const row = box && box.querySelector('[class*="action-buttons-container"]');
+      if (row) this.noShare(row);
       const title = row && restrict.titleOnScreen();
       if (!title) {
         document.querySelectorAll(".dx-hide-btn").forEach((n) => n.remove());
@@ -12613,6 +12614,17 @@
         this.button(row, "kids", allowed ? t("Allowed for kids") : t("Allow for kids"), allowed ? t("Kids profiles can watch this whatever its rating") : t("Let kids profiles watch this whatever its rating"), allowed, () => restrict.toggleAllowed(title.type, title.id));
       } else {
         row.querySelector(':scope > .dx-hide-btn[data-kind="kids"]')?.remove();
+      }
+    },
+
+    // Stremio's Share button goes (asked for: nothing to share it with from a TV, and Netflix's
+    // page has none). It has no class of its own, and its name is in Stremio's language: known
+    // by its icon, or its English or French name
+    noShare(row) {
+      for (const b of row.children) {
+        if (b.style.display === "none") continue;
+        const d = b.querySelector("svg path")?.getAttribute("d") || "";
+        if (d.startsWith("M396 459.9") || /^(share|partager)$/i.test(b.getAttribute("aria-label") || "")) b.style.display = "none";
       }
     },
 
