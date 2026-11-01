@@ -3218,6 +3218,25 @@
     },
   };
 
+  // A series in Continue Watching (the row and its page) opens the series' page rather than its
+  // episode's streams, as asked: the page's "Resume S1 E3" plays it with one more press, and the
+  // other episodes are there too. Films, and Stremio's own play button on a card, are unchanged
+  const cwSeries = {
+    onClick(e) {
+      if (e.defaultPrevented) return;
+      const target = e.target instanceof Element ? e.target : null;
+      const link = target && target.closest('#app [class*="meta-item-container"] a[href^="#/detail/series/"]');
+      if (!link || target.closest('[class*="menu-label-container"], [class*="play-icon-layer"], [class*="dismiss-icon-layer"]')) return;
+      if (!link.closest('[class*="continue-watching"]') && currentRoute() !== "continuewatching") return;
+      const m = /^#\/detail\/series\/([^/?]+)\/[^/?]+/.exec(link.getAttribute("href") || "");
+      if (!m) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      sfx.play("select", 0.85);
+      navigate(`/detail/series/${m[1]}`);
+    },
+  };
+
   // OK held on a title's card opens its menu, as a held finger does. And a held key never presses
   // again: the remote repeats OK as long as it's down, and each repeat clicked what was selected
   // (the title opened over and over, a click sound each time, the page frozen for seconds; on the
@@ -16545,6 +16564,7 @@
     for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, cardPress.cancel, true);
     window.addEventListener("click", cardPress.onClick, true);
     window.addEventListener("contextmenu", cardPress.onContext, true);
+    window.addEventListener("click", cwSeries.onClick, true);
     if (!IN_MOBILE) {
       window.addEventListener("keydown", okHold.onDown, true);
       window.addEventListener("keyup", okHold.onUp, true);
@@ -16721,6 +16741,7 @@
       for (const type of ["pointerup", "pointercancel"]) window.removeEventListener(type, cardPress.cancel, true);
       window.removeEventListener("click", cardPress.onClick, true);
       window.removeEventListener("contextmenu", cardPress.onContext, true);
+      window.removeEventListener("click", cwSeries.onClick, true);
       window.removeEventListener("keydown", okHold.onDown, true);
       window.removeEventListener("keyup", okHold.onUp, true);
       cardPress.cancel();

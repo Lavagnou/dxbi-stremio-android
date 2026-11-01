@@ -137,6 +137,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-080 | TV : OK maintenu ouvre le menu d'un titre (plus de clics en boucle) ; 3 points masqués ; Retour sur la page d'un titre | À valider | P1 | plugin | T-010 | 2026-11-01 |
 | T-081 | Page d'un titre : genres et acteurs plus sélectionnables en mode léger ; bouton Partager retiré | À valider | P2 | plugin | T-068 | 2026-11-01 |
 | T-082 | Défilement : moins de travail à chaque image (`onScroll`) | À valider | P1 | plugin | T-041 | 2026-11-02 |
+| T-083 | Continuer de regarder : une série ouvre sa page, pas son épisode | À valider | P2 | plugin | T-012 | 2026-11-02 |
 
 ---
 
@@ -3678,6 +3679,38 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-083 — Continuer de regarder : une série ouvre sa page, pas son épisode
+
+- **Statut :** À valider (sur les appareils)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-012
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> J'aimerais que par défaut quand on clique sur une série dans "Continuer à regarder" ça ouvre la série et pas l'épisode, vu qu'on a le bouton "Reprendre S1 E3" et que c'est suffisant 95% du temps car la première source est toujours bonne.
+
+**Critères d'acceptation**
+- [x] Une série de Continuer de regarder (rangée de l'Accueil et page « Voir tous ») ouvre la page de la série, avec « Reprendre S1 É3 »
+- [x] Partout : TV (OK, appui court ou relâché après `okHold`), téléphone (toucher), PC (clic)
+- [x] Films, menu ⋮, bouton lecture de Stremio sur la carte : inchangés
+
+**Notes techniques**
+- Stremio fait pointer ces cartes vers la page des sources de l'épisode (`#/detail/series/<id>/<épisode>`). `cwSeries.onClick` (écouteur `click` en capture sur `window`, avant Stremio) : un lien de série avec un épisode, dans une carte de `continue-watching` ou sur la route `continuewatching`, est remplacé par `navigate("/detail/series/<id>")`, avec le son « select » que l'écouteur des sons n'entend plus. Pas sur le menu caché, le bouton lecture ni la croix de la carte.
+- Un clic déjà annulé (`defaultPrevented`, comme celui qui suit l'ouverture du menu par un doigt maintenu) est laissé tel quel.
+- « Par défaut » compris comme le comportement normal : pas de réglage pour revenir à l'épisode (question posée à l'utilisateur).
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Émulateur Fire TV, compte de l'utilisateur (`emu/cwopen.mjs`) ; les liens de Continuer de regarder ont été lus d'abord : tous mènent à la page d'un titre, aucun au lecteur. OK sur la 1re carte de la rangée (It's Always Sunny, lien vers S14 É10) → `#/detail/series/tt0472954`, bouton « Reprendre S14 É10 » ; Retour → Accueil, sélection sur la même carte. Page « Voir tous » : OK → `#/detail/series/tt35854736`, « Reprendre S1 É3 » ; Retour → la page, même carte.
+- Non vérifié : téléphone et PC (même écouteur de clic).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -3777,6 +3810,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-051 | Créée et faite : réglage « Rendu allégé sur TV » (720p agrandi), coupé par défaut ; À valider avec des photos de la Fire TV |
 | 2026-11-02 | T-081 | Genres et acteurs à nouveau sélectionnables, sauf en mode léger (demande de l'utilisateur) ; filtre moins coûteux |
 | 2026-11-02 | T-082 | Créée et faite : défilement allégé (`preview.marked`, barres gardées, `scrollKind`), JS de Nathflix −25 à −40 % en descendant les rangées |
+| 2026-11-02 | T-083 | Créée et faite : une série de Continuer de regarder ouvre sa page (« Reprendre ») |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
