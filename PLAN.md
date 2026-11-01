@@ -115,6 +115,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-064 | L'Accueil visible une seconde avant « Qui est-ce ? » à l'ouverture | À valider | P1 | plugin | T-034 | 2026-10-31 |
 | T-065 | Bouton « Lecture » absent des pages de films ouvertes sans leurs flux (« Plus d'infos » du billboard…) | À valider | P1 | plugin | T-012 | 2026-10-31 |
 | T-066 | Réglages de Nathflix synchronisés avec le compte Stremio | À valider | P1 | plugin, tools | T-027 | 2026-10-31 |
+| T-067 | « Organiser l'Accueil » : textes des rangées superposés | Terminé | P2 | plugin | — | 2026-11-01 |
 
 ---
 
@@ -2700,6 +2701,43 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 - Commits : `5a8332f` (0.6.0)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.6.0
 
+### T-067 — « Organiser l'Accueil » : textes des rangées superposés
+
+- **Statut :** Terminé
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-01
+- **Mise à jour :** 2026-11-01
+- **Branche :** `main`
+
+**Demande**
+> Corrige ce bug visuel sur le texte ici
+
+(capture de « Organiser l'Accueil » avec une trentaine de rangées : le nom de chaque rangée chevauche la ligne « extension · type », et l'explication sous le titre a disparu)
+
+**Critères d'acceptation**
+- [x] Chaque ligne garde sa hauteur, la liste défile quand elle est plus haute que la fenêtre
+- [x] L'explication sous le titre et les boutons du bas restent entiers
+
+**Notes techniques**
+- **Cause** : la feuille (`.dxe-sheet`) est une colonne flex de hauteur limitée, et la liste (`.dxe-list`) une autre colonne flex. Le CSS de Stremio donne `overflow: hidden` à tous les éléments (`* { overflow: hidden }` dans son `main.css`), et un élément flex qui coupe ce qui dépasse a une hauteur minimale de 0. Avec beaucoup de rangées, les lignes (`.dxe-row`) et l'en-tête (`.dxe-head`) étaient donc écrasés au lieu de faire défiler la liste.
+- **Correction** : `flex: none` sur `.dxe-head`, `.dxe-row` et `.dxe-foot` (`EXTRAS_CSS`). Vaut aussi pour « Ordre et sauvegarde » des extensions, qui utilise les mêmes classes.
+
+**Vérification**
+- `node --check` : OK.
+- Dans Chrome (invité, fenêtre de 420 px de haut pour forcer le défilement ; `arrange-check.mjs`, scratchpad) :
+
+  | | Avant | Après |
+  |---|---|---|
+  | Ligne (hauteur / contenu) | 34 / 40 px | 46 / 46 px |
+  | En-tête | 72 / 86 px | 86 / 86 px |
+  | Liste (visible / contenu) | 231 / 231 px, sans défilement | 209 / 304 px, défile |
+
+**Livraison**
+- Commits : ce commit
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -2779,6 +2817,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 
 | Date | Tâche | Événement |
 |---|---|---|
+| 2026-11-01 | T-067 | Créée et faite : lignes de « Organiser l'Accueil » écrasées (`flex: none`) |
 | 2026-10-31 | T-061 | Fait : release v0.6.0 publiée (11 fichiers, APK signée vérifiée, versionCode 600) |
 | 2026-10-31 | T-061 | Release 0.6.0 en cours : version montée, CHANGELOG ; Worker redéployé (clé `settings`) |
 | 2026-10-31 | T-066 | Créée et faite : réglages synchronisés avec le compte (clé `settings`, le plus récent gagne, réglages d'appareil exclus) ; testée sur deux appareils simulés avec le Worker en local |

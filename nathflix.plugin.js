@@ -8338,11 +8338,12 @@
   .dxe-modal { position: fixed; inset: 0; z-index: 100002; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); backdrop-filter: blur(4px); font-family: Inter, system-ui, sans-serif; }
   .dxe-sheet { width: 34rem; max-width: calc(100vw - 2rem); max-height: calc(100vh - 4rem); display: flex; flex-direction: column; border-radius: 1rem; background: rgba(20,20,22,.97); border: 1px solid rgba(255,255,255,.09); box-shadow: 0 30px 80px rgba(0,0,0,.6); color: #fff; }
   .dxe-sheet * { box-sizing: border-box; }
-  .dxe-head { display: flex; align-items: flex-start; gap: 1rem; padding: 1.3rem 1.4rem .8rem; }
+  /* flex: none: Stremio gives these overflow: hidden, so the sheet would squash them instead of scrolling the list */
+  .dxe-head { flex: none; display: flex; align-items: flex-start; gap: 1rem; padding: 1.3rem 1.4rem .8rem; }
   .dxe-head b { flex: 1; font: 800 1.2rem/1.25 Inter, system-ui, sans-serif !important; }
   .dxe-head small { display: block; margin-top: .3rem; color: rgba(255,255,255,.5); font: 500 .8rem/1.4 Inter, system-ui, sans-serif !important; }
   .dxe-list { flex: 1; overflow-y: auto; padding: .2rem .8rem; display: flex; flex-direction: column; gap: .3rem; }
-  .dxe-row { display: flex; align-items: center; gap: .8rem; padding: .55rem .6rem; border-radius: .6rem; background: rgba(255,255,255,.04); cursor: grab; user-select: none; }
+  .dxe-row { flex: none; display: flex; align-items: center; gap: .8rem; padding: .55rem .6rem; border-radius: .6rem; background: rgba(255,255,255,.04); cursor: grab; user-select: none; }
   .dxe-row.is-dragging { position: relative; z-index: 2; background: rgba(60,60,64,.98); box-shadow: 0 10px 30px rgba(0,0,0,.5); cursor: grabbing; }
   .dxe-list.is-sorting .dxe-row:not(.is-dragging) { transition: transform .15s ease; }
   .dxe-grip { flex: none; display: flex; align-items: center; justify-content: center; width: 1.6rem; height: 2.2rem; margin-right: -.4rem; color: rgba(255,255,255,.4); cursor: grab; touch-action: none; }
@@ -8356,7 +8357,7 @@
   .dxe-move { width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; border-radius: .4rem; color: rgba(255,255,255,.6); cursor: pointer; }
   .dxe-move:hover, .dxe-move:focus-visible { background: rgba(255,255,255,.1); color: #fff; }
   .dxe-move svg { width: 1rem; height: 1rem; }
-  .dxe-foot { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 1rem 1.4rem 1.3rem; }
+  .dxe-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 1rem 1.4rem 1.3rem; }
   .dxe-foot .dxe-spacer { flex: 1; }
   .dxe-btn { height: 2.5rem; padding: 0 1rem; display: inline-flex; align-items: center; gap: .4rem; border: 0; border-radius: .5rem; background: rgba(255,255,255,.1); color: #fff; font: 700 .86rem Inter, system-ui, sans-serif !important; cursor: pointer; }
   .dxe-btn:hover, .dxe-btn:focus-visible { background: rgba(255,255,255,.17); }
