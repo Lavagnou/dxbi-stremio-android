@@ -106,7 +106,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-046 | Boucle principale : flèches des rangées mesurées seulement au survol ; banc connecté à un vrai compte | Terminé | P0 | plugin, tools | T-041 | 2026-10-31 |
 | T-047 | TV et mode léger : plus de grandes ombres floues ; effets TV aussi en mode léger (`html.dx-light`) | Terminé | P1 | plugin, theme | T-039 | 2026-10-31 |
 | T-048 | Polices liées par le plugin, sans `@import` dans le thème intégré | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
-| T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | Bloqué | P1 | plugin, tv | T-041 | 2026-10-31 |
+| T-049 | Démarrage Android : temps de démarrage dans la mesure à l'écran, puis mesures sur la Fire TV | À valider | P1 | plugin, tv | T-041 | 2026-11-01 |
 | T-050 | Index des épisodes allégé sur TV et en mode léger | Abandonné | P2 | plugin, tools | T-041 | 2026-10-31 |
 | T-054 | Accueil TV : rangées chargées à l'approche de la télécommande, par paquets (avancée avant la 0.6.0) | Terminé | P0 | plugin, tools | T-046 | 2026-10-31 |
 | T-052 | Plugin chargé par adresse sur Android (cache de compilation) | Abandonné | P1 | tv | T-041 | 2026-11-01 |
@@ -2550,12 +2550,12 @@ Avancée avant T-047 à T-051 au choix de l'utilisateur (« Avancer T-054 »), d
 
 ### T-049 — Démarrage Android
 
-- **Statut :** Bloqué (attend des photos de la mesure à l'écran sur la Fire TV)
+- **Statut :** À valider (photo du démarrage sur la Fire TV avec la prochaine release)
 - **Priorité :** P1
 - **Cible :** plugin, tv
 - **Dépend de :** T-041
 - **Créée le :** 2026-10-31
-- **Mise à jour :** 2026-10-31
+- **Mise à jour :** 2026-11-01
 - **Branche :** `main`
 
 **Demande**
@@ -2565,28 +2565,32 @@ Pas d'adb (la Fire TV n'est pas sur le réseau du PC) : les mesures sur l'appare
 
 **Critères d'acceptation**
 - [x] Temps de démarrage dans la mesure à l'écran (étape 1 du plan, adaptée aux photos)
-- [ ] Référence sur la Fire TV (build Nathflix Dev), 5 lancements à chaud
-- [ ] Étapes 2 à 5 du plan essayées une à une, gardées seulement si la photo montre un gain
+- [x] Référence sur la Fire TV : release 0.7.0, 11414 ms (photo de l'utilisateur)
+- [x] Étape 3 : mises à jour vérifiées après la page
+- [x] Étape 2 (priorité du renderer) essayée, retirée : aucun effet mesurable
+- [ ] Photo du démarrage après la prochaine release (étape 3 gardée seulement si elle ne fait pas pire)
+- [ ] Étapes 4 (préchauffage) et 5 (intro 720p) : à essayer seulement si la photo le justifie
 
 **Notes techniques**
 - **Ligne « Démarrage »** (`startup`, juste avant `perfReadout`) : `startup.watch()` (dans `start()`) sonde toutes les 50 ms, 60 s au plus, jusqu'à ce que la page ait un écran à montrer (`SPLASH_READY`, ce qu'attend l'intro). Elle tourne même si la mesure à l'écran est coupée.
   - Nouvelle APK : « Démarrage : N ms depuis l'ouverture de l'app », de `MainActivity.onCreate` (`launchedAt`, par le bridge) à la page prête. Seulement pour la première page de l'app (page commencée moins de 30 s après l'ouverture), pas pour une page rechargée plus tard ;
   - APK plus ancienne (pas de `bridge.launchedAt`) : « Démarrage : N ms depuis le début de la page ».
 - **Bridge** (nouvelle méthode, les quatre points de CLAUDE.md) : `Bridge.launchedAt(token): Long` (`@JavascriptInterface`, jeton vérifié), `native.launchedAt()` dans `nathflix-tv.js` (détectée : `bridge.launchedAt ? … : 0`), règles ProGuard déjà en place pour les méthodes annotées. `nathflix-tv.js` la pose une fois dans `__nathflixTv.launchedAt` ; le plugin vérifie que c'est un nombre.
-- **Pas encore fait, et pourquoi** :
-  - étape 3 (mises à jour vérifiées après la page) : la build Dev ne vérifie jamais les mises à jour (`!debuggable`), donc l'effet ne se mesure pas avant une release. À essayer en comparant les photos d'une release ;
-  - étapes 2 (priorité du renderer), 4 (préchauffage de la WebView) et 5 (intro 720p) : chacune demande des démarrages mesurés sur l'appareil, avant et après.
+- **Étape 3, faite (2026-11-01)** : `MainActivity.whenPageReady(block)` sonde `pageReady()` toutes les secondes (60 fois au plus, puis lance le bloc quand même) et lance le bloc une seule fois ; `Updates.checkPlugin` / `checkApp` partent 5 s après. Avant, ils partaient dans `onCreate` : `checkPlugin` télécharge à chaque lancement le plugin entier de la dernière release (1,6 Mo) et relit celui de l'appareil, en plein démarrage de Stremio. La build Dev ne vérifie jamais les mises à jour (`!debuggable`) : l'effet ne se voit qu'avec une release, sur la photo du démarrage.
+- **Étape 2, essayée puis retirée** : `setRendererPriorityPolicy(RENDERER_PRIORITY_IMPORTANT, false)`. Sur l'émulateur, le processus de la page a la même importance que l'app avec ou sans (au premier plan : `fg`/`BTOP` ; après Accueil : `prev`/`LAST`, comparé à la build Dev publiée). Le cas où elle compterait (la page couverte par le lecteur, et libérée par Android faute de mémoire) ne se teste pas sans lancer de film, et aucun redémarrage de la page après un film n'a été signalé. Rien ne la justifie au démarrage.
+- **Étapes 4 et 5, pas essayées** : leur gain se mesure en démarrages sur l'appareil ; à faire seulement si la photo d'après la release reste loin de la cible (< 6 s).
 
 **Vérification**
 - `node --check` (plugin, `nathflix-tv.js`) : OK. Traductions : les deux nouveaux textes sont dans `frDictionary()` (`fr-missing.mjs` : seulement les deux faux positifs connus).
 - Dans Chrome (TV, invité, mesure à l'écran activée) : « Start-up: 1994 ms from the page's start » s'affiche (Stremio en anglais pour l'invité).
 - Kotlin : compilé par la CI `android-dev.yml` (voir le journal).
+- Étape 3 (2026-11-01) : compilée localement (`assembleDebug`) ; sur l'émulateur Fire TV, avec un log temporaire (retiré avant le commit) à la place des vérifications, le bloc part une seule fois, 4571 ms après l'ouverture (démarrage à froid). CI `android-dev.yml` : voir le journal.
 - Non vérifié : la Fire TV.
 - **Référence Fire TV 4K** (photos de l'utilisateur, 2026-11-01, release 0.7.0, mode léger activé, 4 cœurs, 2 Go) : « Démarrage : 11414 ms depuis l'ouverture de l'app ». Pendant la navigation : réponse aux touches 40 à 112 ms en général, jusqu'à 1416 ms au pire ; 14 à 30 blocages en 10 s (3,7 à 6,6 s en tout, le plus long 0,9 à 1,1 s) ; 4683 à 5179 éléments. Sur l'émulateur, le même démarrage prend ~2,3 s.
 
 **Livraison**
-- Commits : `ed1ed1a`
-- Version / CHANGELOG : à la release 0.6.0 (T-061)
+- Commits : `ed1ed1a` ; étape 3 : voir le journal
+- Version / CHANGELOG : ligne « Démarrage » à la release 0.6.0 (T-061) ; étape 3 à la prochaine release
 
 ### T-065 — Bouton « Lecture » absent des pages de films ouvertes sans leurs flux
 
@@ -3675,6 +3679,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-01 | T-080 | Créée et faite : OK maintenu ouvre le menu d'un titre et n'appuie plus en boucle, 3 points masqués ; Retour sur la page d'un titre non reproduit |
 | 2026-11-01 | T-081 | Créée et faite : sur TV, genres et acteurs de la page d'un titre plus sélectionnables (`keyNav.SKIP`) |
 | 2026-11-01 | T-081 | Bouton « Partager » retiré de la page d'un titre (`hideButton.noShare`) |
+| 2026-11-01 | T-049 | Étape 3 faite (mises à jour vérifiées 5 s après la page) ; étape 2 essayée et retirée ; À valider avec la photo d'après la prochaine release |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

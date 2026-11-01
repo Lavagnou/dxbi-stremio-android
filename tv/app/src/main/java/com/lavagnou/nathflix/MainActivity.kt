@@ -156,9 +156,14 @@ class MainActivity : AppCompatActivity() {
         web.requestFocus()
 
         // A test build (Nathflix Dev) runs the plugin it was built with, and is never offered a release
-        if (!debuggable) {
-            Updates.checkPlugin(this)
-            Updates.checkApp(this)
+        // Only once the page is up, and a moment later: the check downloads the whole plugin (1.6 MB),
+        // which otherwise came in the middle of Stremio's own start on a TV stick
+        if (!debuggable) whenPageReady {
+            web.postDelayed({
+                if (isFinishing || isDestroyed) return@postDelayed
+                Updates.checkPlugin(this)
+                Updates.checkApp(this)
+            }, 5000)
         }
     }
 
@@ -273,6 +278,18 @@ class MainActivity : AppCompatActivity() {
     fun pageReady(answer: (Boolean) -> Unit) {
         if (!::web.isInitialized) return answer(true)
         web.evaluateJavascript("!!document.querySelector('$PAGE_READY')") { answer(it == "true") }
+    }
+
+    /** Runs [block] once, when the page has a screen to show (checked every second), or after a minute anyway */
+    private fun whenPageReady(block: () -> Unit) {
+        var tries = 0
+        val check = object : Runnable {
+            override fun run() {
+                if (isFinishing || isDestroyed) return
+                pageReady { ready -> if (ready || ++tries >= 60) block() else web.postDelayed(this, 1000) }
+            }
+        }
+        web.postDelayed(check, 1000)
     }
 
     fun js(code: String) {
