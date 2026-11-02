@@ -153,6 +153,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-093 | Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente) | À valider | P1 | plugin | T-089 | 2026-11-02 |
 | T-094 | Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change | À valider | P1 | tv, plugin | T-051, T-092 | 2026-11-02 |
 | T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | Terminé | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
+| T-096 | TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons | À valider | P2 | plugin | — | 2026-11-02 |
 
 ---
 
@@ -4261,7 +4262,7 @@ Choix de l'utilisateur à l'étude T-089 :
 - [ ] Vérifié sur la Fire TV 4K de l'utilisateur
 
 **Notes techniques**
-- **Cause probable** : `MainActivity` ne lisait le réglage qu'au démarrage (`onCreate`). Sur une Fire TV, rouvrir l'app (après Accueil) ramène celle qui tourne encore, sans la redémarrer : le réglage changé ne prenait jamais effet. Le code du rendu allégé lui-même marche en 4K : émulateur avec un écran simulé en 3840×2160 (`wm size 3840x2160`, `wm density 640`, remis ensuite), WebView 1280×720, « Page dessinée en 1280×720 ».
+- **Cause probable** : `MainActivity` ne lisait le réglage qu'au démarrage (`onCreate`). Sur une Fire TV, rouvrir l'app (après Accueil) ramène celle qui tourne encore, sans la redémarrer : le réglage changé ne prenait jamais effet. Correction (après coup) : l'émulateur ignore `wm size 3840x2160` (seule la densité a changé, `wm density 640`) : son écran est resté en 1920×1080, et la vérification « en 4K » n'en était pas une ; celle de la bascule (1920 ↔ 1280) reste valable. Sur la Fire TV de l'utilisateur, le réglage agit bien (« l'interface est beaucoup moins nette »), mais la mesure à l'écran annonce toujours 4K : voir T-097.
 - `MainActivity.applyLowRes()` : met le rendu allégé dans l'état que dit le réglage (`lowRes()`) : écoute la taille de l'écran (`drawSmaller`) ou rend à la WebView tout l'écran (`MATCH_PARENT`, échelle 1). Appelé au démarrage et par `Bridge.saveSetting` quand `tvLowRes` change (`runOnUiThread`).
 - `nathflix-tv.js` annonce `tv.lowResLive` ; la description du réglage dit « Prend effet tout de suite. » avec une telle app, « Prend effet au prochain démarrage de l'app. » avec une plus ancienne (texte découpé, traductions ajoutées).
 
@@ -4306,6 +4307,45 @@ Choix de l'utilisateur à l'étude T-089 :
 **Livraison**
 - Commits : `e01de85` (`0.8.2: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.2
+
+### T-096 — TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Au passage,sur ma TV le billboard reste bloqué sur le premier slide, ça ne passe jamais au suivant, vérifie ça.
+
+Choix de l'utilisateur :
+> Billboard sur TV en mode léger : « Qu'il tourne, en sobre (Recommandé) »
+
+> Télécommande sur ses boutons : « Tourner quand même (Recommandé) »
+
+**Critères d'acceptation**
+- [x] Sur TV, le billboard passe au slide suivant même en mode léger (fondu simple, sans le zoom lent, comme toujours sur TV)
+- [x] Avec la télécommande sur « Lecture » ou « Plus d'infos », il tourne aussi, et la sélection passe au même bouton du nouveau slide
+- [x] Une touche pressée sur ses boutons relance l'attente (il ne change jamais au moment d'appuyer)
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- **Cause** : `hero.interval()` rendait 0 en mode léger (Auto l'active sur une Fire TV) : billboard figé (`is-static`), voulu à l'époque pour la clé. Et `tick()` gardait le slide tant qu'un de ses boutons avait la sélection.
+- `interval()` : 0 en mode léger sauf sur TV. Le zoom lent reste coupé sur TV (`show()`, thème `.dx-tv .dx-hero-backdrop`).
+- `tick()` sur TV : le bouton sélectionné (sa place parmi `.dx-btn`) est retenu ; après `show()`, `followFocus()` le donne au même bouton du nouveau slide 500 ms plus tard (un bouton encore caché ne peut pas prendre la sélection), sauf si la télécommande est allée ailleurs.
+- `hero.onKey` (keydown, TV) : sélection dans le billboard → `schedule()` repart de zéro, et la progression du point actif aussi.
+- Ailleurs (PC, téléphone) : inchangé.
+
+**Vérification**
+- `node --check`, traductions.
+- Émulateur Fire TV (mode léger actif), compte de l'utilisateur : slides 4 → 5 → 0 toutes les 9-10 s sans toucher à rien ; sélection mise sur « Plus d'infos » : slides 4 → 5 → 1 → 2, la sélection toujours sur « Plus d'infos » du slide affiché ; Gauche/Droite toutes les 2 s pendant 24 s : reste sur le slide 2, puis passe au 3 une dizaine de secondes après la dernière touche.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
 
 <!--
 ### T-000 — Titre court
@@ -4427,6 +4467,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-094 | Créée et faite : le rendu allégé ne se lisait qu'au démarrage (jamais sur une Fire TV, qui reprend l'app) ; appliqué dès que le réglage change |
 | 2026-11-02 | T-095 | En cours : release 0.8.2 demandée par l'utilisateur |
 | 2026-11-02 | T-095 | Terminé : release 0.8.2 publiée (11 fichiers, APK 802 signée par la clé de release, plugin 0.8.2) |
+| 2026-11-02 | T-096 | Créée et faite : sur TV, le billboard tourne en mode léger et avec la télécommande sur ses boutons (choix de l'utilisateur) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

@@ -1669,9 +1669,10 @@
       this.schedule();
     },
 
-    // Seconds between slides; 0 holds still (light mode too)
+    // Seconds between slides; 0 holds still (light mode too, but on a TV: there it turns all the same,
+    // with a plain fade as always on a TV, as asked: a billboard stuck on its first title looked broken)
     interval() {
-      return light() ? 0 : parseInt(settings.billboardInterval, 10) || 0;
+      return light() && !IN_TV ? 0 : parseInt(settings.billboardInterval, 10) || 0;
     },
 
     schedule() {
@@ -1692,8 +1693,11 @@
         this.stalled = true;
         return;
       }
-      // A title picked with the keyboard stays up: its buttons can't slide away mid-choice
-      if (this.el.querySelector(".dx-hero-slide.is-active .dx-btn:focus")) {
+      // A title picked with the keyboard stays up: its buttons can't slide away mid-choice. On a TV it
+      // turns all the same (Home opens with the remote on Play, and the billboard never moved), the
+      // remote moving to the same button of the next title; a key pressed starts the wait again (onKey)
+      const focused = this.el.querySelector(".dx-hero-slide.is-active .dx-btn:focus");
+      if (focused && !IN_TV) {
         this.schedule();
         return;
       }
@@ -1704,7 +1708,32 @@
         this.stalled = true;
         return;
       }
+      const button = focused ? [...focused.parentElement.querySelectorAll(".dx-btn")].indexOf(focused) : -1;
       this.show(next);
+      if (button >= 0) this.followFocus(focused, button);
+    },
+
+    // The remote was on a button of the slide that left: onto the same one of the slide that came,
+    // once it shows (a button still hidden can't take the selection), unless the remote moved meanwhile
+    followFocus(was, button) {
+      const el = this.el;
+      setTimeout(() => {
+        if (el !== this.el) return;
+        const now = document.activeElement;
+        if (now !== was && now && now !== document.body && now.isConnected) return;
+        const target = el.querySelectorAll(".dx-hero-slide.is-active .dx-btn")[button];
+        if (target) target.focus({ preventScroll: true });
+      }, 500);
+    },
+
+    // TV: a key pressed on the billboard's buttons starts the wait for the next title again, so it never
+    // turns just as OK is pressed (its dot's progress starts again too)
+    onKey: () => {
+      const h = hero;
+      if (!h.el || !h.el.contains(document.activeElement) || !h.timer) return;
+      h.schedule();
+      const dot = h.el.querySelector(".dx-hero-dot.is-active");
+      if (dot && dot.getAnimations) for (const a of dot.getAnimations({ subtree: true })) a.currentTime = 0;
     },
 
     // The next slide whose backdrop loads (one that doesn't loses its dot)
@@ -16826,6 +16855,7 @@
     for (const type of ["pointerup", "pointercancel"]) window.addEventListener(type, cardPress.cancel, true);
     window.addEventListener("click", cardPress.onClick, true);
     window.addEventListener("contextmenu", cardPress.onContext, true);
+    if (IN_TV) window.addEventListener("keydown", hero.onKey, true);
     window.addEventListener("click", cwSeries.onClick, true);
     if (!IN_MOBILE) {
       window.addEventListener("keydown", okHold.onDown, true);
@@ -17003,6 +17033,7 @@
       for (const type of ["pointerup", "pointercancel"]) window.removeEventListener(type, cardPress.cancel, true);
       window.removeEventListener("click", cardPress.onClick, true);
       window.removeEventListener("contextmenu", cardPress.onContext, true);
+      window.removeEventListener("keydown", hero.onKey, true);
       window.removeEventListener("click", cwSeries.onClick, true);
       window.removeEventListener("keydown", okHold.onDown, true);
       window.removeEventListener("keyup", okHold.onUp, true);
