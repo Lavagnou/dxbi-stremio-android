@@ -254,7 +254,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - `addonTools` (Addons → Order & backup) : glisser-déposer en Pointer Events (poignée ⠿ au doigt, toute la ligne à la souris), avec `dragList(list, onMove)`, partagé.
   - `homeArrange` (« Organiser l'Accueil », au bas de l'Accueil) : ordre et rangées masquées par spectateur (`store` `homeRows:<spectateur>`, clés `<manifest>|<type>|<catalogue>`).
     - Les rangées de Stremio ne sont jamais déplacées : le conteneur passe en `flex` (`dx-rows-arranged`) avec un `style.order` par rangée.
-    - `keyNav.rows()` trie alors par position à l'écran, et `homeRows.preload(…, true)` charge toutes les rangées.
+    - `keyNav.rows()` trie alors par position à l'écran. Stremio demande les rangées par leur place dans la page, que l'ordre mélange : ses `LoadRange` sont ignorés (`homeRows.blocks`), et Nathflix demande les rangées dans l'ordre de l'Accueil (`homeRows.shown`, `loadShown` ; sur TV les 6 premières puis `aheadShown`, ailleurs toutes), jamais les masquées. La fin d'un `LoadRange` est incluse.
   - **Barre du haut** : le menu du compte de Stremio est masqué (CSS `menu-button-container`) et remplacé par l'image du profil (`navAvatar`, qui ouvre « Qui regarde ? »). Ses entrées utiles sont dans Réglages, sous le compte (`settingsMenu`, `.dxe-set-menu`).
   - **Croix de Continuer de regarder** masquée (`dismiss-icon-layer`) : « Effacer » reste dans le menu ⋮.
   - **Spectateurs** (`viewers`, `whoIsWatching`) : écrans faits comme ceux de Netflix, et à garder ainsi (demande de l'utilisateur pour tout ce qui touche aux profils). Vues `gate | manage | edit | avatars | hidden | delete`, avec `draft` pour la page d'un profil ;

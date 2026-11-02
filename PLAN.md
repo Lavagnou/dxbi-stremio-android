@@ -146,6 +146,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-086 | Téléphone : bouton Bande-annonce dans la feuille d'un titre, appui long qui l'ouvre | À valider | P2 | plugin | — | 2026-11-02 |
 | T-087 | Bande-annonce en plein écran : l'interface du lecteur YouTube ne se voit plus | À valider | P2 | plugin | — | 2026-11-02 |
 | T-088 | Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube) | Terminé | P1 | release, plugin | T-086, T-087 | 2026-11-02 |
+| T-089 | Étude : mémoire et démarrage sur TV | Terminé | P1 | tv, plugin | — | 2026-11-02 |
+| T-090 | Accueil organisé : rangées chargées au fil de la télécommande, jamais les masquées | À valider | P1 | plugin | T-089 | 2026-11-02 |
 
 ---
 
@@ -4036,6 +4038,106 @@ Puis, le lendemain (2026-11-02) :
 - Commits : `a7f0667` (`0.8.1: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.1
 
+### T-089 — Étude : mémoire et démarrage sur TV
+
+- **Statut :** Terminé (étude ; les changements sont T-090 et suivantes)
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Sur ma FireTV 4K, c'est beaucoup mieux qu'avant, c'est "utilisable" on va dire, mais très loin d'être confortable et fluide. Vu que le but que l'application tourne sur une FireTV pas 4K donc moins puissante, il y a encore beaucoup à optimisé avant d'en arrivé là.
+>
+> La sur le FireTV 4K, j'ai eu un message comme quoi l'app a planté deux fois d'affilié par manque de mémoire ram. Je pense que c'est pas trop normal pour une app TV de prendre autant de ram, sur toute les autres apps TV classique ça n'arrive jamais, même avec plusieurs apps ouverte les une après les autres.
+>
+> Lance une analyse pour essayer de trouver où on pourrait optimiser et ecenomiser la ram sur la version TV, et si il y a des choix à trancher pour ça, demande moi.
+>
+> Sur les version Windows et Android mobile/tablette ça fonctionne plutôt bien, c'est fluide, donc maintenant le soucis de performance concerne uniquement la version TV.
+
+> Je remarque que le lag survient beaucoup au démarrage de l'app pendant 1 minute puis après ça se stabilise, il faudrait voir du côté du chargement initial de l'app et de l'accueil les optimisations possible également.
+
+> J'avais pas précisé mais je suis une TV en résolution 4K aussi, ce qui joue sûrement sur les performances
+
+**Critères d'acceptation**
+- [x] Ce qui occupe la mémoire sur TV, par processus et par catégorie
+- [x] La part de Nathflix (comparée à Stremio seul dans la même WebView)
+- [x] Ce qui fait ramer la première minute
+- [x] Les choix de l'utilisateur, posés et tranchés
+
+**Notes techniques**
+- **Message vu par l'utilisateur** : c'est celui de l'app (`crash_message`, `recoverFromCrash`) : le moteur de rendu de la WebView a été tué deux fois en moins de 3 minutes.
+- **Banc** : émulateur Fire TV (2 Go, 1920×1080), build de test 0.8.1, compte de l'utilisateur, Accueil organisé (66 catalogues, 19 masqués, 13 de type `trakt` coupés par `videoRowsOnly`). Outils du scratchpad : `emu/mem.mjs` (dumpsys meminfo de chaque processus + chiffres de la page), `emu/memdump.mjs` (vidage memory-infra de Chromium par allocateur), `emu/heaps.mjs` (tas JS et mémoire WebAssembly des workers), `emu/startup2.mjs` (première minute, processeur ×6), `emu/memleak.mjs`, `emu/hashleak.mjs`, `emu/detached.mjs`, `emu/memtrailer.mjs`, `emu/memab.sh`.
+- **Mémoire, Accueil au repos** : moteur de rendu 200-230 Mo (PSS), app 100 Mo. L'émulateur ne compte pas la mémoire du GPU : sur l'appareil, il faut y ajouter les images décodées pour le GPU (`gpu/transfer_cache`, jusqu'à 128 Mo, le plafond de Chromium) et les tuiles.
+  - Moteur de rendu : malloc 55-94 Mo, cache web 46-53 Mo (scripts 17-35, images 12-33), V8 23-46 Mo, PartitionAlloc 20-48 Mo, tuiles 15-32 Mo, Oilpan 6-16 Mo ; mémoire WebAssembly du cœur de Stremio (worker) 37 Mo seul, 47 Mo avec les 66 catalogues (elle ne rend jamais rien).
+  - App : malloc ≈ 77 Mo, images décodées GPU 31 Mo au repos, 127 Mo après avoir descendu les rangées.
+- **Stremio seul** (plugin vide dans la même APK) : 7 rangées, 70 cartes, 72 images, 12 Mo d'images GPU, WASM 37 Mo. **Avec Nathflix** : 64 rangées, 594 cartes, 612 images (274 dans des rangées masquées), 127 Mo d'images GPU, WASM 47 Mo. Tas JS de la page à peu près égal (≈ 34 Mo) : la part de Nathflix vient de ce qu'il fait charger, pas de son propre code.
+- **Cause n° 1 : Accueil organisé = tous les catalogues d'un coup.** Avec un ordre ou des rangées masquées, Stremio demande les rangées à l'écran par leur place dans la page, que `style.order` mélange : il demande tout (`LoadRange` 0-65, une dizaine de fois au démarrage), et `homeArrange` demandait aussi tout (`homeRows.preload(4, true)`). Au démarrage (processeur ×6, `startup2.mjs`) : 8,5 s de tâches longues sur les 15 premières secondes, ≈ 5 200 changements de la page, JS de Stremio 5,5 s, travail du navigateur 5,4 s, Nathflix 1,8 s, ramasse-miettes 1,3 s ; sur l'appareil, il faut y ajouter le décodage et l'envoi au GPU de 612 affiches (non bridés ici) : la minute de ralenti.
+- **Bandes-annonces des aperçus** (`memtrailer.mjs`) : +41 Mo pendant qu'une joue, +62 Mo au passage à une deuxième ; retombe à +13 Mo une fois quittée.
+- **Fiches ouvertes à la télécommande** (`memleak.mjs`) : +270 éléments détachés et +5 à 6 Mo par fiche, jamais rendus (200 → 258 Mo en 10 fiches). Ouvertes par leur adresse (`hashleak.mjs`), avec ou sans Nathflix : rien ne reste. Les éléments détachés sont retenus par des écouteurs d'événements (`bind`), pas du code de Nathflix. À trouver.
+- **Affiches** : 500×750 à 680×1000 (TMDB, TVDB, top-posters, Kitsu), affichées à ≤ 228 px CSS (≈ 342 px sur un écran 1080p).
+- **Images d'aperçu décodées d'avance** (`decodeImage`) : les 24 dernières (fond, logo, affiche des 8 dernières cartes).
+- **Rendu allégé (720p, T-051)** : tuiles 32 → 11 Mo, images partagées 32 → 11 Mo (≈ 40 Mo) ; les images décodées GPU restent au plafond.
+- **Pendant un film** (vidéo de test publique) : page ≈ 216 Mo derrière le lecteur, app ≈ 170 Mo (tas Java 55-61 Mo : la mémoire tampon par défaut de Media3, jusqu'à 50 s plafonnées à ≈ 144 Mo). Les deux processus restent au premier plan (`oom_score_adj` 0).
+- **TV 4K** : selon l'appareil, Fire OS dessine les apps en 1080p ou en 4K ; la mesure à l'écran (« Page dessinée en L×H ») le dit. En 4K, les tuiles coûtent 4 fois plus.
+
+**Choix de l'utilisateur**
+- Bandes-annonces des aperçus sur TV : « Coupées par défaut (Recommandé) ».
+- Mémoire tampon du lecteur : « Alors enfaîte, un des seul moment où l'application est vraiment fluide, c'est sur le player pendant la lecture d'un film ou d'une série, donc pour cette partie là il n'y a pas besoin d'optimiser. »
+- Page derrière le lecteur : « Vu que le player ne lag pas je pense que c'est pas nécessaire »
+- Rendu allégé sur TV : « Auto (Recommandé) » (activé sous 2 Go de RAM).
+
+**Plan qui en découle** (sans changement visible, donc sans question) : T-090 (rangées au fil de la télécommande, jamais les masquées), affiches à la bonne taille sur TV, moins d'images d'aperçu décodées d'avance, la mémoire gardée après chaque fiche ; avec les choix : bandes-annonces des aperçus coupées sur TV, rendu allégé en Auto.
+
+**Vérification**
+- Mesures ci-dessus ; aucun code changé pour l'étude.
+
+**Livraison**
+- Commits : aucun code (fiche seulement)
+
+### T-090 — Accueil organisé : rangées chargées au fil de la télécommande, jamais les masquées
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-089
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+(voir T-089 : mémoire de la TV et première minute de l'app)
+
+**Critères d'acceptation**
+- [x] Accueil organisé sur TV : les 6 premières rangées dans l'ordre de l'Accueil au démarrage, puis les suivantes avant que la télécommande y arrive
+- [x] Les rangées masquées, et celles coupées par « Rangées de films et séries seulement », ne sont jamais demandées
+- [x] Ailleurs (PC, téléphone) : toutes les rangées montrées, dans l'ordre
+- [x] Une rangée pas encore chargée est déjà à sa place (et masquée si elle doit l'être)
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- `homeRows.shown(board)` : les catalogues dans l'ordre de l'Accueil (`homeArrange.prefs()`), sans les masqués ni ceux coupés (`homeRows.off(key)`, d'après le type de la clé). `catalogKey(c)` : la clé d'un catalogue du core (`<addon>|<type>|<catalogue>`), la même que `homeArrange.keyOf(row)`.
+- `homeRows.loadShown(entries, board)` : ceux qui n'ont pas été demandés, par suites de voisins dans l'ordre de Stremio (un `LoadRange` par suite ; **la fin du `LoadRange` de Stremio est incluse**).
+- `homeRows.preload(force)` : Accueil organisé, `FIRST` (6) sur TV, tout ailleurs. `homeRows.ahead(row)` → `aheadShown(row)` : les `LOW` (3) rangées suivantes à l'écran (par `style.order`) ont-elles leurs titres ? sinon, les `BATCH` (6) suivantes de `shown()`.
+- `homeRows.blocks(action)`, appelé par l'enveloppe `dispatch` de `viewerLibrary.patch` : Accueil organisé, les `LoadRange` de Stremio sont ignorés (ceux de Nathflix passent, `own`). Un `Load` de l'Accueil (addons changés) remet `homeArrange.preloaded` à faux : Nathflix redemande.
+- `homeArrange.apply()` : une rangée sans lien « Voir tout » (pas encore chargée) prend sa clé par sa place parmi les rangées (`homeRows.keys`, lu dans le core, sans les catalogues vides, que Stremio n'affiche pas) ; relu quand le nombre de rangées change (`readKeys`). Une rangée coupée par `videoRowsOnly` est masquée d'après sa clé (`filterRows` ne la reconnaît qu'une fois chargée : sans ça, les 13 rangées Trakt de l'utilisateur restaient visibles, vides).
+- Sur PC (Stremio Enhanced), la première demande de Stremio part avant le plugin : une rangée masquée peut être chargée une fois (sans effet visible).
+
+**Vérification**
+- `node --check`, traductions.
+- Émulateur Fire TV, compte de l'utilisateur, plugin poussé en 0.8.99 :
+  - avant : 66 catalogues demandés, 594 cartes, 612 images au démarrage ; après : 6 catalogues, 70 cartes, 88 images (comme Stremio seul) ;
+  - 30 × Bas (`emu/downcheck.mjs`, 0,9 s entre deux) : jamais sur une rangée vide, les rangées arrivent avant la télécommande (6 → 10 → 14 → 18 → 22 → 23), toutes chargées en bas ;
+  - démarrage, processeur ×6 (`startup2.mjs`) : tâches longues 8,5 → 5,3 s, changements de la page ≈ 5 200 → ≈ 650, JS de Stremio 5,5 → 1,9 s, ramasse-miettes 1,3 → 0,4 s ;
+  - mémoire au repos : tas JS 36 → 23 Mo, Oilpan 10,6 → 6,2 Mo ; après avoir descendu toutes les rangées, les images GPU atteignent toujours le plafond (128 Mo).
+- Chrome, invité, Accueil organisé (ordre inversé, première rangée masquée ; `perf2/arrange-pc.mjs`) : TV : 4 catalogues sur 6 demandés (ni la masquée ni YouTube, coupé), dans l'ordre ; PC : toutes les rangées montrées, dans l'ordre.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4148,6 +4250,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-087 | Créée et faite : la vidéo reste sous l'image du titre tant que YouTube montre ses boutons (4,3 s après chaque lecture, et en pause) |
 | 2026-11-02 | T-088 | En cours : release 0.8.1 demandée par l'utilisateur |
 | 2026-11-02 | T-088 | Terminé : release 0.8.1 publiée (11 fichiers, APK 801 signée par la clé de release, plugin 0.8.1) |
+| 2026-11-02 | T-089 | Étude faite : page 200-300 Mo, Accueil organisé = 66 catalogues et 612 affiches d'un coup, aperçus +40-60 Mo, +5 Mo par fiche ; choix de l'utilisateur notés |
+| 2026-11-02 | T-090 | Créée et faite : Accueil organisé chargé au fil de la télécommande (6 catalogues au démarrage au lieu de 66), jamais les rangées masquées |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

@@ -1136,8 +1136,98 @@
           if (tries > 1) this.preload(tries - 1, force);
           return;
         }
-        this.load(board, force ? count : this.FIRST);
+        if (force) this.loadShown(this.shown(board).slice(0, IN_TV ? this.FIRST : Infinity), board);
+        else this.load(board, this.FIRST);
       }, 1500);
+    },
+
+    // Home organised (Organise Home): its catalogs in the order Home shows them, without the hidden
+    // ones nor those switched off (videoRowsOnly). [{ i: index among Stremio's catalogs, key }]
+    shown(board) {
+      const p = homeArrange.prefs();
+      const rank = new Map((p ? p.order : []).map((k, i) => [k, i]));
+      const hidden = new Set(p ? p.hidden : []);
+      const catalogs = Array.isArray(board && board.catalogs) ? board.catalogs : [];
+      return catalogs
+        .map((c, i) => ({ i, key: catalogKey(c) }))
+        .filter((e) => e.key && !hidden.has(e.key) && !this.off(e.key))
+        .sort((a, b) => (rank.has(a.key) ? rank.get(a.key) : 1e6 + a.i) - (rank.has(b.key) ? rank.get(b.key) : 1e6 + b.i));
+    },
+
+    // A row switched off by videoRowsOnly (Real-Debrid downloads, Trakt's own lists…), from its key
+    off(key) {
+      const type = String(key || "").split("|")[1];
+      return !!settings.videoRowsOnly && !!type && !VIDEO_TYPES.has(type.toLowerCase());
+    },
+
+    // Those of `entries` nobody asked for yet, a run of neighbours in Stremio's order at a time.
+    // Every row at once made Home seven times bigger as it opened (a minute of slowness on a TV stick,
+    // and its posters filled the memory), with the hidden rows loaded for nothing
+    loadShown(entries, board) {
+      const { dispatch } = core();
+      if (!dispatch) return;
+      const catalogs = board.catalogs;
+      const todo = entries.map((e) => e.i).filter((i) => catalogs[i] && !catalogs[i].content).sort((a, b) => a - b);
+      for (let k = 0; k < todo.length;) {
+        let end = k + 1;
+        while (end < todo.length && todo[end] === todo[end - 1] + 1) end++;
+        this.own = true;
+        // (Stremio's range includes its end)
+        try { dispatch({ action: "CatalogsWithExtra", args: { action: "LoadRange", args: { start: todo[k], end: todo[end - 1] } } }, "board"); } finally { this.own = false; }
+        k = end;
+      }
+    },
+
+    // Home organised: Stremio asks for the rows on screen by their place on the page, which Home's
+    // order scrambles (it asked for every row, a dozen times as Home opened). Nathflix asks for them
+    // itself, in Home's order: Stremio's own requests are dropped (true). A new Load of Home (Stremio
+    // reloads it when the addons change) has Nathflix ask again.
+    own: false,
+    blocks(a) {
+      if (!a || a.action !== "CatalogsWithExtra" && !(a.action === "Load" && a.args && a.args.model === "CatalogsWithExtra")) return false;
+      const p = homeArrange.prefs();
+      if (!p || !(p.order.length || p.hidden.length)) return false;
+      if (a.action === "Load") {
+        homeArrange.preloaded = false;
+        scheduleSync();
+        return false;
+      }
+      return !this.own && !!a.args && a.args.action === "LoadRange";
+    },
+
+    // Home organised, on a TV: the remote went down to `row`; the next rows in Home's order are asked
+    // for when fewer than LOW of them have their titles
+    async aheadShown(row) {
+      const order = Number(row.style.order) || 0;
+      const below = [...row.parentElement.children]
+        .filter((n) => n !== row && /board-row/.test(typeof n.className === "string" ? n.className : "") && !n.classList.contains("dx-row-hidden") && !n.classList.contains("dx-row-off") && (Number(n.style.order) || 0) > order)
+        .sort((a, b) => (Number(a.style.order) || 0) - (Number(b.style.order) || 0))
+        .slice(0, this.LOW);
+      if (below.length && below.every((n) => n.querySelector('[class*="meta-item-container"]'))) return;
+      const { getState } = core();
+      if (!getState || currentRoute() !== "board") return;
+      let board;
+      try { board = await getState("board"); } catch (_) { return; }
+      const list = this.shown(board);
+      const key = row.matches('[class*="board-row"]') ? homeArrange.keyOf(row) : null;
+      const at = key ? list.findIndex((e) => e.key === key) : -1;
+      this.loadShown(list.slice(at + 1, at + 1 + this.BATCH), board);
+    },
+
+    // Each catalog's key in the order Home has their rows (an empty catalog has none), read from the
+    // core when Home's rows change: a row still loading has no See all link to tell which it is
+    keys: [],
+    reading: false,
+    readKeys() {
+      if (this.reading) return;
+      const { getState } = core();
+      if (!getState) return;
+      this.reading = true;
+      Promise.resolve(getState("board")).then((board) => {
+        const catalogs = Array.isArray(board && board.catalogs) ? board.catalogs : [];
+        this.keys = catalogs.filter((c) => !(c && c.content && c.content.type === "Err" && c.content.content === "EmptyContent")).map(catalogKey);
+        scheduleSync();
+      }).catch(() => { /* core busy: next pass */ }).finally(() => { this.reading = false; });
     },
 
     // The remote went down to `row` (one of Home's rows, or Airing this week): with fewer than LOW rows
@@ -1145,7 +1235,8 @@
     // switched off count among the catalogs, and with some near the top, the rows below them were
     // never asked for (Down then waited on them for good).
     async ahead(row) {
-      if (!IN_TV || !row || document.querySelector(".dx-rows-arranged")) return;
+      if (!IN_TV || !row) return;
+      if (row.parentElement && row.parentElement.classList.contains("dx-rows-arranged")) return this.aheadShown(row);
       let ready = 0;
       for (let n = row.nextElementSibling; n && ready < this.LOW; n = n.nextElementSibling) {
         if (n.matches('[class*="board-row"]') && n.offsetParent && n.querySelector('[class*="meta-item-container"]')) ready++;
@@ -2095,6 +2186,11 @@
 
   const decodePart = (s) => { try { return decodeURIComponent(s || ""); } catch (_) { return s || ""; } };
 
+  // A catalog's key in Home's order (Organise Home): <addon id>|<type>|<catalog id>
+  function catalogKey(c) {
+    return c && c.addon && c.addon.manifest && c.addon.manifest.id && c.type && c.id ? `${c.addon.manifest.id}|${c.type}|${c.id}` : null;
+  }
+
   const homeArrange = {
     ids: new Map(), // addon address → manifest id
     idsAt: 0,
@@ -2171,7 +2267,15 @@
       if (!this.idsAt || Date.now() - this.idsAt > 60000) this.refreshIds();
       const rank = new Map(p.order.map((k, i) => [k, i]));
       const hidden = new Set(p.hidden);
+      // rows still loading are told apart by their place among Home's rows (homeRows.keys); read
+      // again when their number changes (an empty catalog shows no row)
+      const isRow = (c) => { const k = typeof c.className === "string" ? c.className : ""; return /board-row/.test(k) && !/continue-watching/.test(k); };
+      let rows = 0;
+      for (const child of host.children) if (isRow(child)) rows++;
+      const byPlace = homeRows.keys.length === rows;
+      if (!byPlace) homeRows.readKeys();
       let n = 0;
+      let at = 0;
       for (const child of host.children) {
         n++;
         let order;
@@ -2184,17 +2288,20 @@
         else if (child.classList.contains("dxe-airing")) order = -10;
         else if (child.classList.contains("dxe-arrange-btn")) order = 100000;
         else {
-          const key = /board-row/.test(cls) ? this.keyOf(child) : null;
+          const place = isRow(child) ? at++ : -1;
+          const key = /board-row/.test(cls) ? this.keyOf(child) || (byPlace && place >= 0 ? homeRows.keys[place] : null) : null;
           // a row not in the saved order (a new addon's) comes after the others, as Stremio has it
           order = key && rank.has(key) ? rank.get(key) + 1 : 1000 + n;
-          hide = !!key && hidden.has(key);
+          // (a row switched off by videoRowsOnly too: filterRows only knows it once it has loaded)
+          hide = !!key && (hidden.has(key) || homeRows.off(key));
         }
         const v = String(order);
         if (child.style.order !== v) child.style.order = v;
         if (child.classList.contains("dx-row-hidden") !== hide) child.classList.toggle("dx-row-hidden", hide);
       }
       // Stremio loads a row as it scrolls into view, by its place among the others: with the rows in
-      // another order, every row is asked for as Home opens instead
+      // another order, Nathflix asks for them in Home's order instead (a TV: the first few, then ahead
+      // of the remote; elsewhere all of them), never the hidden ones
       if (!this.preloaded) {
         this.preloaded = true;
         homeRows.preload(4, true);
@@ -11623,6 +11730,7 @@
           const played = this.launched(action);
           if (played) this.markPlayed(played);
           if (this.on() && this.intercept(action) === false) return Promise.resolve();
+          if (homeRows.blocks(action)) return Promise.resolve();
         } catch (err) { log("viewer library action failed", err); }
         return dispatch(action, ...rest);
       };
