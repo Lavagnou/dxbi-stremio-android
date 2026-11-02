@@ -145,7 +145,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-085 | Ordre de l'Accueil pas répercuté sur les autres appareils (synchro plus rapide, réception même quand un envoi est refusé) | À valider | P1 | plugin | T-027 | 2026-11-02 |
 | T-086 | Téléphone : bouton Bande-annonce dans la feuille d'un titre, appui long qui l'ouvre | À valider | P2 | plugin | — | 2026-11-02 |
 | T-087 | Bande-annonce en plein écran : l'interface du lecteur YouTube ne se voit plus | À valider | P2 | plugin | — | 2026-11-02 |
-| T-088 | Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube) | En cours | P1 | release, plugin | T-086, T-087 | 2026-11-02 |
+| T-088 | Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube) | Terminé | P1 | release, plugin | T-086, T-087 | 2026-11-02 |
 
 ---
 
@@ -4006,7 +4006,7 @@ Puis, le lendemain (2026-11-02) :
 
 ### T-088 — Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, plugin
 - **Dépend de :** T-086, T-087
@@ -4019,8 +4019,8 @@ Puis, le lendemain (2026-11-02) :
 
 **Critères d'acceptation**
 - [x] `@version 0.8.1`, section `## 0.8.1` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.8.1`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 801, plugin embarqué en 0.8.1
+- [x] CI verte, tag `v0.8.1`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 801, plugin embarqué en 0.8.1
 
 **Notes techniques**
 - **Contenu** : T-086 (bouton Bande-annonce dans la feuille d'un titre, appui long), T-087 (interface YouTube cachée).
@@ -4028,10 +4028,13 @@ Puis, le lendemain (2026-11-02) :
 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions : OK.
+- CI verte sur `a7f0667` (Cross-platform, mpv Windows, Android test build avec R8), puis tag `v0.8.1` : run Release 41438935849, tous les jobs verts (publish, android, desktop ×5).
+- Release : les 11 fichiers, ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé que la 0.8.0) ; `com.lavagnou.nathflix`, versionCode 801, versionName 0.8.1 ; plugin embarqué en 0.8.1, avec T-087 (`dxe-th-cover`).
 
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `a7f0667` (`0.8.1: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.1
 
 <!--
 ### T-000 — Titre court
@@ -4144,6 +4147,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-086 | Créée et faite : bouton Bande-annonce dans la feuille d'un titre, appui long sur une carte sans menu de Stremio qui ouvre la feuille |
 | 2026-11-02 | T-087 | Créée et faite : la vidéo reste sous l'image du titre tant que YouTube montre ses boutons (4,3 s après chaque lecture, et en pause) |
 | 2026-11-02 | T-088 | En cours : release 0.8.1 demandée par l'utilisateur |
+| 2026-11-02 | T-088 | Terminé : release 0.8.1 publiée (11 fichiers, APK 801 signée par la clé de release, plugin 0.8.1) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
