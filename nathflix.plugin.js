@@ -849,6 +849,8 @@
   }
 
   // Decode an image ahead of time so showing it later costs nothing; the last few stay in memory
+  // (a TV keeps those of the last two cards only: each card's backdrop alone is 8 MB decoded)
+  const DECODED_KEPT = IN_TV ? 6 : 24;
   const decoded = new Map();
   function decodeImage(url) {
     if (decoded.has(url)) return decoded.get(url).ready;
@@ -857,7 +859,7 @@
     img.src = url;
     const ready = img.decode().catch(() => { /* broken or blocked: the page falls back as before */ });
     decoded.set(url, { img, ready });
-    if (decoded.size > 24) decoded.delete(decoded.keys().next().value);
+    if (decoded.size > DECODED_KEPT) decoded.delete(decoded.keys().next().value);
     return ready;
   }
 
@@ -2528,6 +2530,36 @@
     else getInfo(info.type, info.id).then((meta) => place(scoreOf(meta)));
   }
 
+  // TV: posters at the size a TV shows them (about 340 px wide on a 1080p screen). Some addons give
+  // 500 to 2000 px ones, 1.5 to 24 MB each once decoded, and a TV stick holds hundreds of them: their
+  // hosts' own smaller copies instead (TMDB's w342, TheTVDB's thumbnails)
+  const smallPoster = {
+    url(src) {
+      let m = /^(https:\/\/image\.tmdb\.org\/t\/p\/)(w500|w780|w1280|original|w600_and_h900_bestv2)(\/[^/?#]+)$/.exec(src);
+      if (m) return m[1] + "w342" + m[3];
+      m = /^(https:\/\/artworks\.thetvdb\.com\/banners\/v4\/[^?#]+\/posters\/[^/?#]+?)(\.jpe?g)$/i.exec(src);
+      if (m && !/_t$/.test(m[1])) return m[1] + "_t" + m[2];
+      return null;
+    },
+
+    apply(card) {
+      const img = card.querySelector('img[class*="poster-image"]');
+      const src = img && img.getAttribute("src");
+      // (once per address: Stremio sets a new one when the card shows another title)
+      if (!src || src === img.dataset.dxShown) return;
+      const small = this.url(src);
+      img.dataset.dxShown = small || src;
+      if (!small) return;
+      // back to the original when a small copy can't be had
+      img.addEventListener("error", () => {
+        if (img.getAttribute("src") !== small) return;
+        img.dataset.dxShown = src;
+        img.setAttribute("src", src);
+      }, { once: true });
+      img.setAttribute("src", small);
+    },
+  };
+
   function syncCards() {
     coreMeta.refresh();
     // Plain marker attributes instead of CSS :has(): a :has() that looks inside rows makes the
@@ -2556,6 +2588,7 @@
       card.dataset.dxWide = String(isWideRow(card));
       card.dataset.dxRatings = marks;
       if (IN_TV) {
+        smallPoster.apply(card);
         decorateLater.add(card);
         continue;
       }

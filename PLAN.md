@@ -148,6 +148,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-088 | Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube) | Terminé | P1 | release, plugin | T-086, T-087 | 2026-11-02 |
 | T-089 | Étude : mémoire et démarrage sur TV | Terminé | P1 | tv, plugin | — | 2026-11-02 |
 | T-090 | Accueil organisé : rangées chargées au fil de la télécommande, jamais les masquées | À valider | P1 | plugin | T-089 | 2026-11-02 |
+| T-091 | TV : affiches à la taille de l'écran, moins d'images d'aperçu décodées d'avance | À valider | P2 | plugin | T-089 | 2026-11-02 |
 
 ---
 
@@ -4138,6 +4139,39 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-091 — TV : affiches à la taille de l'écran, moins d'images d'aperçu décodées d'avance
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-089
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+(voir T-089 : mémoire de la TV)
+
+**Critères d'acceptation**
+- [x] Sur TV, les affiches TMDB et TheTVDB (v4) prennent la copie réduite de leur hébergeur ; l'originale revient si la copie manque
+- [x] Sur TV, les images d'aperçu décodées d'avance sont celles des deux dernières cartes (au lieu de huit)
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- Affichées à ≤ 228 px CSS, soit ≈ 342 px sur un écran 1080p. Mesures (une affiche) : TMDB `w600_and_h900_bestv2` 600×900, 230 Ko (2,2 Mo décodée) → `w342` 342×513, 79 Ko (0,7 Mo) ; TheTVDB v4 680×1000, 167 Ko (2,7 Mo) → `_t` 340×500, 55 Ko (0,7 Mo).
+- `smallPoster.url(src)` : TMDB `w500|w780|w1280|original|w600_and_h900_bestv2` → `w342` ; TheTVDB `banners/v4/…/posters/x.jpg` → `x_t.jpg`. `smallPoster.apply(card)`, depuis `syncCards` (TV) quand une carte montre un nouveau titre : `data-dx-shown` retient l'adresse posée (Stremio en met une autre quand la carte change de titre), et une erreur de chargement remet l'originale.
+- Pas de copie réduite connue : top-posters (les plus nombreuses chez l'utilisateur, 500×750 ; l'adresse contient sa clé, jamais écrite nulle part), anciennes affiches TheTVDB (`banners/posters/…`, pas de miniature : 403), Kitsu (390×554, déjà proche), MetaHub (`poster/small` 300×450 ; les fonds `background/medium` et `large` sont la même image 1920×1080).
+- `decodeImage` : `DECODED_KEPT` = 6 sur TV (fond, logo et affiche des deux dernières cartes ; un fond seul fait 8 Mo décodé), 24 ailleurs.
+
+**Vérification**
+- `node --check`, traductions.
+- Émulateur Fire TV, compte de l'utilisateur, 40 × Bas : 240 affiches, 151 chargées, aucune cassée, 51 remplacées par leur copie réduite (toutes celles de TMDB et TheTVDB v4 présentes).
+- Les images décodées pour le GPU atteignent toujours le plafond de Chromium (128 Mo) après avoir descendu toutes les rangées : le gain est sur le décodage (moins de travail par affiche) et sur la place que chacune y prend.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4252,6 +4286,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-088 | Terminé : release 0.8.1 publiée (11 fichiers, APK 801 signée par la clé de release, plugin 0.8.1) |
 | 2026-11-02 | T-089 | Étude faite : page 200-300 Mo, Accueil organisé = 66 catalogues et 612 affiches d'un coup, aperçus +40-60 Mo, +5 Mo par fiche ; choix de l'utilisateur notés |
 | 2026-11-02 | T-090 | Créée et faite : Accueil organisé chargé au fil de la télécommande (6 catalogues au démarrage au lieu de 66), jamais les rangées masquées |
+| 2026-11-02 | T-091 | Créée et faite : affiches TMDB et TheTVDB en copie réduite sur TV, images d'aperçu décodées d'avance 24 → 6 |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
