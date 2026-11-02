@@ -23,6 +23,7 @@
     deviceInfo: () => { try { return JSON.parse(bridge.deviceInfo ? bridge.deviceInfo(TOKEN) : "{}"); } catch (_) { return {}; } },
     setLanguage: (lang) => { if (bridge.setLanguage) bridge.setLanguage(TOKEN, lang); },
     launchedAt: () => { try { return bridge.launchedAt ? Number(bridge.launchedAt(TOKEN)) || 0 : 0; } catch (_) { return 0; } },
+    drawnSize: () => { try { return bridge.drawnSize ? String(bridge.drawnSize(TOKEN) || "") : ""; } catch (_) { return ""; } },
   };
 
   // Nathflix speaks French or English, as Stremio's interface does: read the way the plugin reads it
@@ -103,6 +104,10 @@
   tv.lowRes = true;
   // …and switches it as soon as the setting changes (an older app: the next time it starts)
   tv.lowResLive = true;
+  // …at 1080p at most (an older app: 720p)
+  tv.lowResHd = true;
+  // the size the page is drawn at ("1920x1080"), from the app: the page's own figures say 4K on some TVs whatever it is
+  tv.drawnSize = () => native.drawnSize();
   // when the app was opened (ms since 1970; 0 from an older app): the performance readout's start-up time
   tv.launchedAt = native.launchedAt();
 

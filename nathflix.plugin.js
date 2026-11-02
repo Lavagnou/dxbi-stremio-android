@@ -580,7 +580,7 @@
       type: "select",
       label: t("Lighter rendering on TV"),
       // (an app that switches it at once says so: an older one only reads it as it starts)
-      description: t("The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).") + " " + (window.__nathflixTv && window.__nathflixTv.lowResLive ? t("Takes effect at once.") : t("Takes effect the next time the app starts.")),
+      description: t(window.__nathflixTv && window.__nathflixTv.lowResHd ? "The page is drawn at 1080p at most and enlarged to the screen: on a 4K TV, a quarter of the pixels to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less)." : "The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).") + " " + (window.__nathflixTv && window.__nathflixTv.lowResLive ? t("Takes effect at once.") : t("Takes effect the next time the app starts.")),
       defaultValue: DEFAULTS.tvLowRes,
       // (only with an app that can do it: an older one ignores the setting)
       tvOnly: true,
@@ -8614,6 +8614,15 @@
     };
   })();
 
+  // The size a TV draws the page at: the app says (the page's own figures said 4K on a 4K Fire TV even
+  // with the page drawn smaller), else the page's figures
+  function drawnSize() {
+    const said = window.__nathflixTv && window.__nathflixTv.drawnSize ? String(window.__nathflixTv.drawnSize() || "") : "";
+    const m = /^(\d+)x(\d+)$/.exec(said);
+    if (m && Number(m[1]) > 0) return { w: Number(m[1]), h: Number(m[2]) };
+    return { w: Math.round(window.outerWidth * window.devicePixelRatio), h: Math.round(window.outerHeight * window.devicePixelRatio) };
+  }
+
   // ---------------------------------------------------------------------------
   // Performance readout (setting): how long Nathflix took to answer the last key presses and taps, and
   // how often the page got stuck (a task of 50 ms or more) over the last 10 seconds, in a corner. To see
@@ -8731,7 +8740,7 @@
         ...(typeof window.__nathflixTvPluginMs === "number" ? [t("Plugin loaded in {ms} ms", { ms: window.__nathflixTvPluginMs })] : []),
         // (the pixels the device really draws the page at, the size of the app's page view: "Lighter
         // rendering on TV" brings it to 720p. The page's own width is always 1280, zoomed to fit.)
-        ...(IN_TV ? [t("Page drawn at {w}×{h}", { w: Math.round(window.outerWidth * window.devicePixelRatio), h: Math.round(window.outerHeight * window.devicePixelRatio) })] : []),
+        ...(IN_TV ? [t("Page drawn at {w}×{h}", drawnSize())] : []),
       ];
     },
 
@@ -17933,6 +17942,7 @@ vec4 hook() {
       "This device doesn't count as modest.": "Cet appareil n'est pas considéré comme modeste.",
       "Lighter rendering on TV": "Rendu allégé sur TV",
       "The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).": "La page est dessinée en 720p puis agrandie à l'écran : bien moins de pixels à dessiner pour la TV, pour un texte un peu moins net. Auto l'active sur une TV modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins).",
+      "The page is drawn at 1080p at most and enlarged to the screen: on a 4K TV, a quarter of the pixels to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).": "La page est dessinée en 1080p au plus puis agrandie à l'écran : sur une TV 4K, quatre fois moins de pixels à dessiner, pour un texte un peu moins net. Auto l'active sur une TV modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins).",
       "Takes effect at once.": "Prend effet tout de suite.",
       "Takes effect the next time the app starts.": "Prend effet au prochain démarrage de l'app.",
       "Performance readout": "Mesure des performances",

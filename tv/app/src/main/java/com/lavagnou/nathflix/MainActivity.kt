@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
         root.setBackgroundColor(getColor(R.color.background))
         root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
-        // "Lighter rendering on TV": the page is drawn 1280 pixels wide, then enlarged to the screen
+        // "Lighter rendering on TV": the page is drawn at 1080p at most, then enlarged to the screen
         applyLowRes()
         // Phones and tablets: the page sits between the status and navigation bars, clear of a notch,
         // and above the keyboard while it's open (so the box being typed in stays in sight)
@@ -306,6 +306,9 @@ class MainActivity : AppCompatActivity() {
 
     private var lowResWatch: View.OnLayoutChangeListener? = null
 
+    /** The size the page is drawn at, in pixels ("1920x1080"), for the plugin's performance readout */
+    fun drawnSize(): String = if (::web.isInitialized) "${web.width}x${web.height}" else ""
+
     /**
      * "Lighter rendering on TV" as the setting says now: at the start, and again as soon as it changes
      * (Bridge.saveSetting). Read only at the start, it never took on a Fire TV: opening the app again
@@ -332,16 +335,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * The page laid out 1280 pixels wide (the width it's designed at anyway) and enlarged to fill the
-     * screen: the TV draws a 720p page rather than a 1080p or 4K one, at the cost of slightly softer text
+     * The page drawn 1920 pixels wide and enlarged to fill the screen: a 4K TV draws a 1080p page, a
+     * quarter of the pixels, for slightly softer text (720p, tried first, made the text too blurry for
+     * the user). A screen no wider than 1080p is left as it is
      */
     private fun drawSmaller(width: Int, height: Int) {
-        if (width <= LOW_RES_WIDTH || height <= 0) return
-        val scale = width / LOW_RES_WIDTH.toFloat()
+        if (width <= LIGHT_WIDTH || height <= 0) return
+        val scale = width / LIGHT_WIDTH.toFloat()
         val tall = kotlin.math.ceil(height / scale).toInt()
         val params = web.layoutParams
-        if (params.width == LOW_RES_WIDTH && params.height == tall) return
-        web.layoutParams = FrameLayout.LayoutParams(LOW_RES_WIDTH, tall)
+        if (params.width == LIGHT_WIDTH && params.height == tall) return
+        web.layoutParams = FrameLayout.LayoutParams(LIGHT_WIDTH, tall)
         web.pivotX = 0f
         web.pivotY = 0f
         web.scaleX = scale
@@ -426,7 +430,7 @@ class MainActivity : AppCompatActivity() {
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
         // the page's width on a TV (nathflix-tv.js's viewport), and what "Lighter rendering on TV" draws
-        private const val LOW_RES_WIDTH = 1280
+        private const val LIGHT_WIDTH = 1920
         // SPLASH_READY in nathflix.plugin.js (Home's rows, a details page, Settings…)
         private const val PAGE_READY = """[class*="meta-item-container"], [class*="metadetails-container"], [class*="player-container"], [class*="settings-content"], [class*="addons-content"]"""
     }

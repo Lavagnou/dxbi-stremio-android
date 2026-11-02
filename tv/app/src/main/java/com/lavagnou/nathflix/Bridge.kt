@@ -51,6 +51,10 @@ class Bridge(private val activity: MainActivity) {
     @JavascriptInterface
     fun launchedAt(token: String): Long = if (!allowed(token)) 0L else activity.launchedAt
 
+    /** The size the page is drawn at ("1920x1080"): the page itself can't tell on every TV */
+    @JavascriptInterface
+    fun drawnSize(token: String): String = if (!allowed(token)) "" else activity.drawnSize()
+
     @JavascriptInterface
     fun setLanguage(token: String, lang: String) {
         if (!allowed(token)) return

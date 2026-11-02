@@ -154,6 +154,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-094 | Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change | À valider | P1 | tv, plugin | T-051, T-092 | 2026-11-02 |
 | T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | Terminé | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
 | T-096 | TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons | À valider | P2 | plugin | — | 2026-11-02 |
+| T-097 | Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app | À valider | P1 | tv, plugin | T-094 | 2026-11-02 |
 
 ---
 
@@ -4347,6 +4348,38 @@ Choix de l'utilisateur :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-097 — Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app
+
+- **Statut :** À valider (sur la Fire TV 4K de l'utilisateur : « Page dessinée en 1920×1080 » avec le réglage actif)
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** T-094
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Ça affiche toujours dessiné en 4K mais je vois bien quand je l'active et le désactive que l'interface est beaucoup moins net donc ça a l'air de marcher. Par contre le gain est assez minime et 720p ça devient assez flou sur les texte, du coup j'aimerais que le rendu allégé soit plutôt en 1080p que en 720p.
+
+**Critères d'acceptation**
+- [x] « Rendu allégé sur TV » dessine la page en 1080p au plus (un écran 4K : 1920×1080, agrandie ×2) ; un écran 1080p ou moins est laissé tel quel
+- [x] La mesure à l'écran donne la taille que l'app dessine vraiment
+- [ ] Vérifié sur la Fire TV 4K de l'utilisateur
+
+**Notes techniques**
+- `MainActivity` : `LIGHT_WIDTH` = 1920 (au lieu de `LOW_RES_WIDTH` = 1280) dans `drawSmaller()`. La page garde sa largeur de 1280 px CSS : elle est dessinée à 1,5 pixel par px CSS, comme sur une TV 1080p.
+- **Mesure** : la page calculait la taille d'après ses propres chiffres (`outerWidth × devicePixelRatio`), qui disaient 4K sur la Fire TV de l'utilisateur, rendu allégé actif ou non. `MainActivity.drawnSize()` (taille de la WebView en pixels) → `Bridge.drawnSize` (avec le jeton) → `native.drawnSize` / `tv.drawnSize()` dans `nathflix-tv.js` → `drawnSize()` du plugin, utilisé par la mesure ; une app plus ancienne : les chiffres de la page, comme avant.
+- `tv.lowResHd` : la description du réglage dit « 1080p au plus » avec une telle app, « 720p » avec une plus ancienne (texte gardé, traduction ajoutée pour le nouveau).
+- **Non vérifié en 4K ici** : l'émulateur ignore `wm size`, et une configuration en 3840×2160 ne démarre pas (essayée sur une copie puis sur l'émulateur principal, remis en 1920×1080 ensuite ; la fenêtre de rapport de plantage de l'émulateur bloquait son redémarrage : rapports effacés). Le chemin du code est celui de T-051/T-094, seule la largeur visée change ; la nouvelle mesure le dira sur la TV.
+
+**Vérification**
+- `node --check`, traductions ; build de test compilée en local.
+- Émulateur (écran 1080p), compte de l'utilisateur : `tv.drawnSize()` = « 1920x1080 » ; Activé, Désactivé, Auto : la page reste en 1920×1080 (rien à alléger sur un écran 1080p).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : 0.8.3
+
 <!--
 ### T-000 — Titre court
 
@@ -4468,6 +4501,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-095 | En cours : release 0.8.2 demandée par l'utilisateur |
 | 2026-11-02 | T-095 | Terminé : release 0.8.2 publiée (11 fichiers, APK 802 signée par la clé de release, plugin 0.8.2) |
 | 2026-11-02 | T-096 | Créée et faite : sur TV, le billboard tourne en mode léger et avec la télécommande sur ses boutons (choix de l'utilisateur) |
+| 2026-11-02 | T-097 | Créée et faite : rendu allégé en 1080p au plus (720p trop flou pour l'utilisateur), mesure à l'écran donnée par l'app (`drawnSize`) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
