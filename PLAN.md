@@ -155,6 +155,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | Terminé | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
 | T-096 | TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons | À valider | P2 | plugin | — | 2026-11-02 |
 | T-097 | Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app | À valider | P1 | tv, plugin | T-094 | 2026-11-02 |
+| T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | En cours | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
 
 ---
 
@@ -4380,6 +4381,36 @@ Choix de l'utilisateur :
 - Commits : voir le journal
 - Version / CHANGELOG : 0.8.3
 
+### T-098 — Release 0.8.3 (billboard sur TV, rendu allégé en 1080p)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-096, T-097
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Fait une nouvelle release quand tu auras terminé
+
+**Critères d'acceptation**
+- [x] `@version 0.8.3`, section `## 0.8.3` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.8.3`, release avec ses fichiers
+- [ ] APK signée par la clé de release, versionCode 803, plugin embarqué en 0.8.3
+
+**Notes techniques**
+- **Contenu** : T-096 (billboard qui tourne sur TV), T-097 (rendu allégé en 1080p, mesure donnée par l'app).
+- **Nouvelle APK** : T-097 (`LIGHT_WIDTH`, `Bridge.drawnSize`).
+- macOS : l'utilisateur n'utilise pas les versions Linux et macOS (« Publie quand même, j'utilise pas les version Linux et macOS », T-095) : une machine macOS absente chez GitHub ne bloque pas la release.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4502,6 +4533,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-095 | Terminé : release 0.8.2 publiée (11 fichiers, APK 802 signée par la clé de release, plugin 0.8.2) |
 | 2026-11-02 | T-096 | Créée et faite : sur TV, le billboard tourne en mode léger et avec la télécommande sur ses boutons (choix de l'utilisateur) |
 | 2026-11-02 | T-097 | Créée et faite : rendu allégé en 1080p au plus (720p trop flou pour l'utilisateur), mesure à l'écran donnée par l'app (`drawnSize`) |
+| 2026-11-02 | T-098 | En cours : release 0.8.3 demandée par l'utilisateur |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

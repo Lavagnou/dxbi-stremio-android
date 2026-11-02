@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.3
+- **Nathflix TV: the billboard turns again.** On a TV stick it held its first title for good: light mode (on by itself there) stopped it, and so did the remote resting on *Play* or *More Info*. It now turns on a TV in light mode too, with a plain fade, and the remote moves along to the same button of the next title; a key pressed starts the wait again, so it never changes just as you press OK.
+- **Nathflix TV: lighter rendering at 1080p.** *Lighter rendering on TV* now draws the page at 1080p rather than 720p: a 4K TV draws a quarter of the pixels, with text that stays sharp (a 1080p TV is left as it is). The performance readout's *Page drawn at* now gives the size the app really draws: on a 4K Fire TV it said 4K whatever it was.
+
 ## 0.8.2
 - **Nathflix TV: no more running out of memory after a while.** Every series' page you opened then left stayed in memory (its episode pictures still waiting to load kept it there), about 5 MB each, until the TV closed Nathflix's screen ("stopped twice in a row"). Pages you leave are now let go.
 - **Nathflix TV: a quicker start with Home organised.** With your own order or hidden rows (*Organise Home*), all of Home's rows were fetched at once as the app opened, hidden ones included: hundreds of posters, and a minute of slowness on a TV stick. Home now gets its first rows as it opens and the next ones just before the remote reaches them, in your order, and never the rows you hid.
