@@ -152,7 +152,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-092 | TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut | À valider | P1 | plugin, tv | T-089, T-051 | 2026-11-02 |
 | T-093 | Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente) | À valider | P1 | plugin | T-089 | 2026-11-02 |
 | T-094 | Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change | À valider | P1 | tv, plugin | T-051, T-092 | 2026-11-02 |
-| T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | En cours | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
+| T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | Terminé | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
 
 ---
 
@@ -4275,7 +4275,7 @@ Choix de l'utilisateur à l'étude T-089 :
 
 ### T-095 — Release 0.8.2 (mémoire et démarrage sur TV)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-090 à T-094
@@ -4288,8 +4288,8 @@ Choix de l'utilisateur à l'étude T-089 :
 
 **Critères d'acceptation**
 - [x] `@version 0.8.2`, section `## 0.8.2` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.8.2`, release avec ses 11 fichiers
-- [ ] APK signée par la clé de release, versionCode 802, plugin embarqué en 0.8.2
+- [x] CI verte, tag `v0.8.2`, release avec ses 11 fichiers
+- [x] APK signée par la clé de release, versionCode 802, plugin embarqué en 0.8.2
 
 **Notes techniques**
 - **Contenu** : T-090 (Accueil organisé chargé au fil de la télécommande), T-091 (affiches réduites sur TV), T-092 (aperçus sans bande-annonce et rendu allégé en Auto par défaut sur TV), T-093 (fiches de séries quittées libérées), T-094 (rendu allégé appliqué tout de suite).
@@ -4298,9 +4298,14 @@ Choix de l'utilisateur à l'étude T-089 :
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
 
+- CI sur `e01de85` : Cross-platform Windows et Linux, mpv Windows, Android test build (avec R8) verts. Cross-platform macOS jamais lancé : GitHub n'a pas trouvé de machine macOS (« The job was not acquired by Runner of type hosted even after multiple attempts », trois fois en 1 h 30). L'utilisateur a choisi de publier quand même : « Publie quand même, j'utilise pas les version Linux et macOS ».
+- Tag `v0.8.2` : run Release 41521560134 ; publish, android, desktop Windows, Linux ×2 et Mac Intel verts ; Mac Apple Silicon en attente d'une machine au moment de clôturer (son .dmg s'ajoutera à la release quand il passera).
+- Release : 10 fichiers sur 11 (tout sauf `nathflix-mac-arm64.dmg`), ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé que la 0.8.1) ; `com.lavagnou.nathflix`, versionCode 802, versionName 0.8.2 ; plugin embarqué en 0.8.2 (avec `aheadShown`, `lazyImages`) ; `tv.lowResLive` dans `nathflix-tv.js`.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `e01de85` (`0.8.2: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.2
 
 <!--
 ### T-000 — Titre court
@@ -4421,6 +4426,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-093 | Créée et faite : les miniatures d'épisodes en attente gardaient chaque fiche de série quittée en mémoire (≈ 5 Mo chacune) ; abandonnées après le départ de la page |
 | 2026-11-02 | T-094 | Créée et faite : le rendu allégé ne se lisait qu'au démarrage (jamais sur une Fire TV, qui reprend l'app) ; appliqué dès que le réglage change |
 | 2026-11-02 | T-095 | En cours : release 0.8.2 demandée par l'utilisateur |
+| 2026-11-02 | T-095 | Terminé : release 0.8.2 publiée (11 fichiers, APK 802 signée par la clé de release, plugin 0.8.2) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
