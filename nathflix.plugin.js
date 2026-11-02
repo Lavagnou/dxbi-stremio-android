@@ -1,7 +1,7 @@
 /**
  * @name Nathflix
  * @description The Nathflix experience: cinematic billboard, Netflix-style carousels, hover previews with trailers, ratings on posters, critic reviews, skip intro and up next, anime filler guide, new episode badges, watch stats and viewers, stream sorting & filters, a Netflix-style player with black-bar removal, night mode and subtitle sync, watch parties with friends, a cinematic intro and interface sounds. Use with the Nathflix theme.
- * @version 0.8.0
+ * @version 0.8.1
  * @author lavagnou
  * @updateUrl https://raw.githubusercontent.com/lavagnou/dxbi-stremio-android/main/nathflix.plugin.js
  */
@@ -19,7 +19,7 @@
   // Stremio Enhanced loads each plugin as <script id="<file name>">, which tells us our settings key
   const SCRIPT_ID = (document.currentScript && document.currentScript.id) || "nathflix.plugin.js";
   const PLUGIN_KEY = SCRIPT_ID.replace(/\.plugin\.js$/, "");
-  const PLUGIN_VERSION = "0.8.0"; // kept in step with @version by tools/bundle-theme.mjs
+  const PLUGIN_VERSION = "0.8.1"; // kept in step with @version by tools/bundle-theme.mjs
   // Recent messages and errors, kept for problem reports (see `report`)
   const recent = { logs: [], errors: [] };
   const remember = (list, text) => {
@@ -1998,7 +1998,7 @@
       if (!local || !local.trailer) return;
       e.preventDefault();
       e.stopImmediatePropagation();
-      theatre.open({ id: local.trailer, start: 0, title: local.name || "", logo: isImdb(title[1]) ? art.logo(title[1]) : "", href: location.hash.replace(/^#/, "") });
+      theatre.open({ id: local.trailer, start: 0, title: local.name || "", logo: isImdb(title[1]) ? art.logo(title[1]) : "", cover: isImdb(title[1]) ? art.background(title[1]) : "", href: location.hash.replace(/^#/, "") });
     },
 
     // Stremio's summary of the title on show (a title's page, Discover's side panel), in the language
@@ -3040,7 +3040,7 @@
       const play = wrap.querySelector(".dxm-play");
       if (!clip || token !== this.token || !play || wrap.querySelector(".dxm-trailer")) return;
       const title = meta.localName || meta.name || info.title || "";
-      play.insertAdjacentHTML("afterend", `<button class="dxm-trailer" data-trailer="${esc(clip)}" data-title="${esc(title)}" data-logo="${esc(artFor(meta, info.id, "logo") || "")}">${ICONS.film}<span>${t("Trailer")}</span></button>`);
+      play.insertAdjacentHTML("afterend", `<button class="dxm-trailer" data-trailer="${esc(clip)}" data-title="${esc(title)}" data-logo="${esc(artFor(meta, info.id, "logo") || "")}" data-cover="${esc(artFor(meta, info.id, "background") || "")}">${ICONS.film}<span>${t("Trailer")}</span></button>`);
     },
 
     // Series: Resume where this viewer stopped (its episode's streams), otherwise the episode list
@@ -3105,7 +3105,7 @@
         const clip = e.target.closest("[data-trailer]");
         if (clip) {
           this.close();
-          theatre.open({ id: clip.dataset.trailer, start: 0, title: clip.dataset.title, logo: clip.dataset.logo, href: info.href.replace(/^#/, "") });
+          theatre.open({ id: clip.dataset.trailer, start: 0, title: clip.dataset.title, logo: clip.dataset.logo, cover: clip.dataset.cover, href: info.href.replace(/^#/, "") });
           return;
         }
         const go = e.target.closest("[data-href]");
@@ -9674,8 +9674,9 @@
   .dxe-theatre.is-in { opacity: 1; }
   .dxe-theatre.is-idle { cursor: none; }
   .dxe-th-video { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-  .dxe-th-video iframe { width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); border: 0; pointer-events: none; opacity: 0; transition: opacity .6s ease; }
-  .dxe-theatre.is-playing .dxe-th-video iframe { opacity: 1; }
+  .dxe-th-video iframe { position: relative; width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); border: 0; pointer-events: none; opacity: 0; }
+  .dxe-theatre.is-clear .dxe-th-video iframe { opacity: 1; transition: opacity .6s ease; }
+  .dxe-th-cover { position: absolute; width: min(100vw, 177.78vh); height: min(56.25vw, 100vh); background: #000 center / cover no-repeat; }
   .dxe-th-shade { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(0,0,0,.7) 0%, transparent 22%, transparent 55%, rgba(0,0,0,.85) 100%); transition: opacity .45s ease; }
   .dxe-th-top, .dxe-th-bottom { position: absolute; left: 0; right: 0; padding: 0 3.5rem; transition: opacity .45s ease, transform .45s ease; }
   .dxe-th-top { top: 0; height: 5.5rem; display: flex; align-items: center; justify-content: space-between; }
@@ -14218,8 +14219,12 @@
     state: { time: 0, duration: 0, playing: false, muted: false },
     idleTimer: null,
     tick: null,
+    // YouTube puts its title, buttons and logo over the picture (controls=0 or not) for about 4 s
+    // each time it starts playing (the start, after a pause or a seek), and while paused: until
+    // they're gone, the picture stays hidden under the title's image (cover)
+    REVEAL_MS: 4300,
 
-    open({ id, start, title, logo, href }) {
+    open({ id, start, title, logo, href, cover }) {
       this.close();
       ensureExtrasStyle();
       const el = document.createElement("div");
@@ -14227,7 +14232,7 @@
       el.setAttribute("role", "dialog");
       el.setAttribute("aria-label", t("{title} trailer", { title }));
       el.innerHTML = `
-        <div class="dxe-th-video"><iframe allow="autoplay; encrypted-media; fullscreen" tabindex="-1"
+        <div class="dxe-th-video"><div class="dxe-th-cover" style="background-image:${esc([cover && cssUrl(cover), cssUrl(`https://i.ytimg.com/vi/${encodeURIComponent(id)}/hqdefault.jpg`)].filter(Boolean).join(", "))}"></div><iframe allow="autoplay; encrypted-media; fullscreen" tabindex="-1"
           src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=0&controls=0&disablekb=1&fs=0&iv_load_policy=3&cc_load_policy=0&modestbranding=1&playsinline=1&rel=0&enablejsapi=1&start=${start}&origin=${encodeURIComponent(location.origin)}"></iframe></div>
         <div class="dxe-th-shade"></div>
         <div class="dxe-th-top">
@@ -14261,6 +14266,8 @@
       this.el = el;
       this.frame = el.querySelector("iframe");
       this.state = { time: start, duration: 0, playing: false, muted: false };
+      this.since = 0; // when it last started playing (REVEAL_MS)
+      this.yt = null; // the last state YouTube gave
       this.wantSound = true; // until the viewer mutes it themselves
       this.byFinger = false;
       this.frame.addEventListener("load", () => {
@@ -14318,14 +14325,20 @@
       if (typeof info.muted === "boolean") th.state.muted = info.muted;
       if (typeof info.playerState === "number") {
         th.state.playing = info.playerState === 1 || info.playerState === 3;
-        if (info.playerState === 1 && th.el && !th.el.classList.contains("is-playing")) {
-          th.el.classList.add("is-playing");
-          // YouTube's own captions stay off; ours is a clean picture. Sound on, as the viewer asked
+        if (info.playerState === 1 && th.yt !== 1) {
+          th.since = Date.now(); // (its buttons show again: see REVEAL_MS)
+          // YouTube's own captions stay off (they come back each time it plays); ours is a clean picture
           th.command("unloadModule", ["captions"]);
           th.command("unloadModule", ["cc"]);
-          if (th.wantSound) { th.command("unMute"); th.command("setVolume", [100]); }
+          if (th.el && !th.el.classList.contains("is-playing")) {
+            th.el.classList.add("is-playing");
+            // sound on, as the viewer asked
+            if (th.wantSound) { th.command("unMute"); th.command("setVolume", [100]); }
+          }
         }
-        // the end: hold on the last frame with the controls up, like Netflix
+        th.yt = info.playerState;
+        th.paint();
+        // the end: the title's image with the controls up (never YouTube's suggestions)
         if (info.playerState === 0) th.wake(true);
       }
     },
@@ -14364,7 +14377,8 @@
     toggle() {
       this.command(this.state.playing ? "pauseVideo" : "playVideo");
       this.state.playing = !this.state.playing;
-      this.paint();
+      if (this.state.playing) this.since = Date.now();
+      this.paint(); // (paused: the picture hides at once, before YouTube's buttons come)
     },
 
     toggleMute() {
@@ -14376,6 +14390,7 @@
 
     seekTo(time) {
       this.state.time = time;
+      this.since = Date.now();
       this.command("seekTo", [time, true]);
       this.paint();
     },
@@ -14399,6 +14414,7 @@
       const { time, duration, playing, muted } = this.state;
       const f = duration ? Math.min(1, time / duration) : 0;
       el.style.setProperty("--dxe-th-progress", f);
+      el.classList.toggle("is-clear", playing && this.since > 0 && Date.now() - this.since >= this.REVEAL_MS);
       el.querySelector(".dxe-th-time").textContent = duration ? `${formatClock(time)} / ${formatClock(duration)}` : formatClock(time);
       const toggle = el.querySelector('[data-th="toggle"]');
       if (toggle.dataset.state !== String(playing)) {

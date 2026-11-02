@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+- **Phones: a Trailer button.** A title's sheet (tap a poster) now has *Trailer* under *Play*, when the title has one: it plays full screen, in French when your TMDB key finds a French one, and Back closes it.
+- **Phones: hold a title for its menu.** Holding a finger on any film or series now opens its sheet (*Play*, *Trailer*, *My List*, *Hide*, *Episodes & info*). It did nothing on Home's rows, Discover and Search, where Stremio gives titles no menu; Continue Watching and the Library keep Stremio's.
+- **Trailers without YouTube's buttons.** Full-screen trailers no longer show YouTube's title, buttons and logo over the picture: the title's image stays up while YouTube shows them (the first seconds, after a pause or a jump, and while paused), and YouTube's automatic captions no longer come back after a pause. On a phone, a tap brings the controls back without pausing, and they fit the screen.
+
 ## 0.8.0
 - **Continue Watching opens the series.** A series in Continue Watching (Home's row and its *See all* page) now opens the series' page, where *Resume S1 E3* plays from where you left off, rather than the episode's list of streams. Films are unchanged.
 - **The billboard is whole again.** With Home organised (*Organise Home*), the billboard was squeezed into a strip showing only its bottom, on computers and on phones held upright.

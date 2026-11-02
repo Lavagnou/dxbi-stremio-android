@@ -144,6 +144,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-084 | Billboard écrasé (seul le bas visible) quand l'Accueil est réorganisé | À valider | P1 | plugin | — | 2026-11-02 |
 | T-085 | Ordre de l'Accueil pas répercuté sur les autres appareils (synchro plus rapide, réception même quand un envoi est refusé) | À valider | P1 | plugin | T-027 | 2026-11-02 |
 | T-086 | Téléphone : bouton Bande-annonce dans la feuille d'un titre, appui long qui l'ouvre | À valider | P2 | plugin | — | 2026-11-02 |
+| T-087 | Bande-annonce en plein écran : l'interface du lecteur YouTube ne se voit plus | À valider | P2 | plugin | — | 2026-11-02 |
+| T-088 | Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube) | En cours | P1 | release, plugin | T-086, T-087 | 2026-11-02 |
 
 ---
 
@@ -3967,6 +3969,70 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release (l'app Android prend le plugin de la dernière release)
 
+### T-087 — Bande-annonce en plein écran : l'interface du lecteur YouTube ne se voit plus
+
+- **Statut :** À valider (sur les appareils de l'utilisateur)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Dans la lecture de bande d'annonce, on a parfois l'UI du player de YouTube qui est visible sur la vidéo, on pourrait pas le cacher pour qu'il n'apparaisse pas ?
+
+(capture du téléphone : bande-annonce en pause, avec le titre de la vidéo, la chaîne, le bouton lecture et le logo YouTube par-dessus)
+
+**Critères d'acceptation**
+- [x] Ni titre, ni bouton, ni logo de YouTube sur la vidéo : au démarrage, en pause, à la reprise, après un saut, à la fin
+- [x] Les sous-titres automatiques de YouTube ne reviennent pas après une pause
+- [ ] Vérifié sur les appareils de l'utilisateur
+
+**Notes techniques**
+- **Mesure** (Chrome, téléphone tactile, User-Agent de l'app Android et celui d'un téléphone : même résultat ; `perf2/trailer-ui.mjs`, scratchpad) : malgré `controls=0`, YouTube affiche son titre, la chaîne, un bouton pause, un lien et son logo pendant environ 4 s chaque fois qu'il passe en lecture : au démarrage, à la reprise après une pause, après un saut (encore là à +3,5 s, parti à +4,5 s depuis l'appui). En pause, chez l'utilisateur : titre, bouton lecture et logo. Rien ne se règle dans l'iframe (autre origine), et le bouton du milieu ne peut pas être rogné.
+- **`theatre`** : sous l'iframe, une image (`.dxe-th-cover`) : le fond du titre (`cover`, MetaHub), sinon la miniature de la bande-annonce (`i.ytimg.com/…/hqdefault.jpg`). L'iframe n'est visible (`is-clear`, posé par `paint()`) que si la lecture dure depuis `REVEAL_MS` (4,3 s) : `since` est remis à l'heure quand YouTube passe en lecture (`yt`, son dernier état), à la reprise (`toggle`) et à chaque saut (`seekTo`). En pause, à la fin ou en chargement initial, l'image reste. L'iframe disparaît d'un coup (le fondu ne sert qu'à l'apparition) : en pause, avant que les boutons de YouTube n'arrivent.
+- Le son continue pendant que l'image couvre la vidéo.
+- `unloadModule` des sous-titres à chaque passage en lecture (ils revenaient après une reprise).
+- `cover` passé par la feuille d'un titre (téléphone) et par le bouton Bande-annonce de la page d'un titre (`localMeta.onTrailer`) ; l'aperçu en plein écran d'une carte prend la miniature.
+
+**Vérification**
+- `node --check`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Chrome en téléphone, invité, User-Agent de l'app : captures à +1 / 3 / 4,5 / 5,5 s du démarrage, en pause (+0,3 et +1,5 s), +1 / 3 / 4,8 / 5,5 s après la reprise et après un saut. Avant : interface YouTube sur toutes les captures jusqu'à ~4 s. Après : l'image du titre, puis la vidéo seule (4,5 s : en fondu, sans interface) ; plus de sous-titres après la reprise.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : 0.8.1 (T-088)
+
+### T-088 — Release 0.8.1 (bande-annonce et appui long sur téléphone, sans interface YouTube)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, plugin
+- **Dépend de :** T-086, T-087
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Ensuite publie une 0.8.1 une fois que c'est ajouté
+
+**Critères d'acceptation**
+- [x] `@version 0.8.1`, section `## 0.8.1` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.8.1`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, versionCode 801, plugin embarqué en 0.8.1
+
+**Notes techniques**
+- **Contenu** : T-086 (bouton Bande-annonce dans la feuille d'un titre, appui long), T-087 (interface YouTube cachée).
+- Plugin seulement : l'APK 0.8.0 prend le plugin de la release (`Updates.checkPlugin`) ; l'APK 0.8.1 est publiée quand même (même code natif). Worker de synchro inchangé.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4076,6 +4142,8 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-062 | En cours : release 0.8.0 demandée par l'utilisateur |
 | 2026-11-02 | T-062 | Terminé : release 0.8.0 publiée (11 fichiers, APK 800 signée par la clé de release, plugin 0.8.0) |
 | 2026-11-02 | T-086 | Créée et faite : bouton Bande-annonce dans la feuille d'un titre, appui long sur une carte sans menu de Stremio qui ouvre la feuille |
+| 2026-11-02 | T-087 | Créée et faite : la vidéo reste sous l'image du titre tant que YouTube montre ses boutons (4,3 s après chaque lecture, et en pause) |
+| 2026-11-02 | T-088 | En cours : release 0.8.1 demandée par l'utilisateur |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
