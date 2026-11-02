@@ -152,6 +152,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-092 | TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut | À valider | P1 | plugin, tv | T-089, T-051 | 2026-11-02 |
 | T-093 | Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente) | À valider | P1 | plugin | T-089 | 2026-11-02 |
 | T-094 | Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change | À valider | P1 | tv, plugin | T-051, T-092 | 2026-11-02 |
+| T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | En cours | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
 
 ---
 
@@ -4272,6 +4273,35 @@ Choix de l'utilisateur à l'étude T-089 :
 - Commits : voir le journal
 - Version / CHANGELOG : 0.8.2
 
+### T-095 — Release 0.8.2 (mémoire et démarrage sur TV)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-090 à T-094
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Ouais fait une nouvelle release, et oui la page est dessiné en 4K, même avec le rendu allégé sur TV activé
+
+**Critères d'acceptation**
+- [x] `@version 0.8.2`, section `## 0.8.2` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.8.2`, release avec ses 11 fichiers
+- [ ] APK signée par la clé de release, versionCode 802, plugin embarqué en 0.8.2
+
+**Notes techniques**
+- **Contenu** : T-090 (Accueil organisé chargé au fil de la télécommande), T-091 (affiches réduites sur TV), T-092 (aperçus sans bande-annonce et rendu allégé en Auto par défaut sur TV), T-093 (fiches de séries quittées libérées), T-094 (rendu allégé appliqué tout de suite).
+- **Nouvelle APK** : T-092 (Auto par défaut côté app), T-094 (`applyLowRes`, `Bridge.saveSetting`). Worker de synchro inchangé.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4390,6 +4420,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-092 | Créée et faite : sur TV, aperçus sans bande-annonce et rendu allégé en Auto par défaut (choix de l'utilisateur) |
 | 2026-11-02 | T-093 | Créée et faite : les miniatures d'épisodes en attente gardaient chaque fiche de série quittée en mémoire (≈ 5 Mo chacune) ; abandonnées après le départ de la page |
 | 2026-11-02 | T-094 | Créée et faite : le rendu allégé ne se lisait qu'au démarrage (jamais sur une Fire TV, qui reprend l'app) ; appliqué dès que le réglage change |
+| 2026-11-02 | T-095 | En cours : release 0.8.2 demandée par l'utilisateur |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

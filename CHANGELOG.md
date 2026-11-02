@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.2
+- **Nathflix TV: no more running out of memory after a while.** Every series' page you opened then left stayed in memory (its episode pictures still waiting to load kept it there), about 5 MB each, until the TV closed Nathflix's screen ("stopped twice in a row"). Pages you leave are now let go.
+- **Nathflix TV: a quicker start with Home organised.** With your own order or hidden rows (*Organise Home*), all of Home's rows were fetched at once as the app opened, hidden ones included: hundreds of posters, and a minute of slowness on a TV stick. Home now gets its first rows as it opens and the next ones just before the remote reaches them, in your order, and never the rows you hid.
+- **Nathflix TV: lighter by default.** Hover cards no longer play trailers on a TV (Nathflix settings → *Trailers in hover cards* to turn them back on): each took a YouTube player and 40 to 60 MB. *Lighter rendering on TV* is now on *Auto*, which draws the page at 720p on a TV stick, and it switches as soon as you change it: it used to wait for a restart, which a Fire TV never does when you open the app again, so on a 4K TV the page stayed drawn in 4K.
+- **Nathflix TV: posters at the size of the screen.** TMDB and TheTVDB posters now come in the size a TV shows them, a third of the memory each.
+
 ## 0.8.1
 - **Phones: a Trailer button.** A title's sheet (tap a poster) now has *Trailer* under *Play*, when the title has one: it plays full screen, in French when your TMDB key finds a French one, and Back closes it.
 - **Phones: hold a title for its menu.** Holding a finger on any film or series now opens its sheet (*Play*, *Trailer*, *My List*, *Hide*, *Episodes & info*). It did nothing on Home's rows, Discover and Search, where Stremio gives titles no menu; Continue Watching and the Library keep Stremio's.
