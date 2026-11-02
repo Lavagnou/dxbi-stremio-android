@@ -155,7 +155,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-095 | Release 0.8.2 (mémoire et démarrage sur TV) | Terminé | P1 | release, tv, plugin | T-090 à T-094 | 2026-11-02 |
 | T-096 | TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons | À valider | P2 | plugin | — | 2026-11-02 |
 | T-097 | Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app | À valider | P1 | tv, plugin | T-094 | 2026-11-02 |
-| T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | En cours | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
+| T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | Terminé | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
 
 ---
 
@@ -4383,7 +4383,7 @@ Choix de l'utilisateur :
 
 ### T-098 — Release 0.8.3 (billboard sur TV, rendu allégé en 1080p)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-096, T-097
@@ -4396,8 +4396,8 @@ Choix de l'utilisateur :
 
 **Critères d'acceptation**
 - [x] `@version 0.8.3`, section `## 0.8.3` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.8.3`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 803, plugin embarqué en 0.8.3
+- [x] CI verte, tag `v0.8.3`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 803, plugin embarqué en 0.8.3
 
 **Notes techniques**
 - **Contenu** : T-096 (billboard qui tourne sur TV), T-097 (rendu allégé en 1080p, mesure donnée par l'app).
@@ -4407,9 +4407,14 @@ Choix de l'utilisateur :
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
 
+- CI verte sur `8c256c6` : Cross-platform (Windows, Linux et macOS), mpv Windows, Android test build (avec R8).
+- Tag `v0.8.3` : run Release 41541208057, tous les jobs verts (publish, android, desktop ×5).
+- Release : les 11 fichiers, ni brouillon ni pré-release. (La 0.8.2 en a maintenant 10.)
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé) ; `com.lavagnou.nathflix`, versionCode 803, versionName 0.8.3 ; plugin embarqué en 0.8.3 (avec `followFocus`) ; `tv.drawnSize` et `tv.lowResHd` dans `nathflix-tv.js`.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `8c256c6` (`0.8.3: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.3
 
 <!--
 ### T-000 — Titre court
@@ -4534,6 +4539,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-096 | Créée et faite : sur TV, le billboard tourne en mode léger et avec la télécommande sur ses boutons (choix de l'utilisateur) |
 | 2026-11-02 | T-097 | Créée et faite : rendu allégé en 1080p au plus (720p trop flou pour l'utilisateur), mesure à l'écran donnée par l'app (`drawnSize`) |
 | 2026-11-02 | T-098 | En cours : release 0.8.3 demandée par l'utilisateur |
+| 2026-11-02 | T-098 | Terminé : release 0.8.3 publiée (APK 803 signée par la clé de release, plugin 0.8.3) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
