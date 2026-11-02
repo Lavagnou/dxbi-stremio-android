@@ -239,11 +239,11 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
   - Réglages empilés ;
   - les toasts au-dessus de la barre d'onglets.
 - **Plugin, téléphone et tablette** :
-  - `titleSheet` : un tap sur un poster (Accueil, Recherche, Découvrir, Bibliothèque ; sauf Reprendre) ouvre une feuille en bas de l'écran, avec Play ou Resume, My List, Hide et « Episodes & info ». Back la ferme (`closePreview`).
+  - `titleSheet` : un tap sur un poster (Accueil, Recherche, Découvrir, Bibliothèque ; sauf Reprendre) ouvre une feuille en bas de l'écran, avec Play ou Resume, Trailer (si le titre en a une : `trailer.idFor`, puis `theatre`), My List, Hide et « Episodes & info ». Back la ferme (`closePreview`). Un appui long sur une carte sans menu de Stremio l'ouvre aussi (`cardPress.action`).
   - `mobileChips` : puces Shows, Movies et My List en haut de l'accueil, qui mènent aux catalogues « top » de Cinemeta.
   - Leur CSS (`.dxm-*`) est dans `EXTRAS_CSS`, toujours chargé.
 - **Partout** :
-  - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`). Le bouton ⋮ est caché par le thème (`visibility: hidden`), mais garde sa place dans le coin de la miniature : le menu s'ouvre à côté.
+  - `cardPress` : un appui long (500 ms) ou un clic droit sur une carte ouvre son menu ⋮ de Stremio (`menu-label-container`). Stremio n'en donne qu'à Continuer de regarder et à la Bibliothèque : sur téléphone et tablette, une autre carte ouvre sa feuille (`titleSheet`). Le bouton ⋮ est caché par le thème (`visibility: hidden`), mais garde sa place dans le coin de la miniature : le menu s'ouvre à côté.
   - `keyNav.SKIP` : ce que la télécommande ne sélectionne jamais. En mode léger, rien non plus dans les détails d'un titre (`SKIP_IN`, `meta-info-container` : genres et acteurs, des liens de Stremio), cherché une fois par touche (`skipping()`, `skips()`) : un sélecteur `[class*=…]` essayé par `closest()` sur chaque élément coûte cher.
   - `cwSeries` : une série de Continuer de regarder (rangée et page `continuewatching`) ouvre la page de la série (« Reprendre S1 É3 »), pas les sources de l'épisode où pointe le lien de Stremio.
   - `okHold` (sauf téléphone et tablette) : OK (Entrée) maintenu sur une carte avec menu ouvre ce menu (sinon la carte s'ouvre au relâchement), et une touche OK répétée n'appuie jamais deux fois (la WebView ne marque pas les répétitions : état propre à `okHold`). Retour ferme le menu (`cardPress.closeMenu`, via `closePreview`).

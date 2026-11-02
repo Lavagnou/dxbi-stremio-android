@@ -795,6 +795,7 @@
     expand: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5h5v5M9.5 19.5h-5v-5M19.5 4.5l-6 6M4.5 19.5l6-6"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
     remove: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M7.5 7.5l9 9M16.5 7.5l-9 9"/></svg>',
+    film: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>',
     playSmall: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M8 5.2v13.6a.8.8 0 0 0 1.22.68l10.8-6.8a.8.8 0 0 0 0-1.36L9.22 4.52A.8.8 0 0 0 8 5.2z"/></svg>',
   };
 
@@ -2995,13 +2996,18 @@
     el: null,
     token: 0,
 
+    // The title whose sheet a tap (or a held finger) on this card opens, or null
+    infoFor(target) {
+      const card = target instanceof Element && target.closest('#app [class*="meta-item-container"]');
+      if (!card || !/^(board|discover|search|library)$/.test(currentRoute())) return null;
+      if (card.closest('[class*="continue-watching-row"]')) return null;
+      if (target.closest('[class*="dismiss-icon-layer"], [class*="play-icon-layer"], [class*="menu-label-container"]')) return null;
+      return cardInfo(card);
+    },
+
     onClick(e) {
       if (!IN_MOBILE || e.defaultPrevented || e.button > 0) return;
-      const card = e.target.closest && e.target.closest('#app [class*="meta-item-container"]');
-      if (!card || !/^(board|discover|search|library)$/.test(currentRoute())) return;
-      if (card.closest('[class*="continue-watching-row"]')) return;
-      if (e.target.closest('[class*="dismiss-icon-layer"], [class*="play-icon-layer"], [class*="menu-label-container"]')) return;
-      const info = cardInfo(card);
+      const info = this.infoFor(e.target);
       if (!info) return;
       e.preventDefault();
       e.stopImmediatePropagation();
@@ -3028,6 +3034,13 @@
         else preview.library.ids.delete(info.id);
       }
       wrap.querySelector(".dxm-sheet").innerHTML = this.html(info, meta);
+      // The trailer button, under Play, once the title is known to have one (in the language when
+      // TMDB has it, as on its page)
+      const clip = await trailer.idFor(info, meta).catch(() => null);
+      const play = wrap.querySelector(".dxm-play");
+      if (!clip || token !== this.token || !play || wrap.querySelector(".dxm-trailer")) return;
+      const title = meta.localName || meta.name || info.title || "";
+      play.insertAdjacentHTML("afterend", `<button class="dxm-trailer" data-trailer="${esc(clip)}" data-title="${esc(title)}" data-logo="${esc(artFor(meta, info.id, "logo") || "")}">${ICONS.film}<span>${t("Trailer")}</span></button>`);
     },
 
     // Series: Resume where this viewer stopped (its episode's streams), otherwise the episode list
@@ -3087,6 +3100,12 @@
           this.close();
           restrict.toggleHidden({ ...info, name: info.title || (coreMeta.get(info.type, info.id) || {}).name });
           hideButton.toast(info);
+          return;
+        }
+        const clip = e.target.closest("[data-trailer]");
+        if (clip) {
+          this.close();
+          theatre.open({ id: clip.dataset.trailer, start: 0, title: clip.dataset.title, logo: clip.dataset.logo, href: info.href.replace(/^#/, "") });
           return;
         }
         const go = e.target.closest("[data-href]");
@@ -3159,18 +3178,28 @@
       return card.querySelector('[class*="menu-label-container"]');
     },
 
+    // What holding the card opens: its menu. Stremio only gives one to Continue Watching and the
+    // Library, so on a phone a title without one (Home's catalogs, Discover, Search) opens its
+    // sheet, which has Play, the trailer, My List and Hide
+    action(target) {
+      const menu = cardPress.menuOf(target);
+      if (menu) return () => menu.click();
+      const info = IN_MOBILE && titleSheet.infoFor(target);
+      return info ? () => titleSheet.open(info) : null;
+    },
+
     onDown(e) {
       cardPress.cancel();
       cardPress.fired = false;
       if (e.pointerType === "mouse" || !e.isPrimary) return;
-      const menu = cardPress.menuOf(e.target);
-      if (!menu) return;
+      const open = cardPress.action(e.target);
+      if (!open) return;
       cardPress.from = { x: e.clientX, y: e.clientY };
       cardPress.timer = setTimeout(() => {
         cardPress.timer = 0;
         try { navigator.vibrate && navigator.vibrate(12); } catch (_) { /* no vibration */ }
-        menu.click();
-        cardPress.fired = true; // after: that click itself must go through
+        open();
+        cardPress.fired = true; // after: a menu's own click must go through
       }, cardPress.HOLD_MS);
     },
 
@@ -3193,11 +3222,11 @@
     },
 
     onContext(e) {
-      const menu = cardPress.menuOf(e.target);
-      if (!menu) return;
+      const open = cardPress.action(e.target);
+      if (!open) return;
       e.preventDefault();
       if (cardPress.fired || cardPress.timer) return; // a held finger: the timer opens it
-      menu.click();
+      open();
     },
 
     // The menu open on a card (its "⋮" button is hidden, but still Stremio's way in)
@@ -9789,6 +9818,18 @@
   .dxm-x svg { width: 1.1rem; height: 1.1rem; }
   .dxm-play { display: flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; height: 2.75rem; margin: 1rem 0 .75rem; border: 0; border-radius: 6px; background: #fff; color: #000; font: 700 1rem Inter, system-ui, sans-serif; }
   .dxm-play svg { width: 1.3rem; height: 1.3rem; }
+  .dxm-trailer { display: flex; align-items: center; justify-content: center; gap: .5rem; width: 100%; height: 2.75rem; margin: -.25rem 0 .75rem; border: 0; border-radius: 6px; background: #3a3a3a; color: #fff; font: 700 1rem Inter, system-ui, sans-serif; }
+  .dxm-trailer svg { width: 1.3rem; height: 1.3rem; fill: none; stroke: currentColor; }
+  /* Phones and tablets: a trailer full screen, for a narrow screen and a finger */
+  html.dx-mobile .dxe-th-top, html.dx-mobile .dxe-th-bottom { padding: 0 1rem; }
+  html.dx-mobile .dxe-th-top { height: 3.75rem; }
+  html.dx-mobile .dxe-th-bottom { bottom: 1rem; gap: .6rem; }
+  html.dx-mobile .dxe-th-title img { max-width: 60vw; max-height: 4.5rem; }
+  html.dx-mobile .dxe-th-title span { font-size: 1.6rem !important; }
+  html.dx-mobile .dxe-th-row { gap: .4rem; }
+  html.dx-mobile .dxe-th-btn { height: 2.5rem; padding: 0 .9rem 0 .75rem; font-size: .9rem !important; }
+  html.dx-mobile .dxe-th-icon[data-tip]::after { display: none; }
+  html.dx-mobile .dxe-th-time { min-width: 0; }
   .dxm-actions { display: flex; gap: 2.25rem; padding: .25rem .5rem .75rem; }
   .dxm-actions button { display: flex; flex-direction: column; align-items: center; gap: .35rem; padding: 0; border: 0; background: none; color: #d9d9d9; font: 500 .75rem Inter, system-ui, sans-serif; }
   .dxm-actions svg { width: 1.6rem; height: 1.6rem; }
@@ -14212,13 +14253,16 @@
         el.querySelector(".dxe-th-title span").hidden = false;
       }, { once: true });
       el.addEventListener("click", (e) => this.onClick(e, href));
-      el.addEventListener("mousemove", () => this.wake());
+      // (a real mouse only: a finger's tap sends a mouse move too, just before its click)
+      el.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") this.wake(); });
+      el.addEventListener("pointerdown", (e) => { this.byFinger = e.pointerType !== "mouse"; });
       for (const type of ["pointerdown", "mousedown", "dblclick", "wheel", "touchstart"]) el.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
       document.body.append(el);
       this.el = el;
       this.frame = el.querySelector("iframe");
       this.state = { time: start, duration: 0, playing: false, muted: false };
       this.wantSound = true; // until the viewer mutes it themselves
+      this.byFinger = false;
       this.frame.addEventListener("load", () => {
         try { this.frame.contentWindow.postMessage(JSON.stringify({ event: "listening", id: 2, channel: "widget" }), "*"); } catch (_) { /* gone */ }
       });
@@ -14311,7 +14355,8 @@
         this.close();
         if (href) navigate(href);
       } else if (!b && e.target.closest(".dxe-th-video, .dxe-th-shade")) {
-        this.toggle();
+        // a finger's tap on the hidden controls brings them back; the next one pauses
+        if (!(this.byFinger && this.el.classList.contains("is-idle"))) this.toggle();
       }
       this.wake();
     },

@@ -143,6 +143,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-083 | Continuer de regarder : une série ouvre sa page, pas son épisode | À valider | P2 | plugin | T-012 | 2026-11-02 |
 | T-084 | Billboard écrasé (seul le bas visible) quand l'Accueil est réorganisé | À valider | P1 | plugin | — | 2026-11-02 |
 | T-085 | Ordre de l'Accueil pas répercuté sur les autres appareils (synchro plus rapide, réception même quand un envoi est refusé) | À valider | P1 | plugin | T-027 | 2026-11-02 |
+| T-086 | Téléphone : bouton Bande-annonce dans la feuille d'un titre, appui long qui l'ouvre | À valider | P2 | plugin | — | 2026-11-02 |
 
 ---
 
@@ -3923,6 +3924,49 @@ Puis, le lendemain (2026-11-02) :
 - Commits : `d70461e` (`0.8.0: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.0
 
+### T-086 — Téléphone : bouton Bande-annonce dans la feuille d'un titre, appui long qui l'ouvre
+
+- **Statut :** À valider (sur le téléphone de l'utilisateur)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Sur mobile il manque un bouton bande d'annonce sous le bouton Lecture quand on clique sur un une série/film , rajoute ça.
+
+> Et quand je laisse appuyer sur une série/film ça doit ouvrir le menu contextuel aussi
+
+**Critères d'acceptation**
+- [x] Un bouton « Bande-annonce » sous « Lecture » dans la feuille d'un titre (téléphone et tablette), seulement si le titre a une bande-annonce
+- [x] Il lance la bande-annonce en plein écran (lecteur de bandes-annonces de Nathflix), en français quand TMDB l'a ; Retour la ferme
+- [x] Un appui long sur un film ou une série ouvre un menu, y compris sur les cartes de l'Accueil, de Découvrir et de la Recherche
+- [x] Un toucher ouvre toujours la feuille ; « Continuer à regarder » et la Bibliothèque gardent le menu de Stremio
+- [ ] Vérifié sur le téléphone de l'utilisateur
+
+**Notes techniques**
+- **Cause de l'appui long sans effet** : Stremio ne donne un menu ⋮ qu'aux cartes de « Continuer à regarder » et de la Bibliothèque. Les cartes des catalogues (Accueil, Découvrir, Recherche) n'en ont pas (Chrome en téléphone, Accueil : 60 cartes, aucune avec `menu-label-container`). `cardPress` ne trouvait rien à ouvrir.
+- `cardPress.action()` : le menu de la carte s'il existe ; sinon, sur téléphone et tablette, la feuille du titre (`titleSheet.open`), qui a Lecture, Bande-annonce, Ma liste, Masquer et la page du titre. Utilisé par l'appui long (`onDown`) et par `contextmenu` (Android l'envoie sur un appui long : il est annulé sur ces cartes aussi).
+- `titleSheet.infoFor(target)` : les conditions de `onClick` (routes, pas « Continuer à regarder », pas les boutons de Stremio), partagées avec `cardPress`.
+- **Bande-annonce** : après les détails, `trailer.idFor(info, meta)` (la bande-annonce de TMDB en français déjà dans `meta` quand la clé TMDB est réglée, sinon celle de Cinemeta) ; le bouton `.dxm-trailer` est ajouté sous `.dxm-play` seulement s'il y en a une. Il ferme la feuille et ouvre `theatre` (logo du titre, « Lecture » et « Plus d'infos » vont à la page du titre).
+- **`theatre` au doigt** :
+  - CSS `html.dx-mobile` : marges, titre, boutons plus petits, pas d'infobulles ;
+  - un toucher sur la vidéo quand les commandes sont masquées les réaffiche sans mettre en pause. Le réveil passe par `pointermove` de la souris seulement : un doigt envoie aussi un `mousemove` juste avant son clic, qui réveillait les commandes avant que le clic ne les voie masquées (la vidéo se mettait en pause). `byFinger` retient si le dernier appui vient d'un doigt.
+- Nouvelle icône `ICONS.film`. Texte « Trailer » déjà traduit (« Bande-annonce »).
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus).
+- Chrome en téléphone (412 × 915, tactile, invité ; `perf2/hold-mob.mjs`, scratchpad), Accueil, carte « Populaire - Film » :
+  - avant : appui long de 900 ms → rien (ni menu ni feuille) ;
+  - après : appui long → feuille ouverte, pas de clic au relâchement ; bouton « Bande-annonce » 7 px sous « Lecture » ; toucher → bande-annonce en lecture, feuille fermée ; toucher sur la vidéo aux commandes masquées → commandes visibles, toujours en lecture ; Retour (`closePreview`) → fermée ; un toucher simple ouvre toujours la feuille.
+- Non vérifié : le téléphone de l'utilisateur (WebView Android).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release (l'app Android prend le plugin de la dernière release)
+
 <!--
 ### T-000 — Titre court
 
@@ -4031,6 +4075,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-060 | Terminé : l'utilisateur est d'accord pour ne pas embarquer Stremio Web |
 | 2026-11-02 | T-062 | En cours : release 0.8.0 demandée par l'utilisateur |
 | 2026-11-02 | T-062 | Terminé : release 0.8.0 publiée (11 fichiers, APK 800 signée par la clé de release, plugin 0.8.0) |
+| 2026-11-02 | T-086 | Créée et faite : bouton Bande-annonce dans la feuille d'un titre, appui long sur une carte sans menu de Stremio qui ouvre la feuille |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
