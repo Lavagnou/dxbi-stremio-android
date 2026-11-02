@@ -8747,12 +8747,48 @@
     }, 90);
   }
 
+  // Stremio shows a series' episode thumbnails (and most of its images) lazily: loaded once near the
+  // screen. One still waiting when its page goes keeps that whole page in memory, as the browser holds
+  // an image with a load pending: about 5 MB for each series' page left, until a TV's page engine ran
+  // out of memory. Images still waiting once their page is gone give up their address.
+  const lazyImages = {
+    seen: new WeakSet(),
+    refs: [],
+    hash: "",
+    timer: 0,
+
+    ensure() {
+      if (location.hash !== this.hash) {
+        this.hash = location.hash;
+        clearTimeout(this.timer);
+        // (Stremio takes the old page away a moment after the address changes)
+        this.timer = setTimeout(() => this.sweep(), 1500);
+      }
+      for (const img of document.querySelectorAll('#app img[loading="lazy"]')) {
+        if (this.seen.has(img)) continue;
+        this.seen.add(img);
+        if (!img.complete) this.refs.push(new WeakRef(img));
+      }
+    },
+
+    sweep() {
+      this.refs = this.refs.filter((ref) => {
+        const img = ref.deref();
+        if (!img || img.complete) return false;
+        if (img.isConnected) return true;
+        img.removeAttribute("srcset");
+        img.removeAttribute("src");
+        return false;
+      });
+    },
+  };
+
   function sync() {
     const steps = IN_ANDROID
       ? [updateRoute, brandTitle, checkScrolled, () => addonTools.ensure(), communitySync]
       : [updateRoute, brandTitle, checkScrolled, () => player.ensure(), () => { convert.ensure().catch(() => { /* player state not ready */ }); }, () => convert.confirmHevc(), () => externalDefault.ensure(), () => placeholder.ensure(), () => playbackHelp.ensure(), () => scrub.ensure(), () => enhance.ensure(), () => watchParty.ensure(), () => skip.ensure(), () => tune.ensure(), () => streamInfo.ensure(), () => addonTools.ensure(), communitySync];
     if (currentRoute() === "detail") steps.push(() => streamTools.ensure());
-    steps.push(() => perfReadout.ensure(), () => stremioPromo.ensure(), () => localMeta.page(), () => signInGate.check(), () => langWatch.check(), () => profileDefaults.watch(), () => cloudSync.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
+    steps.push(() => lazyImages.ensure(), () => perfReadout.ensure(), () => stremioPromo.ensure(), () => localMeta.page(), () => signInGate.check(), () => langWatch.check(), () => profileDefaults.watch(), () => cloudSync.watch(), () => catalogChoices.watch(), () => episodePlay.ensure(), () => reviews.ensure(), () => hideButton.ensure(), () => { endsAt.ensure().catch(() => { /* next sync */ }); }, () => { calendarFill.ensure().catch(() => { /* next sync */ }); }, () => { restrict.guard().catch(() => { /* next sync */ }); });
     if (currentRoute() !== "player") {
       steps.push(() => hero.ensure(), () => mobileChips.ensure(), filterRows, () => homeArrange.apply(), updateAllArrows, syncCards, () => librarySort.ensure(), () => libraryWatched.ensure(), applyWatchedTitles);
       // (TV: Home's first rows that show, whatever rows are switched off among the first ones asked for)

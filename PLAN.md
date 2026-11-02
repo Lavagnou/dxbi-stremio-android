@@ -150,6 +150,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-090 | Accueil organisé : rangées chargées au fil de la télécommande, jamais les masquées | À valider | P1 | plugin | T-089 | 2026-11-02 |
 | T-091 | TV : affiches à la taille de l'écran, moins d'images d'aperçu décodées d'avance | À valider | P2 | plugin | T-089 | 2026-11-02 |
 | T-092 | TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut | À valider | P1 | plugin, tv | T-089, T-051 | 2026-11-02 |
+| T-093 | Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente) | À valider | P1 | plugin | T-089 | 2026-11-02 |
 
 ---
 
@@ -4208,6 +4209,37 @@ Choix de l'utilisateur à l'étude T-089 :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-093 — Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente)
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur)
+- **Priorité :** P1
+- **Cible :** plugin
+- **Dépend de :** T-089
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+(voir T-089 : « l'app a planté deux fois d'affilé par manque de mémoire ram »)
+
+**Critères d'acceptation**
+- [x] Une fiche quittée ne reste pas en mémoire
+- [x] Mesuré : 10 fiches ouvertes et refermées à la télécommande, aucune page détachée gardée
+- [ ] Vérifié sur la Fire TV de l'utilisateur (plus de « l'écran de Nathflix s'est arrêté deux fois »)
+
+**Notes techniques**
+- **Cause** : les miniatures d'épisodes d'une série (`thumbnail … blurred`, MetaHub `episodes`) sont en `loading="lazy"`. Celles pas encore chargées quand la fiche part gardent une « activité en attente » dans Chromium, qui garde l'image, et par elle toute la page détachée (`route-container`, ≈ 200 éléments, ≈ 5 Mo). Trouvé avec `emu/detroots.mjs` (arbres détachés par racine : 10 `route-container` pour 10 fiches), `emu/leakpath.mjs` (chemin depuis les racines : `C++ roots → Pending activities → HTMLImageElement → … → route-container`) et `emu/detimgs.mjs` (images détachées : `loading=lazy`, `complete=false`). Seules les fiches de séries (épisodes) fuyaient : d'où « rien » en ouvrant les premiers titres par leur adresse (des films).
+- `lazyImages` (étape de `sync()`, toutes les pages) : chaque image `loading="lazy"` vue pas encore chargée est retenue par un `WeakRef` (vues une fois : `WeakSet`). 1,5 s après chaque changement d'adresse (Stremio retire l'ancienne page un instant après), `sweep()` retire `src` et `srcset` à celles toujours en attente qui ne sont plus dans la page : le chargement est abandonné et la page peut être libérée.
+- Vaut partout (le défaut est dans Chromium) ; la TV est la seule à en souffrir vraiment.
+
+**Vérification**
+- `node --check`, traductions.
+- Émulateur Fire TV, compte de l'utilisateur (`emu/memleak.mjs` : 10 titres des rangées, OK puis Retour) : éléments 4 117 → 6 807 avant, 4 117 → 4 226 après ; pages détachées gardées 10 → 0 ; moteur de rendu 193 → 213 Mo avant, 198 → 203 Mo après (sans bande-annonce d'aperçu, T-092).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4324,6 +4356,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-090 | Créée et faite : Accueil organisé chargé au fil de la télécommande (6 catalogues au démarrage au lieu de 66), jamais les rangées masquées |
 | 2026-11-02 | T-091 | Créée et faite : affiches TMDB et TheTVDB en copie réduite sur TV, images d'aperçu décodées d'avance 24 → 6 |
 | 2026-11-02 | T-092 | Créée et faite : sur TV, aperçus sans bande-annonce et rendu allégé en Auto par défaut (choix de l'utilisateur) |
+| 2026-11-02 | T-093 | Créée et faite : les miniatures d'épisodes en attente gardaient chaque fiche de série quittée en mémoire (≈ 5 Mo chacune) ; abandonnées après le départ de la page |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
