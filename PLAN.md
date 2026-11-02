@@ -151,6 +151,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-091 | TV : affiches à la taille de l'écran, moins d'images d'aperçu décodées d'avance | À valider | P2 | plugin | T-089 | 2026-11-02 |
 | T-092 | TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut | À valider | P1 | plugin, tv | T-089, T-051 | 2026-11-02 |
 | T-093 | Chaque fiche de série quittée restait en mémoire (miniatures d'épisodes en attente) | À valider | P1 | plugin | T-089 | 2026-11-02 |
+| T-094 | Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change | À valider | P1 | tv, plugin | T-051, T-092 | 2026-11-02 |
 
 ---
 
@@ -4240,6 +4241,37 @@ Choix de l'utilisateur à l'étude T-089 :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-094 — Rendu allégé sans effet sur la Fire TV : appliqué dès que le réglage change
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur : « Page dessinée en 1280×720 »)
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** T-051, T-092
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+> Ouais fait une nouvelle release, et oui la page est dessiné en 4K, même avec le rendu allégé sur TV activé
+
+**Critères d'acceptation**
+- [x] Changer « Rendu allégé sur TV » s'applique tout de suite, sans redémarrer l'app
+- [x] Sur un écran 4K, rendu allégé actif : page dessinée en 1280×720
+- [ ] Vérifié sur la Fire TV 4K de l'utilisateur
+
+**Notes techniques**
+- **Cause probable** : `MainActivity` ne lisait le réglage qu'au démarrage (`onCreate`). Sur une Fire TV, rouvrir l'app (après Accueil) ramène celle qui tourne encore, sans la redémarrer : le réglage changé ne prenait jamais effet. Le code du rendu allégé lui-même marche en 4K : émulateur avec un écran simulé en 3840×2160 (`wm size 3840x2160`, `wm density 640`, remis ensuite), WebView 1280×720, « Page dessinée en 1280×720 ».
+- `MainActivity.applyLowRes()` : met le rendu allégé dans l'état que dit le réglage (`lowRes()`) : écoute la taille de l'écran (`drawSmaller`) ou rend à la WebView tout l'écran (`MATCH_PARENT`, échelle 1). Appelé au démarrage et par `Bridge.saveSetting` quand `tvLowRes` change (`runOnUiThread`).
+- `nathflix-tv.js` annonce `tv.lowResLive` ; la description du réglage dit « Prend effet tout de suite. » avec une telle app, « Prend effet au prochain démarrage de l'app. » avec une plus ancienne (texte découpé, traductions ajoutées).
+
+**Vérification**
+- `node --check`, traductions ; build de test compilée en local (`assembleDebug`).
+- Émulateur, écran simulé en 4K, build locale, compte de l'utilisateur : au démarrage (Auto) 1280×720 ; réglage changé depuis la page (`saveSetting`) : Désactivé → WebView 1920×1080, Activé → 1280×720, Auto → 1280×720, sans redémarrer.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : 0.8.2
+
 <!--
 ### T-000 — Titre court
 
@@ -4357,6 +4389,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-091 | Créée et faite : affiches TMDB et TheTVDB en copie réduite sur TV, images d'aperçu décodées d'avance 24 → 6 |
 | 2026-11-02 | T-092 | Créée et faite : sur TV, aperçus sans bande-annonce et rendu allégé en Auto par défaut (choix de l'utilisateur) |
 | 2026-11-02 | T-093 | Créée et faite : les miniatures d'épisodes en attente gardaient chaque fiche de série quittée en mémoire (≈ 5 Mo chacune) ; abandonnées après le départ de la page |
+| 2026-11-02 | T-094 | Créée et faite : le rendu allégé ne se lisait qu'au démarrage (jamais sur une Fire TV, qui reprend l'app) ; appliqué dès que le réglage change |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

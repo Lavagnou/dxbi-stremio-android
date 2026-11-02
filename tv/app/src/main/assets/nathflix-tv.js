@@ -101,6 +101,8 @@
   tv.tvNext = true;
   // the app can draw the page at 720p and enlarge it (the plugin shows "Lighter rendering on TV")
   tv.lowRes = true;
+  // …and switches it as soon as the setting changes (an older app: the next time it starts)
+  tv.lowResLive = true;
   // when the app was opened (ms since 1970; 0 from an older app): the performance readout's start-up time
   tv.launchedAt = native.launchedAt();
 

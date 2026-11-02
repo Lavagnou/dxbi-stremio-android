@@ -579,7 +579,8 @@
       key: "tvLowRes",
       type: "select",
       label: t("Lighter rendering on TV"),
-      description: t("The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less). Takes effect the next time the app starts."),
+      // (an app that switches it at once says so: an older one only reads it as it starts)
+      description: t("The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).") + " " + (window.__nathflixTv && window.__nathflixTv.lowResLive ? t("Takes effect at once.") : t("Takes effect the next time the app starts.")),
       defaultValue: DEFAULTS.tvLowRes,
       // (only with an app that can do it: an older one ignores the setting)
       tvOnly: true,
@@ -17900,7 +17901,9 @@ vec4 hook() {
       "This device counts as modest.": "Cet appareil est considéré comme modeste.",
       "This device doesn't count as modest.": "Cet appareil n'est pas considéré comme modeste.",
       "Lighter rendering on TV": "Rendu allégé sur TV",
-      "The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less). Takes effect the next time the app starts.": "La page est dessinée en 720p puis agrandie à l'écran : bien moins de pixels à dessiner pour la TV, pour un texte un peu moins net. Auto l'active sur une TV modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins). Prend effet au prochain démarrage de l'app.",
+      "The page is drawn at 720p and enlarged to the screen: far fewer pixels for the TV to draw, for slightly softer text. Auto switches it on for a modest TV (four cores or fewer, or 2 GB of memory or less).": "La page est dessinée en 720p puis agrandie à l'écran : bien moins de pixels à dessiner pour la TV, pour un texte un peu moins net. Auto l'active sur une TV modeste (quatre cœurs ou moins, ou 2 Go de mémoire ou moins).",
+      "Takes effect at once.": "Prend effet tout de suite.",
+      "Takes effect the next time the app starts.": "Prend effet au prochain démarrage de l'app.",
       "Performance readout": "Mesure des performances",
       "Shows in a corner how long Nathflix takes to answer each key press or tap, and how often it got stuck over the last 10 seconds. To find out what slows a device down.": "Affiche dans un coin le temps que met Nathflix à répondre à chaque touche ou toucher, et combien de fois il s'est bloqué ces 10 dernières secondes. Pour trouver ce qui ralentit un appareil.",
       "{n} cores": "{n} cœurs",

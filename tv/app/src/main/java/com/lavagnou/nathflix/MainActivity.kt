@@ -68,9 +68,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(web, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
         setContentView(root)
         // "Lighter rendering on TV": the page is drawn 1280 pixels wide, then enlarged to the screen
-        if (lowRes()) root.addOnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
-            root.post { drawSmaller(right - left, bottom - top) }
-        }
+        applyLowRes()
         // Phones and tablets: the page sits between the status and navigation bars, clear of a notch,
         // and above the keyboard while it's open (so the box being typed in stays in sight)
         if (mobile) ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
@@ -287,7 +285,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * The "Lighter rendering on TV" setting (tvLowRes in the plugin's settings): a TV only, on when asked,
      * or on "Auto" for a modest one (four cores or fewer, or 2 GB of memory or less, as the plugin's
-     * light mode counts it). Read once, at the start: it takes effect the next time the app starts.
+     * light mode counts it). Applied by applyLowRes().
      */
     private fun lowRes(): Boolean {
         if (mobile) return false
@@ -303,6 +301,33 @@ class MainActivity : AppCompatActivity() {
                 Runtime.getRuntime().availableProcessors() <= 4 || am.isLowRamDevice || memory.totalMem <= 2L * 1024 * 1024 * 1024
             }
             else -> false
+        }
+    }
+
+    private var lowResWatch: View.OnLayoutChangeListener? = null
+
+    /**
+     * "Lighter rendering on TV" as the setting says now: at the start, and again as soon as it changes
+     * (Bridge.saveSetting). Read only at the start, it never took on a Fire TV: opening the app again
+     * brings back the one still running rather than starting it
+     */
+    fun applyLowRes() {
+        val root = web.parent as? FrameLayout ?: return
+        val on = lowRes()
+        if (on == (lowResWatch != null)) return
+        if (on) {
+            val watch = View.OnLayoutChangeListener { _, left, top, right, bottom, _, _, _, _ ->
+                root.post { drawSmaller(right - left, bottom - top) }
+            }
+            lowResWatch = watch
+            root.addOnLayoutChangeListener(watch)
+            root.post { drawSmaller(root.width, root.height) }
+        } else {
+            root.removeOnLayoutChangeListener(lowResWatch)
+            lowResWatch = null
+            web.layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+            web.scaleX = 1f
+            web.scaleY = 1f
         }
     }
 

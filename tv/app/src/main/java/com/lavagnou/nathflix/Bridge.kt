@@ -42,6 +42,8 @@ class Bridge(private val activity: MainActivity) {
             all.put(key, value ?: JSONObject.NULL)
             prefs.edit().putString(plugin, all.toString()).apply()
         }
+        // "Lighter rendering on TV" takes effect at once
+        if (key == "tvLowRes") activity.runOnUiThread { activity.applyLowRes() }
     }
 
     /** The language picked for Stremio's interface ("fr" or "en"): Nathflix's own screens follow it */
