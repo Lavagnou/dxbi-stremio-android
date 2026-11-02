@@ -80,7 +80,7 @@ Le reste du dépôt :
   - **TV** : plein écran, écran toujours allumé.
   - Injecte `assets/nathflix-tv.js` au démarrage du document.
   - Gère aussi : Back, liens `stremio://`, récupération après crash du renderer (`onRenderProcessGone`), WebView minimale 100.
-  - **Rendu allégé sur TV** (réglage `tvLowRes`, lu au démarrage par `lowRes()`) : la WebView fait 1280 px de large et est agrandie à l'écran (`drawSmaller`, `scaleX/Y`), donc la page est dessinée en 720p. `nathflix-tv.js` l'annonce (`tv.lowRes`), et le plugin n'affiche le réglage qu'alors (`tvFeature: "lowRes"` dans `SCHEMA`).
+  - **Rendu allégé sur TV** (réglage `tvLowRes`, Auto par défaut, lu au démarrage par `lowRes()`) : la WebView fait 1280 px de large et est agrandie à l'écran (`drawSmaller`, `scaleX/Y`), donc la page est dessinée en 720p. `nathflix-tv.js` l'annonce (`tv.lowRes`), et le plugin n'affiche le réglage qu'alors (`tvFeature: "lowRes"` dans `SCHEMA`).
   - Vérifications de mises à jour 5 s après que la page est prête (`whenPageReady`), pas dans `onCreate`.
 - **`assets/nathflix-tv.js`** : tourne dans la page avant les scripts de Stremio.
   - Remplace l'API de Stremio Enhanced (`window.StremioEnhancedAPI` : réglages, alertes, prompts).

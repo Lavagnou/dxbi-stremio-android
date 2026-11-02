@@ -294,7 +294,7 @@ class MainActivity : AppCompatActivity() {
         val settings = try {
             JSONObject(getSharedPreferences("plugin-settings", MODE_PRIVATE).getString("nathflix", "{}") ?: "{}")
         } catch (_: Exception) { JSONObject() }
-        return when (settings.optString("tvLowRes", "off")) {
+        return when (settings.optString("tvLowRes", "auto")) {
             "on" -> true
             "auto" -> {
                 val memory = android.app.ActivityManager.MemoryInfo()

@@ -286,7 +286,8 @@
     librarySort: true,
     convertVideo: "auto",
     addonTools: true,
-    trailers: true,
+    // (off on a TV: a YouTube player in a card takes 40 to 60 MB and much of a stick's time)
+    trailers: !IN_TV,
     upNext: "10",
     fillerGuide: true,
     skipFiller: false,
@@ -313,7 +314,7 @@
     partyActivity: true,
     partySounds: true,
     lightMode: "auto",
-    tvLowRes: "off",
+    tvLowRes: "auto",
     perfOverlay: false,
   };
 

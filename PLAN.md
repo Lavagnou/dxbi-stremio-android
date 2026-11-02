@@ -149,6 +149,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-089 | Étude : mémoire et démarrage sur TV | Terminé | P1 | tv, plugin | — | 2026-11-02 |
 | T-090 | Accueil organisé : rangées chargées au fil de la télécommande, jamais les masquées | À valider | P1 | plugin | T-089 | 2026-11-02 |
 | T-091 | TV : affiches à la taille de l'écran, moins d'images d'aperçu décodées d'avance | À valider | P2 | plugin | T-089 | 2026-11-02 |
+| T-092 | TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut | À valider | P1 | plugin, tv | T-089, T-051 | 2026-11-02 |
 
 ---
 
@@ -4172,6 +4173,41 @@ Puis, le lendemain (2026-11-02) :
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-092 — TV : aperçus sans bande-annonce par défaut, rendu allégé en Auto par défaut
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur ; le rendu allégé en Auto demande la prochaine APK)
+- **Priorité :** P1
+- **Cible :** plugin, tv
+- **Dépend de :** T-089, T-051
+- **Créée le :** 2026-11-02
+- **Mise à jour :** 2026-11-02
+- **Branche :** `main`
+
+**Demande**
+Choix de l'utilisateur à l'étude T-089 :
+> Bandes-annonces dans les aperçus sur TV : « Coupées par défaut (Recommandé) »
+
+> « Rendu allégé sur TV » : « Auto (Recommandé) »
+
+**Critères d'acceptation**
+- [x] Sur TV, « Bandes-annonces dans les aperçus » est coupé par défaut (ailleurs inchangé) ; le réglage reste là pour les rallumer
+- [x] « Rendu allégé sur TV » vaut Auto par défaut, dans le plugin et dans l'app
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- `DEFAULTS.trailers = !IN_TV`. Le réglage est propre à chaque appareil (`settingsSync.LOCAL`) ; une TV où il a été allumé à la main le garde.
+- `DEFAULTS.tvLowRes = "auto"`, et `MainActivity.lowRes()` lit `optString("tvLowRes", "auto")` : Auto active le rendu 720p sur une TV modeste (4 cœurs ou moins, ou 2 Go de mémoire ou moins : toutes les Fire TV Stick). Une APK 0.8.1 lit encore « off » quand le réglage n'a jamais été changé : il faut la prochaine APK.
+- Mesures (T-089) : une bande-annonce dans un aperçu +41 à +62 Mo ; rendu 720p −40 Mo environ (tuiles et images partagées).
+- MetaHub n'a pas de fond plus petit que 1920×1080 (`medium` = `large`) : le billboard n'a pas d'image 720p à prendre (contrairement à ce qui était annoncé dans la question).
+
+**Vérification**
+- `node --check` ; Kotlin : CI `android-dev.yml`.
+- Émulateur Fire TV, compte de l'utilisateur : la télécommande reste 12 s sur une carte, aperçu ouvert, aucune bande-annonce (aucune iframe) ; moteur de rendu 205 Mo (241 Mo avec la bande-annonce avant).
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4287,6 +4323,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-089 | Étude faite : page 200-300 Mo, Accueil organisé = 66 catalogues et 612 affiches d'un coup, aperçus +40-60 Mo, +5 Mo par fiche ; choix de l'utilisateur notés |
 | 2026-11-02 | T-090 | Créée et faite : Accueil organisé chargé au fil de la télécommande (6 catalogues au démarrage au lieu de 66), jamais les rangées masquées |
 | 2026-11-02 | T-091 | Créée et faite : affiches TMDB et TheTVDB en copie réduite sur TV, images d'aperçu décodées d'avance 24 → 6 |
+| 2026-11-02 | T-092 | Créée et faite : sur TV, aperçus sans bande-annonce et rendu allégé en Auto par défaut (choix de l'utilisateur) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
