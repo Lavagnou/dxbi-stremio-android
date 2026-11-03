@@ -156,6 +156,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-096 | TV : le billboard tourne aussi en mode léger et avec la télécommande sur ses boutons | À valider | P2 | plugin | — | 2026-11-02 |
 | T-097 | Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app | À valider | P1 | tv, plugin | T-094 | 2026-11-02 |
 | T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | Terminé | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
+| T-099 | Accueil organisé : le billboard restait parfois sous Continuer de regarder et Cette semaine | À valider | P2 | plugin | T-090 | 2026-11-03 |
 
 ---
 
@@ -4416,6 +4417,39 @@ Choix de l'utilisateur :
 - Commits : `8c256c6` (`0.8.3: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.3
 
+### T-099 — Accueil organisé : le billboard restait parfois sous Continuer de regarder et Cette semaine
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur ; le bug était rare)
+- **Priorité :** P2
+- **Cible :** plugin
+- **Dépend de :** T-090
+- **Créée le :** 2026-11-03
+- **Mise à jour :** 2026-11-03
+- **Branche :** `main`
+
+**Demande**
+> Il y a un bug qui arrive parfois sur TV mais qui est assez rare, le billboard se retrouve en dessous de "Continuer de regarder" et "Cette semaine"
+
+(photo de la TV : Continuer de regarder, puis Cette semaine, puis le billboard)
+
+**Critères d'acceptation**
+- [x] Accueil organisé : le billboard est toujours en tête, même quand ses titres arrivent tard
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- **Cause** : l'Accueil organisé (`dx-rows-arranged`) range ses parties par `style.order`, posé par `homeArrange.apply()` à chaque passage de `sync()` : billboard −30, Continuer de regarder −20, Cette semaine −10, rangées 1 et plus. Le billboard, lui, attend ses titres (`hero.load()`, dont sa première image) et n'est ajouté qu'après le passage en cours. L'observateur principal (`mo`) ignore l'ajout des éléments de Nathflix : aucun autre passage n'était demandé, et le billboard gardait l'ordre 0, après Continuer de regarder et Cette semaine, jusqu'à ce qu'un changement de Stremio en relance un. D'où « parfois » : quand ses titres arrivaient une fois l'Accueil stable (réseau lent, TV lente).
+- `hero.ensure()` : `scheduleSync()` juste après l'ajout du billboard.
+- Cette semaine est ajouté pendant le passage (sans attente) : sans ordre, il reste de toute façon entre Continuer de regarder et les rangées.
+
+**Vérification**
+- `node --check`, traductions.
+- Chrome, invité, TV, Accueil organisé, première image du billboard retardée de 7 s (`perf2/heroorder-pc.mjs`), l'ordre du billboard relevé toutes les 25 ms : avant, il arrive à 7,4 s et n'a toujours pas d'ordre 9 s plus tard (2 essais sur 2) ; après, ordre −30 100 ms après son arrivée (2 sur 2). Sans retard, les deux versions le placent en 25 à 70 ms (d'autres changements de la page suivent).
+- Émulateur : bloqué au démarrage ce jour-là (fenêtre de l'émulateur en attente), non utilisé.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4540,6 +4574,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-097 | Créée et faite : rendu allégé en 1080p au plus (720p trop flou pour l'utilisateur), mesure à l'écran donnée par l'app (`drawnSize`) |
 | 2026-11-02 | T-098 | En cours : release 0.8.3 demandée par l'utilisateur |
 | 2026-11-02 | T-098 | Terminé : release 0.8.3 publiée (APK 803 signée par la clé de release, plugin 0.8.3) |
+| 2026-11-03 | T-099 | Créée et faite : le billboard, ajouté après le passage qui range l'Accueil organisé, restait sans place jusqu'au passage suivant ; un passage est demandé après son ajout |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

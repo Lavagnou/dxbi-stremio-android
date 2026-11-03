@@ -1558,6 +1558,11 @@
       this.build();
       freshHost.insertBefore(this.el, freshHost.firstElementChild);
       this.show(this.index % this.items.length, true);
+      // Home organised places its parts by their order (homeArrange.apply), and the billboard came after
+      // this pass's (its titles are waited for): one more pass gives it its place at the top. Nothing
+      // else would ask for it (changes to Nathflix's own elements don't), and the billboard sometimes
+      // stayed under Continue Watching and Airing this week
+      scheduleSync();
     },
 
     build() {
