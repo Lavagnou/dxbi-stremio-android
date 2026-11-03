@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.4
+- **The billboard stays at the top of Home.** With Home organised (*Organise Home*), the billboard sometimes ended up under Continue Watching and *Airing this week*, when its titles came in after Home had settled (a slow network, a TV stick). It now always takes its place at the top.
+
 ## 0.8.3
 - **Nathflix TV: the billboard turns again.** On a TV stick it held its first title for good: light mode (on by itself there) stopped it, and so did the remote resting on *Play* or *More Info*. It now turns on a TV in light mode too, with a plain fade, and the remote moves along to the same button of the next title; a key pressed starts the wait again, so it never changes just as you press OK.
 - **Nathflix TV: lighter rendering at 1080p.** *Lighter rendering on TV* now draws the page at 1080p rather than 720p: a 4K TV draws a quarter of the pixels, with text that stays sharp (a 1080p TV is left as it is). The performance readout's *Page drawn at* now gives the size the app really draws: on a 4K Fire TV it said 4K whatever it was.
