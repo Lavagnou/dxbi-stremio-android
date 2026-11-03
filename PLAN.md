@@ -157,7 +157,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-097 | Rendu allégé en 1080p au lieu de 720p, mesure à l'écran donnée par l'app | À valider | P1 | tv, plugin | T-094 | 2026-11-02 |
 | T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | Terminé | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
 | T-099 | Accueil organisé : le billboard restait parfois sous Continuer de regarder et Cette semaine | À valider | P2 | plugin | T-090 | 2026-11-03 |
-| T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | En cours | P1 | release, plugin | T-099 | 2026-11-03 |
+| T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | Terminé | P1 | release, plugin | T-099 | 2026-11-03 |
 
 ---
 
@@ -4453,7 +4453,7 @@ Choix de l'utilisateur :
 
 ### T-100 — Release 0.8.4 (billboard toujours en tête de l'Accueil organisé)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, plugin
 - **Dépend de :** T-099
@@ -4468,8 +4468,8 @@ Choix de l'utilisateur :
 
 **Critères d'acceptation**
 - [x] `@version 0.8.4`, section `## 0.8.4` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.8.4`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 804, plugin embarqué en 0.8.4
+- [x] CI verte, tag `v0.8.4`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 804, plugin embarqué en 0.8.4
 
 **Notes techniques**
 - **Contenu** : T-099 (le billboard toujours en tête de l'Accueil organisé). Plugin seulement : l'APK 0.8.3 prend le plugin de la release ; l'APK 0.8.4 est publiée quand même (même code natif).
@@ -4478,9 +4478,14 @@ Choix de l'utilisateur :
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs` : les 2 faux positifs connus) : OK.
 
+- CI verte sur `6c7b51b` : Cross-platform Windows et Linux, mpv Windows, Android test build (avec R8) ; Cross-platform macOS en attente d'une machine chez GitHub (ne bloque pas la release, choix de l'utilisateur).
+- Tag `v0.8.4` : run Release 41626806027 ; publish, android, desktop Windows et Linux ×2 verts ; les deux .dmg Mac encore en cours (Intel) et en attente d'une machine (Apple Silicon) au moment de clôturer : ils s'ajouteront à la release quand ils passeront.
+- Release : 9 fichiers au moment de clôturer (APK, Windows, Linux, `latest*.yml`), ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé) ; `com.lavagnou.nathflix`, versionCode 804, versionName 0.8.4 ; plugin embarqué en 0.8.4, avec le correctif de T-099.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `6c7b51b` (`0.8.4: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.4
 
 <!--
 ### T-000 — Titre court
@@ -4608,6 +4613,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-02 | T-098 | Terminé : release 0.8.3 publiée (APK 803 signée par la clé de release, plugin 0.8.3) |
 | 2026-11-03 | T-099 | Créée et faite : le billboard, ajouté après le passage qui range l'Accueil organisé, restait sans place jusqu'au passage suivant ; un passage est demandé après son ajout |
 | 2026-11-03 | T-100 | En cours : release 0.8.4 demandée par l'utilisateur |
+| 2026-11-03 | T-100 | Terminé : release 0.8.4 publiée (APK 804 signée par la clé de release, plugin 0.8.4) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
