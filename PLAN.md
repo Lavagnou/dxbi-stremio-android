@@ -160,7 +160,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | Terminé | P1 | release, plugin | T-099 | 2026-11-03 |
 | T-101 | Audit de la version TV (tests et lecture du code) | Terminé | P1 | tv, plugin | — | 2026-11-04 |
 | T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
-| T-103 | Release 0.9.0 (correctifs de l'audit TV) | En cours | P1 | release, tv, plugin | T-102 | 2026-11-04 |
+| T-103 | Release 0.9.0 (correctifs de l'audit TV) | Terminé | P1 | release, tv, plugin | T-102 | 2026-11-04 |
 
 ---
 
@@ -4650,7 +4650,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 ### T-103 — Release 0.9.0 (correctifs de l'audit TV)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-102
@@ -4663,8 +4663,8 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 **Critères d'acceptation**
 - [x] `@version 0.9.0`, section `## 0.9.0` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.9.0`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 900, plugin embarqué en 0.9.0
+- [x] CI verte, tag `v0.9.0`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 900, plugin embarqué en 0.9.0
 
 **Notes techniques**
 - **Contenu** : T-102 (39 groupes de correctifs de l'audit TV de T-101, et la relance par un autre lanceur). Nouvelle APK (lecteur, `MainActivity`, bridge `pluginFailed`, torrents, mises à jour) : d'où une version mineure.
@@ -4673,9 +4673,15 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
 
+- Vérification de T-102 par un agent séparé (35 groupes OK sur 39, 3 non testables ici, 1 partiel corrigé dans `b92d9bf`).
+- CI verte sur `b6417ef` : Cross-platform, mpv Windows, Android test build (avec R8).
+- Tag `v0.9.0` : run Release 41788314740 ; publish, android, desktop Windows, Linux ×2 et Mac ×2 verts.
+- Release : 11 fichiers (APK, Windows ×2 et `.blockmap`, Linux ×2, Mac ×2, `latest*.yml`), ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé) ; `com.lavagnou.nathflix`, versionCode 900, versionName 0.9.0 ; plugin embarqué en 0.9.0, `nathflix-tv.js` avec `restoreWebPlayer()`.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `b6417ef` (`0.9.0: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.0
 
 <!--
 ### T-000 — Titre court
@@ -4841,6 +4847,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | À valider : 39 groupes de correctifs faits (P1 à P3), APK debug installée sur l'émulateur, CI verte ; à essayer sur la Fire TV |
 | 2026-11-04 | T-102 | Vérification (35 OK / 39) ; relance par un autre lanceur pendant un film : plus de 2de page sur le lecteur ; relais abandonné : la vidéo web retrouve son adresse |
 | 2026-11-04 | T-103 | En cours : release 0.9.0 (correctifs de l'audit TV) |
+| 2026-11-04 | T-103 | Terminé : release 0.9.0 publiée (APK 900 signée par la clé de release, plugin 0.9.0) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
