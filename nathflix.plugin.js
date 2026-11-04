@@ -716,8 +716,16 @@
   }
 
   // Settings saved (any settings screen, Nathflix's own choices, or settings from the account)
+  // What the billboard is made from: only a change of one of these builds it again (any setting saved
+  // took it down and fetched its titles again, once per setting arriving from the account)
+  const BILLBOARD_SETTINGS = ["billboard", "billboardSource", "billboardSource2", "billboardSource3", "billboardInterval", "lightMode", "tmdbKey"];
+
   function settingsSaved(all) {
+    // (as last seen: some code sets a value before saving it)
+    const was = settingsSync.seen || { ...settings };
     Object.assign(settings, normalise(all));
+    // settings arriving from the account are saved one by one, then applied once (settingsSync.apply)
+    if (settingsSync.applying) return;
     settingsSync.noted();
     persistSettings();
     builtInTheme.ensure();
@@ -725,7 +733,7 @@
     applyAccent();
     applyLight();
     applySubtitleStyle();
-    hero.reset();
+    if (BILLBOARD_SETTINGS.some((key) => was[key] !== settings[key])) hero.reset();
     scheduleSync();
   }
 
@@ -9141,8 +9149,13 @@
       // saved on the device first (where there's somewhere to save them), then applied here at once:
       // not every settings store says when the plugin itself saved something
       if (API) {
-        for (const [key, value] of changes) {
-          try { await API.saveSetting(key, value); } catch (_) { /* next sync */ }
+        this.applying = true;
+        try {
+          for (const [key, value] of changes) {
+            try { await API.saveSetting(key, value); } catch (_) { /* next sync */ }
+          }
+        } finally {
+          this.applying = false;
         }
       }
       settingsSaved({ ...settings, ...Object.fromEntries(changes) });
