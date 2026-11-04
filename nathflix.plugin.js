@@ -2428,7 +2428,7 @@
       document.body.append(modal);
       this.modal = modal;
       this.render();
-      modal.querySelector(".dxe-row, .dxe-btn")?.focus({ preventScroll: true });
+      modal.querySelector(IN_TV ? '.dxe-row [data-act="eye"], .dxe-btn' : ".dxe-row, .dxe-btn")?.focus({ preventScroll: true });
     },
 
     state() {
@@ -2440,12 +2440,14 @@
       if (!list) return;
       list.innerHTML = this.list.map((c, i) => {
         const off = this.hidden.has(c.key);
-        return `<div class="dxe-row${off ? " is-off" : ""}" data-i="${i}" tabindex="-1">
+        // (real buttons: OK and Enter press them. A TV's remote goes from button to button, the row
+        // itself isn't a stop on the way: the buttons inside the selected row were out of reach)
+        return `<div class="dxe-row${off ? " is-off" : ""}" data-i="${i}"${IN_TV ? "" : ' tabindex="-1"'}>
           <span class="dxe-grip" title="${esc(t("Drag to move"))}">${ICONS.grip}</span><span class="dxe-num">${i + 1}</span>
           <div class="dxe-name">${esc(c.name)}<span>${esc(c.addon)} · ${esc(this.typeLabel(c.type))}</span></div>
-          <div class="dxe-move dxe-eye" data-act="eye" role="button" tabindex="0" title="${esc(off ? t("Show on Home") : t("Hide from Home"))}">${off ? ICONS.eyeOff : ICONS.eye}</div>
-          <div class="dxe-move" data-act="up" role="button" tabindex="0" title="${esc(t("Move up"))}">${ICONS.chevronUp}</div>
-          <div class="dxe-move" data-act="down" role="button" tabindex="0" title="${esc(t("Move down"))}">${ICONS.chevronDown}</div>
+          <button type="button" class="dxe-move dxe-eye" data-act="eye" title="${esc(off ? t("Show on Home") : t("Hide from Home"))}">${off ? ICONS.eyeOff : ICONS.eye}</button>
+          <button type="button" class="dxe-move" data-act="up" title="${esc(t("Move up"))}">${ICONS.chevronUp}</button>
+          <button type="button" class="dxe-move" data-act="down" title="${esc(t("Move down"))}">${ICONS.chevronDown}</button>
         </div>`;
       }).join("");
       dragList(list, (from, to) => this.move(from, to));
@@ -9514,7 +9516,7 @@
   .dxe-skip.is-on { opacity: 1; transform: none; pointer-events: auto; }
   .dxe-skip:hover, .dxe-skip:focus-visible { background: #fff; color: #000; border-color: #fff; }
   .dxe-skip svg { width: 1.3rem; height: 1.3rem; fill: currentColor; }
-  .dxe-addon-btn { display: inline-flex; align-items: center; gap: .5rem; height: 2.9rem; padding: 0 1.2rem; margin-left: .8rem; border-radius: .5rem; background: rgba(255,255,255,.1); color: #fff; font: 700 .92rem Inter, system-ui, sans-serif !important; cursor: pointer; white-space: nowrap; transition: background-color .15s; }
+  .dxe-addon-btn { flex: none; display: inline-flex; align-items: center; gap: .5rem; height: 2.9rem; padding: 0 1.2rem; margin-left: .8rem; border-radius: .5rem; background: rgba(255,255,255,.1); color: #fff; font: 700 .92rem Inter, system-ui, sans-serif !important; cursor: pointer; white-space: nowrap; transition: background-color .15s; }
   .dxe-addon-btn:hover, .dxe-addon-btn:focus-visible { background: rgba(255,255,255,.18); }
   .dxe-addon-btn svg { width: 1.15rem; height: 1.15rem; }
   .dxe-arrange-btn { display: flex; align-items: center; gap: .5rem; width: max-content; height: 2.9rem; margin: 1.5rem auto 1rem; padding: 0 1.3rem; border-radius: .5rem; background: rgba(255,255,255,.08); color: rgba(255,255,255,.8); font: 700 .92rem Inter, system-ui, sans-serif !important; cursor: pointer; white-space: nowrap; transition: background-color .15s, color .15s; }
@@ -9547,7 +9549,7 @@
   .dxe-logo { width: 2.2rem; height: 2.2rem; flex: none; border-radius: .4rem; object-fit: contain; background: rgba(255,255,255,.06); }
   .dxe-name { flex: 1; min-width: 0; font: 700 .9rem/1.3 Inter, system-ui, sans-serif !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dxe-name span { display: block; color: rgba(255,255,255,.45); font: 500 .74rem/1.3 Inter, system-ui, sans-serif !important; overflow: hidden; text-overflow: ellipsis; }
-  .dxe-move { width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; border-radius: .4rem; color: rgba(255,255,255,.6); cursor: pointer; }
+  .dxe-move { flex: none; width: 2rem; height: 2rem; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: .4rem; background: none; font: inherit; color: rgba(255,255,255,.6); cursor: pointer; }
   .dxe-move:hover, .dxe-move:focus-visible { background: rgba(255,255,255,.1); color: #fff; }
   .dxe-move svg { width: 1rem; height: 1rem; }
   .dxe-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: 1rem 1.4rem 1.3rem; }
@@ -11332,8 +11334,15 @@
       const b = document.createElement("div");
       b.className = "dxe-addon-btn";
       b.setAttribute("role", "button");
+      // (a stop for the remote, as Stremio's own buttons are; it was skipped)
+      b.tabIndex = 0;
       b.innerHTML = `${ICONS.sort}<span>${esc(t("Order & backup"))}</span>`;
       b.addEventListener("click", () => this.open());
+      b.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        this.open();
+      });
       anchor.insertAdjacentElement("afterend", b);
     },
 
@@ -11378,6 +11387,7 @@
       document.body.append(modal);
       this.modal = modal;
       this.render();
+      if (IN_TV) modal.querySelector('.dxe-row [data-act="up"], .dxe-btn')?.focus({ preventScroll: true });
     },
 
     close() {
@@ -11396,8 +11406,8 @@
         return `<div class="dxe-row" data-i="${i}">
           <span class="dxe-grip" title="${t("Drag to move")}">${ICONS.grip}</span><span class="dxe-num">${i + 1}</span>${logo}
           <div class="dxe-name">${esc(m.name || host || t("Addon"))}<span>${esc(host)}</span></div>
-          <div class="dxe-move" data-act="up" title="${t("Move up")}">${ICONS.chevronUp}</div>
-          <div class="dxe-move" data-act="down" title="${t("Move down")}">${ICONS.chevronDown}</div>
+          <button type="button" class="dxe-move" data-act="up" title="${t("Move up")}">${ICONS.chevronUp}</button>
+          <button type="button" class="dxe-move" data-act="down" title="${t("Move down")}">${ICONS.chevronDown}</button>
         </div>`;
       }).join("");
       list.querySelectorAll("img.dxe-logo").forEach((img) => img.addEventListener("error", () => {
@@ -11419,6 +11429,8 @@
       const [item] = this.list.splice(from, 1);
       this.list.splice(to, 0, item);
       this.render();
+      // the remote stays on the same button of the addon that moved (the list was redrawn)
+      this.modal.querySelector(`.dxe-row[data-i="${to}"] [data-act="${to < from ? "up" : "down"}"]`)?.focus({ preventScroll: true });
     },
 
     say(text, kind) {
