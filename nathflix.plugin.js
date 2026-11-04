@@ -9974,6 +9974,13 @@
   .dxe-pin-foot { display: flex; gap: .8rem; margin-top: .4rem; }
   html.dx-mobile .dxe-pin-keys { grid-template-columns: repeat(3, 5rem); }
   html.dx-mobile .dxe-pin-key { height: 3.8rem; }
+  /* TV: what the remote is on in Who's watching's pages, the code pad and Nathflix's windows (outside
+     #app, so without the TV's ring): the same ring, inside the full-width rows. The white button is
+     only white when it's the one selected, as on Netflix's TV app: it looked selected when it wasn't */
+  html.dx-tv :is(.dxe-who, .dxe-pin, .dxe-modal, .dxe-theatre) :is(button, input, [tabindex]):not(.dxe-who-tile):focus { outline: 3px solid var(--dx-focus, #fff) !important; outline-offset: 2px; transition: none !important; }
+  html.dx-tv :is(.dxe-who, .dxe-modal) :is(.dxe-edit-row, .dxe-edit-name, .dxe-row):focus { outline-offset: -3px; }
+  html.dx-tv .dxe-who-pill.is-solid { border-color: rgba(255,255,255,.4); background: none; color: #fff; }
+  html.dx-tv .dxe-who-pill.is-solid:focus { border-color: #fff; background: #fff; color: #000; }
   .dxe-report { position: fixed; inset: 0; z-index: 100005; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); font-family: Inter, system-ui, sans-serif; }
   .dxe-report-card { width: min(36rem, 92vw); padding: 1.6rem 1.7rem; border-radius: .8rem; background: #18181d; color: #fff; box-shadow: 0 24px 80px rgba(0,0,0,.6); }
   .dxe-report-card h2 { margin: 0 0 .6rem; font: 700 1.35rem Inter, system-ui, sans-serif !important; }
