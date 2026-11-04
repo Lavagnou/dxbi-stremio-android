@@ -899,9 +899,23 @@
     const route = (location.hash || "#/").replace(/^#\/?/, "").split(/[/?]/)[0];
     // Home, and the sign-in (reached by a redirect: going back only brought it up again)
     if (!route || route === "board" || route === "intro") return false;
+    // The Library and Continue Watching: Stremio adds its sort to the address as new steps of the
+    // history (two of them), and it took three Backs to leave. Back goes on until the page changes
+    if (route === "library" || route === "continuewatching") {
+      backPast(route, 4);
+      return true;
+    }
     history.back();
     return true;
   };
+
+  function backPast(route, tries) {
+    history.back();
+    setTimeout(() => {
+      const now = (location.hash || "#/").replace(/^#\/?/, "").split(/[/?]/)[0];
+      if (now === route && tries > 1) backPast(route, tries - 1);
+    }, 200);
+  }
 
   // ---------------------------------------------------------------------------
   // Load the built-in Nathflix plugin once the page is up, the way Stremio Enhanced does
