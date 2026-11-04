@@ -1094,7 +1094,20 @@
     }, 100);
   }
 
+  // Settings' entries are put back as Stremio redraws Settings: watched there only (a watch over the
+  // whole page, all the time, had the browser note every change of Home's rows for nothing)
+  const settingsWatch = new MutationObserver(ensureSettingsEntry);
+  let watchingSettings = false;
+  function watchSettings() {
+    const on = /^#\/settings/.test(location.hash);
+    if (on === watchingSettings || !document.body) return;
+    watchingSettings = on;
+    if (on) settingsWatch.observe(document.body, { childList: true, subtree: true });
+    else settingsWatch.disconnect();
+  }
+
   function onRoute() {
+    watchSettings();
     ensureSettingsEntry();
     if (/^#\/player\//.test(location.hash)) {
       startHandoff().catch((err) => {
@@ -1117,7 +1130,6 @@
     loadPlugin();
     resumePlayback();
     onRoute();
-    new MutationObserver(ensureSettingsEntry).observe(document.body, { childList: true, subtree: true });
   };
   if (document.readyState === "complete") start();
   else window.addEventListener("load", start);
