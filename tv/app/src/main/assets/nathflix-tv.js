@@ -299,7 +299,10 @@
     closeModal();
     // One dialog at a time: Stremio's own (a promotion, an addon to install) goes first, since it
     // holds on to the remote's focus while it's open
-    while (document.querySelector('[class*="modal-container"]')) await new Promise((r) => setTimeout(r, 400));
+    // (only one that shows, and 5 s at most: a hidden one of Stremio's left in the page held a question
+    // back for good, the player's veil spinning until Back)
+    const shown = () => [...document.querySelectorAll('[class*="modal-container"]')].some((m) => m.getClientRects().length && getComputedStyle(m).visibility !== "hidden");
+    for (let waited = 0; waited < 5000 && shown(); waited += 400) await new Promise((r) => setTimeout(r, 400));
     // (another dialog asked for meanwhile gives way to this one: never two on screen)
     keepOpener();
     closeModal();
