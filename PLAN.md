@@ -158,6 +158,8 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-098 | Release 0.8.3 (billboard sur TV, rendu allégé en 1080p) | Terminé | P1 | release, tv, plugin | T-096, T-097 | 2026-11-02 |
 | T-099 | Accueil organisé : le billboard restait parfois sous Continuer de regarder et Cette semaine | À valider | P2 | plugin | T-090 | 2026-11-03 |
 | T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | Terminé | P1 | release, plugin | T-099 | 2026-11-03 |
+| T-101 | Audit de la version TV (tests et lecture du code) | Terminé | P1 | tv, plugin | — | 2026-11-04 |
+| T-102 | Correctifs de l'audit TV | En cours (2026-11-04, `main`) | P1 | tv, plugin | T-101 | 2026-11-04 |
 
 ---
 
@@ -4487,6 +4489,76 @@ Choix de l'utilisateur :
 - Commits : `6c7b51b` (`0.8.4: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.8.4
 
+### T-101 — Audit de la version TV (tests et lecture du code)
+
+- **Statut :** Terminé
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** —
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** —
+
+**Demande**
+> Il y a pas mal de bugs avec la version TV, de soucis d'ergonomie, etc.. J'aimerais que tu lance une longue série de test avec un sous-agent pour faire une recherche de bugs et de soucis en tout genre qui devrai être corrigés. … En parallèle lance un deuxième sous agent qui lui va analyser le code sans tester l'app …
+
+**Besoin**
+Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, textes), par deux voies indépendantes : des essais réels et une lecture du code, puis trier ce qu'il faut corriger.
+
+**Critères d'acceptation**
+- [x] Essais réels : émulateur Android TV (1080p, Nathflix Dev construit depuis `main`, compte de l'utilisateur en lecture seule) et Chrome en invité avec l'User-Agent TV
+- [x] Lecture du code : Kotlin, `nathflix-tv.js`, chemins TV du plugin
+- [x] Tri : ce qui se corrige sans décision, et les choix laissés à l'utilisateur
+
+**Notes techniques**
+- **Résultat** : 22 constats par les essais (TEST-01 à TEST-22) et 32 par la lecture du code (CODE-01 à CODE-32), regroupés en 39 correctifs classés P1 (ce qui casse sur TV), P2 (sélection et ergonomie), P3 (robustesse, performance, lecteur). Les correctifs sont suivis dans T-102.
+- Correction entre les deux rapports : sur la vraie WebView TV, OK (DPAD_CENTER) produit bien un clic sur un `div role=button` sélectionné, alors qu'Entrée dans Chrome ne le fait pas. Un test au clavier dans Chrome n'imite donc pas la télécommande sur ces éléments.
+- **Choix laissés à l'utilisateur** (non corrigés) :
+  - bande-annonce TMDB d'une fiche : l'ouvrir dans l'app YouTube plutôt que dans la page ;
+  - écran jamais éteint (accueil, lecteur en pause) : durée avant de laisser la TV se mettre en veille ;
+  - Retour sur « Qui est-ce ? » au démarrage : quitter l'app (comme Netflix) ou entrer avec le profil courant ;
+  - épisode choisi dans le lecteur, ou épisode suivant sans flux connu : lancer d'office la première source ;
+  - intro coupée pour toujours après un arrêt du moteur de la page : ou seulement pour le démarrage suivant ;
+  - fiche d'un titre : déplacement par colonnes (boutons / épisodes) ;
+  - boutons visibles mais inatteignables (carte d'aperçu, panneau de Découvrir) : les masquer sur TV ou les rendre atteignables ;
+  - Retour loin dans les rangées de l'Accueil : remonter d'abord en haut ;
+  - petites remarques : champ de recherche déverrouillé d'office depuis la loupe, « Raccourcis » dans les Réglages de Stremio.
+
+**Vérification**
+- Rapports et captures dans le dossier de travail de la session (hors dépôt).
+
+**Livraison**
+- Commits : aucun (audit)
+
+### T-102 — Correctifs de l'audit TV
+
+- **Statut :** En cours (2026-11-04, `main`)
+- **Priorité :** P1
+- **Cible :** tv, plugin
+- **Dépend de :** T-101
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** `main`
+
+**Demande**
+> (suite de T-101) corriger ce que l'audit a trouvé, hors choix de l'utilisateur
+
+**Critères d'acceptation**
+- [ ] Les correctifs P1, P2 et P3 du tri de T-101, chacun vérifié
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- **Lecteur gardé après la touche Accueil** (TEST-13) : `MainActivity` était en `singleTask` (repris de dx.bi). Relancer Nathflix depuis le lanceur livre alors l'intent à `MainActivity` et ferme tout ce qui est au-dessus, dont le lecteur en pause. Passée en `singleTop` : le lanceur ramène la tâche telle quelle. Un lien `stremio://` venu d'une autre app pendant que Nathflix est ouvert va à la page déjà ouverte (`live`, `appTasks…moveToFront()`), pour ne jamais avoir deux WebView.
+
+**Vérification**
+- Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
+
+**Non fait**
+- —
+
+**Livraison**
+- Commits : voir le journal
+
 <!--
 ### T-000 — Titre court
 
@@ -4614,6 +4686,9 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-03 | T-099 | Créée et faite : le billboard, ajouté après le passage qui range l'Accueil organisé, restait sans place jusqu'au passage suivant ; un passage est demandé après son ajout |
 | 2026-11-03 | T-100 | En cours : release 0.8.4 demandée par l'utilisateur |
 | 2026-11-03 | T-100 | Terminé : release 0.8.4 publiée (APK 804 signée par la clé de release, plugin 0.8.4) |
+| 2026-11-04 | T-101 | Créée et faite : audit de la version TV (22 constats par les essais, 32 par le code), tri en 39 correctifs et choix laissés à l'utilisateur |
+| 2026-11-04 | T-102 | En cours : correctifs de l'audit TV ; lecteur gardé après Home (`MainActivity` en `singleTop`) |
+
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

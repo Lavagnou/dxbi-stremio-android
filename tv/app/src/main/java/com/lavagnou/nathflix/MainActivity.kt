@@ -54,6 +54,19 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         launchedAt = System.currentTimeMillis()
         super.onCreate(savedInstanceState)
+        // A stremio:// link opened from another app while Nathflix is already open: it goes to the open
+        // page (one WebView only), and Nathflix comes forward as it was
+        val existing = live?.get()
+        val link = intent?.data?.takeIf { it.scheme == "stremio" }
+        if (link != null && existing != null && existing !== this && !existing.isFinishing && existing.webReady) {
+            existing.openStremioLink(link)
+            @Suppress("DEPRECATION")
+            (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).appTasks
+                .firstOrNull { it.taskInfo.id == existing.taskId }?.moveToFront()
+            finish()
+            return
+        }
+        live = java.lang.ref.WeakReference(this)
         // A TV has no screen timeout worth keeping while browsing; a phone does (the player keeps it on)
         if (!mobile) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setUpSystemBars()
@@ -153,8 +166,7 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() = goBack()
         })
 
-        val link = intent?.data
-        if (link?.scheme == "stremio") openStremioLink(link) else web.loadUrl(STREMIO_URL)
+        if (link != null) openStremioLink(link) else web.loadUrl(STREMIO_URL)
         web.requestFocus()
 
         // A test build (Nathflix Dev) runs the plugin it was built with, and is never offered a release
@@ -269,6 +281,8 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, Lang.text(this, R.string.no_app_for_link, Device.thisOne(this)), Toast.LENGTH_SHORT).show()
         }
     }
+
+    private val webReady get() = ::web.isInitialized
 
     private fun openStremioLink(uri: Uri) {
         // stremio://host/path/manifest.json → install the addon through Stremio's Addons screen
@@ -420,12 +434,16 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         // recreate() can bring up the new screen before this one is gone: leave its listener alone
         if (PlaybackBus.listener === playbackListener) PlaybackBus.listener = null
+        if (live?.get() === this) live = null
         if (::web.isInitialized) web.destroy()
         super.onDestroy()
     }
 
     companion object {
-        const val STREMIO_ORIGIN = "https://web.stremio.com"
+        // the open Nathflix screen, if any (a stremio:// link from another app is handed to it)
+        private var live: java.lang.ref.WeakReference<MainActivity>? = null
+        const val STREMIO_ORIGIN
+ = "https://web.stremio.com"
         const val STREMIO_HOST = "web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100
