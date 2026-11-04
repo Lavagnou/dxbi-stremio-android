@@ -115,7 +115,17 @@
     next: 0,
     // Looked at now and then (sync), in the core's settings
     check() {
-      if (this.reloading || this.busy || Date.now() < this.next) return;
+      if (this.reloading || this.busy) return;
+      // In Settings, where the language is changed: every 2 s, the wait planned elsewhere cut short
+      if (currentRoute() === "settings") {
+        this.next = Math.min(this.next, Date.now() + 2000);
+        if (Date.now() < this.next) {
+          clearTimeout(this.timer);
+          this.timer = setTimeout(() => this.check(), this.next - Date.now() + 50);
+          return;
+        }
+      }
+      if (Date.now() < this.next) return;
       const { getState } = core();
       if (!getState) return;
       this.busy = true;
@@ -141,7 +151,13 @@
         this.reloading = true;
         log("interface language changed: reloading");
         setTimeout(() => location.reload(), 300);
-      }).catch(() => { /* core busy */ }).finally(() => { this.busy = false; });
+      }).catch(() => { /* core busy */ }).finally(() => {
+        this.busy = false;
+        // In Settings, looked at again every 2 s by itself: it was only looked at when the page
+        // changed, and a Settings page that stayed as it was kept the old language until you left it
+        clearTimeout(this.timer);
+        if (!this.reloading && currentRoute() === "settings") this.timer = setTimeout(() => this.check(), 2100);
+      });
     },
   };
 
@@ -17250,6 +17266,8 @@
     destroy() {
       idleLock.stop();
       cloudSync.stop();
+      clearTimeout(langWatch.timer);
+      langWatch.reloading = true;
       document.removeEventListener("visibilitychange", comeBack.onVisible);
       pinPad.cancel();
       mo.disconnect();

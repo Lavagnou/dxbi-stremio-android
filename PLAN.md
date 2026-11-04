@@ -4571,6 +4571,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **Bas n'est plus bloqué pour toujours au-dessus d'une rangée qui ne se charge pas** (CODE-07) : `loadingBetween()` / `loadingBelow()` attendaient une rangée sans titres sans limite (addon muet, rangée jamais demandée de l'Accueil organisé). `keyNav.waiting()` : une rangée en erreur (`message-container`) ne compte pas, et une rangée vide ne retient Bas que 4 s à partir du moment où la télécommande l'a rencontrée (repérée par sa place : Stremio la redessine) ; toutes les rangées vides sont regardées ensemble, pour que leurs attentes partent en même temps.
 - **OK pendant que le billboard tourne** (CODE-22) : dans la demi-seconde où il change de titre, la sélection reste sur le bouton de l'ancien (qui s'efface), puis sur rien jusqu'à `followFocus()` : OK ouvrait l'ancien titre ou ne faisait rien. `hero.tick()` note le changement (`moving`, 700 ms) ; `hero.onKey` envoie un OK pendant ce moment au même bouton du nouveau titre (sélectionné, puis pressé).
 - **Sélection visible dans les pages de profil, le clavier du code et les fenêtres de Nathflix** (TEST-15) : l'anneau TV du thème ne vaut que dans `#app` ; ces écrans sont à côté, et leur sélection n'était marquée que par un fond à peine plus clair. Sur `dx-tv`, le même anneau (3 px, couleur `--dx-focus`) sur leurs boutons, champs et lignes (à l'intérieur pour les lignes pleine largeur) ; les tuiles de « Qui est-ce ? » gardent le leur. Le bouton blanc (« Enregistrer », `.dxe-who-pill.is-solid`) n'est blanc que sélectionné, comme sur l'app TV de Netflix : non sélectionné, il paraissait l'être.
+- **Changement de langue appliqué depuis les Réglages** (TEST-18) : `langWatch.check()` n'était appelé que quand la page changeait ; la page Réglages restée telle quelle gardait l'ancienne langue jusqu'à ce qu'on la quitte, puis l'app se rechargeait au milieu de la navigation suivante. Dans les Réglages, il se relance seul toutes les 2 s (`timer`), et une attente de 15 s prévue ailleurs y est raccourcie. Le rechargement reste limité à un par minute.
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4590,6 +4591,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV, catalogues hors Cinemeta bloqués (requêtes sans réponse) : deux rangées vides sous la dernière rangée chargée ; Bas reste sur place pendant 4 s, puis mène à « Organiser l'Accueil » (avant : bloqué indéfiniment).
 - Chrome invité TV, sélection sur « Lecture », OK 50 ms puis 380 ms après le changement de titre : la fiche ouverte est celle du nouveau titre les deux fois.
 - Chrome invité TV, « Modifier le profil » : « Annuler » sélectionné → anneau blanc, « Enregistrer » bordé ; « Enregistrer » sélectionné → blanc avec l'anneau ; ligne « Verrouillage du profil » → anneau à l'intérieur de la ligne (captures). À valider sur la TV.
+- Chrome invité TV, Réglages, langue de l'interface Anglais → Français sans quitter la page : rechargement 1,3 s après le choix (avant : seulement en quittant les Réglages). (Un premier essai moins d'une minute après un autre rechargement attend la fin de la minute, comme voulu.)
 
 **Non fait**
 - —
@@ -4742,6 +4744,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Bas bloqué 4 s au plus au-dessus d'une rangée qui ne se charge pas |
 | 2026-11-04 | T-102 | Billboard : OK pendant le changement de titre ouvre le nouveau titre |
 | 2026-11-04 | T-102 | Pages de profil, clavier du code, fenêtres : anneau de sélection TV ; bouton blanc seulement sélectionné |
+| 2026-11-04 | T-102 | Langue changée dans les Réglages : appliquée tout de suite (contrôle toutes les 2 s sur la page) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
