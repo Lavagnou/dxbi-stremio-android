@@ -162,7 +162,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
 | T-103 | Release 0.9.0 (correctifs de l'audit TV) | Terminé | P1 | release, tv, plugin | T-102 | 2026-11-04 |
 | T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
-| T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | En cours | P1 | release, tv, plugin | T-104 | 2026-11-04 |
+| T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | Terminé | P1 | release, tv, plugin | T-104 | 2026-11-04 |
 
 ---
 
@@ -4726,7 +4726,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 ### T-105 — Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv, plugin
 - **Dépend de :** T-104
@@ -4741,8 +4741,8 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 **Critères d'acceptation**
 - [x] `@version 0.9.1`, section `## 0.9.1` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.9.1`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 901, plugin embarqué en 0.9.1
+- [x] CI verte, tag `v0.9.1`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 901, plugin embarqué en 0.9.1
 
 **Notes techniques**
 - **Contenu** : T-104 (Retour ×2 depuis « Qui est-ce ? » au démarrage, plugin ; intro plus coupée après un arrêt de la page, APK).
@@ -4751,9 +4751,14 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
 
+- CI verte sur `721e1eb` : Cross-platform Windows et Linux, mpv Windows, Android test build (avec R8) ; Cross-platform macOS annulé (ne bloque pas la release, choix de l'utilisateur).
+- Tag `v0.9.1` : run Release 41854430391 ; publish, android, desktop Windows et Linux ×2 verts ; les deux .dmg Mac encore en attente d'une machine au moment de clôturer : ils s'ajouteront à la release quand ils passeront.
+- Release : 9 fichiers au moment de clôturer (APK, Windows, Linux, `latest*.yml`), ni brouillon ni pré-release.
+- APK : signée `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (la même clé) ; `com.lavagnou.nathflix`, versionCode 901, versionName 0.9.1 ; plugin embarqué en 0.9.1, avec `whoIsWatching.atStart`.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `721e1eb` (`0.9.1: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.1
 
 <!--
 ### T-000 — Titre court
@@ -4922,6 +4927,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-103 | Terminé : release 0.9.0 publiée (APK 900 signée par la clé de release, plugin 0.9.0) |
 | 2026-11-04 | T-104 | Choix de l'utilisateur sur l'audit : Retour ×2 quitte depuis « Qui est-ce ? » au démarrage ; l'intro n'est plus coupée après un arrêt de la page (et revient une fois) |
 | 2026-11-04 | T-105 | En cours : release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) |
+| 2026-11-04 | T-105 | Terminé : release 0.9.1 publiée (APK 901 signée par la clé de release, plugin 0.9.1) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
