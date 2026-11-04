@@ -442,8 +442,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         // the open Nathflix screen, if any (a stremio:// link from another app is handed to it)
         private var live: java.lang.ref.WeakReference<MainActivity>? = null
-        const val STREMIO_ORIGIN
- = "https://web.stremio.com"
+        const val STREMIO_ORIGIN = "https://web.stremio.com"
         const val STREMIO_HOST = "web.stremio.com"
         const val STREMIO_URL = "https://web.stremio.com/"
         const val MIN_WEBVIEW = 100

@@ -3537,10 +3537,12 @@
   const BAR = 'nav, [class*="horizontal-nav-bar"]';
 
   // The billboard's first button on the picture showing (the others' slides are hidden and can't be
-  // focused, though they can count as visible while they fade)
+  // focused, though they can count as visible while they fade). Only on the page showing: Stremio
+  // keeps Home underneath Search, and Up from the results went to its hidden billboard (lost)
   function heroButton() {
-    return document.querySelector(".dx-hero-slide.is-active .dx-btn")
-      || [...document.querySelectorAll(".dx-hero .dx-btn")].find((b) => b.checkVisibility({ opacityProperty: true, visibilityProperty: true }));
+    const active = document.querySelector(".dx-hero-slide.is-active .dx-btn");
+    if (active && active.checkVisibility()) return active;
+    return [...document.querySelectorAll(".dx-hero .dx-btn")].find((b) => b.checkVisibility({ opacityProperty: true, visibilityProperty: true }));
   }
 
   // The page glides to what the remote selects. On a TV it's Nathflix's own glide: the browser's
@@ -4392,6 +4394,14 @@
             e.stopImmediatePropagation();
             btn.focus({ preventScroll: true });
             reveal(btn.closest(".dx-hero"), { block: "start" });
+            return;
+          }
+          // Search: Up from the first row of results goes back to the search box, to change the search
+          const box = IN_TV && /^#\/search/.test(location.hash) && [...document.querySelectorAll('input[class*="search-input"]')].find((i) => i.checkVisibility());
+          if (box) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            box.focus({ preventScroll: true });
             return;
           }
         }

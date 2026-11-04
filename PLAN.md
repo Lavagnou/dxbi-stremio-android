@@ -4549,9 +4549,11 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 **Notes techniques**
 - **Lecteur gardé après la touche Accueil** (TEST-13) : `MainActivity` était en `singleTask` (repris de dx.bi). Relancer Nathflix depuis le lanceur livre alors l'intent à `MainActivity` et ferme tout ce qui est au-dessus, dont le lecteur en pause. Passée en `singleTop` : le lanceur ramène la tâche telle quelle. Un lien `stremio://` venu d'une autre app pendant que Nathflix est ouvert va à la page déjà ouverte (`live`, `appTasks…moveToFront()`), pour ne jamais avoir deux WebView.
+- **Recherche : Haut depuis la 1re rangée de résultats** (TEST-12) : `heroButton()` rendait le bouton du billboard de l'Accueil, que Stremio garde monté (caché) sous la Recherche ; `focus()` échouait mais la touche était prise. Le bouton de la diapo active n'est rendu que s'il est visible (`checkVisibility()`), et sur la Recherche, Haut depuis la 1re rangée mène au champ de recherche (`input[class*="search-input"]` visible).
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
+- Chrome invité, UA TV, avec `nathflix-tv.js` et un pont simulé (Playwright, contexte en `bypassCSP` : sans lui, le plugin injecté par `nathflix-tv.js` ne tourne pas) : Recherche « matrix », 1re affiche, Haut → champ de recherche (avant : sélection bloquée). Accueil : Haut depuis la 1re rangée → « Lecture » du billboard, comme avant.
 
 **Non fait**
 - —
@@ -4688,7 +4690,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-03 | T-100 | Terminé : release 0.8.4 publiée (APK 804 signée par la clé de release, plugin 0.8.4) |
 | 2026-11-04 | T-101 | Créée et faite : audit de la version TV (22 constats par les essais, 32 par le code), tri en 39 correctifs et choix laissés à l'utilisateur |
 | 2026-11-04 | T-102 | En cours : correctifs de l'audit TV ; lecteur gardé après Home (`MainActivity` en `singleTop`) |
-
+| 2026-11-04 | T-102 | Recherche : Haut depuis les résultats revient au champ (le billboard caché de l'Accueil prenait la touche) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
