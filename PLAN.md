@@ -160,6 +160,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | Terminé | P1 | release, plugin | T-099 | 2026-11-03 |
 | T-101 | Audit de la version TV (tests et lecture du code) | Terminé | P1 | tv, plugin | — | 2026-11-04 |
 | T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
+| T-103 | Release 0.9.0 (correctifs de l'audit TV) | En cours | P1 | release, tv, plugin | T-102 | 2026-11-04 |
 
 ---
 
@@ -4647,6 +4648,35 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : `e8ba128` à `64270a7` (« TV audit: … », voir le journal)
 - Version / CHANGELOG : à la prochaine release (non montée, à la demande)
 
+### T-103 — Release 0.9.0 (correctifs de l'audit TV)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-102
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** `main`
+
+**Demande**
+> Une fois que tout est bon, fais une nouvelle release de l'app.
+
+**Critères d'acceptation**
+- [x] `@version 0.9.0`, section `## 0.9.0` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.9.0`, release avec ses fichiers
+- [ ] APK signée par la clé de release, versionCode 900, plugin embarqué en 0.9.0
+
+**Notes techniques**
+- **Contenu** : T-102 (39 groupes de correctifs de l'audit TV de T-101, et la relance par un autre lanceur). Nouvelle APK (lecteur, `MainActivity`, bridge `pluginFailed`, torrents, mises à jour) : d'où une version mineure.
+- macOS : ne bloque pas la release (choix de l'utilisateur, T-095).
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4810,6 +4840,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Lecture native : la vidéo cachée de Stremio ne charge plus le flux (progression toujours enregistrée) |
 | 2026-11-04 | T-102 | À valider : 39 groupes de correctifs faits (P1 à P3), APK debug installée sur l'émulateur, CI verte ; à essayer sur la Fire TV |
 | 2026-11-04 | T-102 | Vérification (35 OK / 39) ; relance par un autre lanceur pendant un film : plus de 2de page sur le lecteur ; relais abandonné : la vidéo web retrouve son adresse |
+| 2026-11-04 | T-103 | En cours : release 0.9.0 (correctifs de l'audit TV) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

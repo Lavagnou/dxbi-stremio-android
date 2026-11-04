@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+- **Nathflix TV: a film paused by Home comes back.** Pressing the remote's Home button during a film, then opening Nathflix again, closed the film and showed Home: it now brings the film back, paused where you left it, whichever launcher you open it from.
+- **Nathflix TV: Organise Home and the addons' order work with the remote.** The eye, ▲ and ▼ of *Organise Home* and of *Addons → Order & backup* can now be reached with left and right, OK presses them, and the selection follows the row you move.
+- **Nathflix TV: Back closes what's open first.** Back now closes an open list (Discover's *Popular*, a stream's *Quality* menu…) and keeps you on the page, rather than leaving it. One Back is enough to leave the Library and Continue Watching (it took three). On the sign-in page and the locked *Who's watching?* screen, Back lets you leave the app.
+- **Nathflix TV: the selection is never lost.** After *Who's watching?*, a window, or coming back from the TV's home screen, something is always selected; going back to a page selects the title you left, fully on screen. Up from Search's results goes back to the search box, and Down no longer gets stuck above a row that doesn't load.
+- **Nathflix TV: trailers on a title's page work with the remote.** The selection starts on *Pause*, OK pauses (it used to start the trailer over), left and right move between its buttons, the remote's play/pause button works, and Home closes the trailer so its sound doesn't carry on behind the TV's home screen.
+- **Nathflix TV: Nathflix settings are easier with the remote.** A setting with more than two choices opens a list of them, rather than going through them one OK at a time. The texts that were wrong on a TV are fixed, and changing Stremio's language applies at once.
+- **Nathflix TV: the player copes with a weak network.** When the connection drops during a film, the player tries again by itself (*Reconnecting…*) instead of closing. Subtitles load when you pick them, so a film with many subtitles starts sooner, errors are explained in plain words, and the remote's play/pause button controls the film.
+- **Nathflix TV: a film watched to the end starts over.** A title left at 95 % or more now starts from the beginning instead of ending at once.
+- **Nathflix TV: your viewing stats count films on the TV.** *Your stats* now counts what you watch in the TV player.
+- **Nathflix TV: smaller fixes.** Keys pressed during the intro no longer reach the page hidden under it; a held arrow moves at a steady pace; *Play* is always first on a title's page; the built-in look can no longer be turned off by mistake (the TV needs it); *Previous* / *Next* season buttons are no longer cut in French; profile pages and the code pad show the selection clearly; a torrent too big for the free space is refused with a message; a downloaded update that fails to load falls back to the built-in one; Stremio's hidden web player no longer downloads the film a second time during playback; and Nathflix does less work on Home and on a title's page.
+
 ## 0.8.4
 - **The billboard stays at the top of Home.** With Home organised (*Organise Home*), the billboard sometimes ended up under Continue Watching and *Airing this week*, when its titles came in after Home had settled (a slow network, a TV stick). It now always takes its place at the top.
 
