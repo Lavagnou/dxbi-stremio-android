@@ -354,7 +354,9 @@
         { label: t("Yellow"), value: "yellow" },
       ],
     },
-    { key: "builtInTheme", type: "toggle", label: t("Nathflix look built in"), description: t("Use the Nathflix theme without installing it separately. Steps aside by itself when you apply another theme in Settings → {section} → Themes.", { section: SETTINGS_SECTION }), defaultValue: DEFAULTS.builtInTheme },
+    // (Android: the look is always built in, there's no other theme to apply; switched off, the TV
+    // showed Stremio's own look with Nathflix's parts unstyled)
+    { key: "builtInTheme", desktopOnly: true, type: "toggle", label: t("Nathflix look built in"), description: t("Use the Nathflix theme without installing it separately. Steps aside by itself when you apply another theme in Settings → {section} → Themes.", { section: SETTINGS_SECTION }), defaultValue: DEFAULTS.builtInTheme },
     { key: "videoRowsOnly", type: "toggle", label: t("Only movie, series & anime rows on Home"), description: t("Hides rows from addons that list other things, like a debrid account's downloads or YouTube channels. They stay in Discover."), defaultValue: DEFAULTS.videoRowsOnly },
     { key: "billboard", type: "toggle", label: t("Billboard on Home"), description: t("Large rotating feature banner at the top of Home."), defaultValue: DEFAULTS.billboard },
     {
@@ -696,7 +698,7 @@
   // Nathflix TV's own options stay out of the app's and Stremio Enhanced's settings
   function registerSchema() {
     // (profile sync only shows once Nathflix has a sync server)
-    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly || (o.tvNext && IN_TV && !!(window.__nathflixTv && window.__nathflixTv.tvNext))) && (!o.tvFeature || !!(window.__nathflixTv && window.__nathflixTv[o.tvFeature])) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
+    return Promise.resolve(API.registerSettings(SCHEMA.filter((o) => (IN_TV || !o.tvOnly) && (!IN_ANDROID || !o.desktopOnly) && (IN_ANDROID || !o.androidOnly) && (IN_MOBILE || !o.mobileOnly || (o.tvNext && IN_TV && !!(window.__nathflixTv && window.__nathflixTv.tvNext))) && (!o.tvFeature || !!(window.__nathflixTv && window.__nathflixTv[o.tvFeature])) && (SYNC_ENDPOINT || o.key !== "profileSync")))).catch(() => { /* already registered */ });
   }
 
   // Clears what's registered and registers the schema again, one at a time: two at once (start-up and
@@ -16850,7 +16852,7 @@
         link.dataset.dxWatched = "1";
         link.addEventListener("error", () => { link.dataset.dxFailed = "1"; this.ensure(); }, { once: true });
       }
-      const want = settings.builtInTheme && (!link || link.dataset.dxFailed === "1");
+      const want = (settings.builtInTheme || IN_ANDROID) && (!link || link.dataset.dxFailed === "1");
       if (!want) {
         if (this.el) this.el.remove();
         this.el = null;

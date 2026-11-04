@@ -403,7 +403,9 @@
   // Options for Nathflix's in-page player, which the TV doesn't use (it has its own player)
   const DESKTOP_ONLY = new Set(["playerExtras", "enhance", "seekPreviews", "subtitleStyle", "subtitleFont",
     "convertVideo", "subtitlesStart", "hdrSubtitles", "pictureSound", "streamStats", "preloadNext", "upNext", "skipFiller",
-    "rememberPlayback", "playerKeys", "pip", "externalPlayer", "remainingTime", "watchParty", "partyFollow", "partyActivity", "partySounds"]);
+    "rememberPlayback", "playerKeys", "pip", "externalPlayer", "remainingTime", "watchParty", "partyFollow", "partyActivity", "partySounds",
+    // the look is always built in on Android (no other theme to apply)
+    "builtInTheme"]);
 
   // Hover cards and their trailers: phones and tablets have no hover (a tap opens the title)
   const NOT_ON_TOUCH = new Set(["previews", "trailers", "trailerDelay"]);
