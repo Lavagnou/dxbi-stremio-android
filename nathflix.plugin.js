@@ -1206,6 +1206,7 @@
     loadShown(entries, board) {
       const { dispatch } = core();
       if (!dispatch) return;
+      this.fresh = true; // (what's asked for now changes it)
       const catalogs = board.catalogs;
       const todo = entries.map((e) => e.i).filter((i) => catalogs[i] && !catalogs[i].content).sort((a, b) => a - b);
       for (let k = 0; k < todo.length;) {
@@ -1243,11 +1244,11 @@
         .filter((n) => n !== row && /board-row/.test(typeof n.className === "string" ? n.className : "") && !n.classList.contains("dx-row-hidden") && !n.classList.contains("dx-row-off") && (Number(n.style.order) || 0) > order)
         .sort((a, b) => (Number(a.style.order) || 0) - (Number(b.style.order) || 0))
         .slice(0, this.LOW);
-      if (below.length && below.every((n) => n.querySelector('[class*="meta-item-container"]'))) return;
-      const { getState } = core();
-      if (!getState || currentRoute() !== "board") return;
-      let board;
-      try { board = await getState("board"); } catch (_) { return; }
+      // (a row in error never gets titles: it counts as done)
+      if (below.length && below.every((n) => n.querySelector('[class*="meta-item-container"], [class*="message-container"]'))) return;
+      if (currentRoute() !== "board") return;
+      const board = await this.board();
+      if (!board) return;
       const list = this.shown(board);
       const key = row.matches('[class*="board-row"]') ? homeArrange.keyOf(row) : null;
       const at = key ? list.findIndex((e) => e.key === key) : -1;
@@ -1279,21 +1280,42 @@
       if (row.parentElement && row.parentElement.classList.contains("dx-rows-arranged")) return this.aheadShown(row);
       let ready = 0;
       for (let n = row.nextElementSibling; n && ready < this.LOW; n = n.nextElementSibling) {
-        if (n.matches('[class*="board-row"]') && n.offsetParent && n.querySelector('[class*="meta-item-container"]')) ready++;
+        if (n.matches('[class*="board-row"]') && n.offsetParent && n.querySelector('[class*="meta-item-container"], [class*="message-container"]')) ready++;
       }
       if (ready >= this.LOW) return;
-      const { getState } = core();
-      if (!getState || currentRoute() !== "board") return;
-      let board;
-      try { board = await getState("board"); } catch (_) { return; }
-      const catalogs = Array.isArray(board && board.catalogs) ? board.catalogs : [];
+      if (currentRoute() !== "board") return;
+      const board = await this.board();
+      if (!board) return;
+      const catalogs = Array.isArray(board.catalogs) ? board.catalogs : [];
       const next = catalogs.findIndex((c) => !c || !c.content);
       if (next >= 0) this.load(board, next + this.BATCH);
+    },
+
+    // The core's Home, read again only once it has changed (or after 10 s): this ran at every pass of
+    // the main loop on a TV's Home, and with several profiles each read goes through all of it
+    async board() {
+      if (!this.listening) {
+        this.listening = true;
+        coreEvents.on("board", () => { this.fresh = true; });
+      }
+      const now = performance.now();
+      if (this.kept && !this.fresh && now - this.keptAt < 10000) return this.kept;
+      const { getState } = core();
+      if (!getState) return null;
+      this.fresh = false;
+      try {
+        this.kept = await getState("board");
+        this.keptAt = performance.now();
+      } catch (_) {
+        this.kept = null;
+      }
+      return this.kept;
     },
 
     // Rows up to `end` that nobody asked for yet, in one go (each answer rebuilds Home once)
     load(board, end) {
       const { dispatch } = core();
+      this.fresh = true;
       const catalogs = board && Array.isArray(board.catalogs) ? board.catalogs : [];
       end = Math.min(end, catalogs.length);
       const start = catalogs.findIndex((c) => !c || !c.content);

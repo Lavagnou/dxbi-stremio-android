@@ -4574,6 +4574,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **Changement de langue appliqué depuis les Réglages** (TEST-18) : `langWatch.check()` n'était appelé que quand la page changeait ; la page Réglages restée telle quelle gardait l'ancienne langue jusqu'à ce qu'on la quitte, puis l'app se rechargeait au milieu de la navigation suivante. Dans les Réglages, il se relance seul toutes les 2 s (`timer`), et une attente de 15 s prévue ailleurs y est raccourcie. Le rechargement reste limité à un par minute.
 - **« Précédent » / « Suivant » entiers au-dessus des épisodes** (TEST-06) : Stremio donne une largeur fixe aux boutons de saison, et les libellés français étaient coupés (« Précéd », « Suivan »). Thème : ces deux boutons prennent la largeur de leur libellé (`min-width: max-content`, libellé sans retour à la ligne).
 - **Textes des réglages justes sur TV** (TEST-10) : « Statistiques de visionnage » ne dit plus « sur ce PC uniquement » (elles sont synchronisées ; à voir dans Réglages → Vos statistiques) ; « Demander qui regarde » : au démarrage seulement (T-070) ; « Verrouiller les profils » nomme l'écran et le bouton comme ils s'appellent (« Qui est-ce ? » → Gérer les profils) ; sur TV, « Mode léger » ne dit plus que le billboard reste fixe (il tourne, par un simple fondu, T-096) et « Bandes-annonces dans les aperçus » ne parle plus de toucher le haut-parleur. Textes anglais changés, traductions dans `frDictionary()`. « Délai de la bande-annonce » n'apparaît dans la fenêtre TV qu'avec les bandes-annonces activées (nouveau champ `showIf` de `SCHEMA`, lu par `settingsSheet()` ; une ancienne APK l'affiche toujours).
+- **Accueil TV : le modèle `board` relu seulement quand il a changé** (CODE-06) : `homeRows.ahead()` (appelé à chaque passage de `sync()` sur l'Accueil TV, et à chaque Bas) relisait tout `board` dès qu'une des rangées suivantes n'avait pas de titres, en permanence si l'une était en erreur. `homeRows.board()` garde la dernière lecture et ne relit qu'après un événement `board` du core (`coreEvents`), une demande de rangées (`load`, `loadShown`), ou 10 s ; une rangée en erreur (`message-container`) compte comme faite dans `ahead()` et `aheadShown()`.
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4596,6 +4597,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV, Réglages, langue de l'interface Anglais → Français sans quitter la page : rechargement 1,3 s après le choix (avant : seulement en quittant les Réglages). (Un premier essai moins d'une minute après un autre rechargement attend la fin de la minute, comme voulu.)
 - Chrome invité TV, fiche d'une série : « ‹ Précédent | Saison 1 | Suivant › » en entier (capture), `node tools/bundle-theme.mjs`.
 - Chrome invité TV, fenêtre des Réglages Nathflix : les cinq textes relevés tels que voulus ; « Délai de la bande-annonce » absent bandes-annonces coupées, présent une fois activées. `fr-missing.mjs` : les 2 faux positifs connus.
+- Chrome invité TV, catalogues hors Cinemeta en erreur, Accueil organisé : `perf.count("getState:board")` sur 6 touches puis 30 s de repos : +0 (avant : +1). L'invité n'a que 6 rangées et un profil : l'écart attendu est sur le compte de l'utilisateur (66 catalogues, plusieurs profils), à mesurer sur la TV avec la mesure à l'écran.
 
 **Non fait**
 - —
@@ -4751,6 +4753,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Langue changée dans les Réglages : appliquée tout de suite (contrôle toutes les 2 s sur la page) |
 | 2026-11-04 | T-102 | Boutons de saison « Précédent » / « Suivant » plus coupés en français |
 | 2026-11-04 | T-102 | Réglages : textes faux sur TV corrigés ; délai de la bande-annonce caché sans bandes-annonces |
+| 2026-11-04 | T-102 | Accueil TV : `board` relu seulement quand il change ; rangées en erreur comptées comme faites |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
