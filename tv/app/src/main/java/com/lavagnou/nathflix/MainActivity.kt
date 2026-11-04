@@ -201,9 +201,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        // Any key skips the intro (and isn't passed on to the page underneath)
-        intro?.takeIf { it.showing }?.let {
-            if (event.action == KeyEvent.ACTION_UP) it.skip()
+        // Any key skips the intro (and isn't passed on to the page underneath). Keys stay out of the
+        // page until the black has gone: OK pressed again to skip it chose a profile or opened a title
+        // nobody could see yet
+        intro?.takeIf { it.covering }?.let {
+            if (it.showing && event.action == KeyEvent.ACTION_UP) it.skip()
             return true
         }
         // Play/pause keys on the Home screen do nothing useful in the page: keep them from scrolling it

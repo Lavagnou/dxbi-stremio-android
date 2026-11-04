@@ -26,10 +26,11 @@
         android:theme="@style/Theme.Nathflix">
 
         <!-- singleTop, not singleTask: opening Nathflix again from the launcher must bring back a film
-             paused by Home (singleTask closed every screen above this one) -->
+             paused by Home (singleTask closed every screen above this one). A change of output resolution,
+             font size or system language doesn't restart the page either (it adapts by itself) -->
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection"
             android:exported="true"
             android:launchMode="singleTop"
             android:screenOrientation="fullUser"

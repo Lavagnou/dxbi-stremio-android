@@ -33,6 +33,9 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
 
     val showing get() = overlay != null && !done
 
+    /** Black is still over the page (the film, then the wait for the page, then the fade) */
+    val covering get() = overlay != null
+
     fun start() {
         val settings = try {
             JSONObject(activity.getSharedPreferences("plugin-settings", Context.MODE_PRIVATE).getString("nathflix", "{}") ?: "{}")
