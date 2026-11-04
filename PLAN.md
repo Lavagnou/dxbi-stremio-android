@@ -159,7 +159,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-099 | Accueil organisé : le billboard restait parfois sous Continuer de regarder et Cette semaine | À valider | P2 | plugin | T-090 | 2026-11-03 |
 | T-100 | Release 0.8.4 (billboard toujours en tête de l'Accueil organisé) | Terminé | P1 | release, plugin | T-099 | 2026-11-03 |
 | T-101 | Audit de la version TV (tests et lecture du code) | Terminé | P1 | tv, plugin | — | 2026-11-04 |
-| T-102 | Correctifs de l'audit TV | En cours (2026-11-04, `main`) | P1 | tv, plugin | T-101 | 2026-11-04 |
+| T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
 
 ---
 
@@ -4532,7 +4532,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 ### T-102 — Correctifs de l'audit TV
 
-- **Statut :** En cours (2026-11-04, `main`)
+- **Statut :** À valider (sur la Fire TV de l'utilisateur)
 - **Priorité :** P1
 - **Cible :** tv, plugin
 - **Dépend de :** T-101
@@ -4544,7 +4544,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 > (suite de T-101) corriger ce que l'audit a trouvé, hors choix de l'utilisateur
 
 **Critères d'acceptation**
-- [ ] Les correctifs P1, P2 et P3 du tri de T-101, chacun vérifié
+- [x] Les correctifs P1, P2 et P3 du tri de T-101 (39 groupes), chacun vérifié ou relu (voir Vérification)
 - [ ] Vérifié sur la Fire TV de l'utilisateur
 
 **Notes techniques**
@@ -4629,12 +4629,20 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Émulateur, APK debug construite avec ces changements, flux de test : `cmd media_session dispatch pause` puis `play` → la session passe en PAUSED puis PLAYING ; sous-titres anglais (SRT) choisis dans Audio et sous-titres → affichés à l'écran ; flux de test avec 6 sous-titres de plus sur un hôte injoignable → lecture en cours 5 s après le lancement ; flux sur une adresse refusée → « Reconnexion… » à chaque essai, puis le lecteur se ferme au bout d'environ 30 s.
 - Émulateur, APK debug construite : plugin cassé (erreur de syntaxe) poussé comme plugin téléchargé → au démarrage, « the updated plugin didn't load » dans le journal, fichier supprimé, page rechargée avec le plugin intégré (`window.__nathflix` présent). `torrentUrl` d'un torrent de test du domaine public : l'appel du bridge rend l'adresse en 15 ms, « engine up » arrive ensuite sur le fil du torrent (app arrêtée aussitôt après). Le refus faute de place et le ménage de l'APK : relus, non provoqués (4,9 Go libres sur l'émulateur ; pas de mise à jour sur une build de test).
 - Chrome invité TV, relais d'un film du domaine public (lecteur natif simulé) : avant, la `<video>` de la page reçoit l'adresse du flux et une requête `media` part vers le serveur de streaming ; après, la `<video>` n'a pas d'adresse et aucune requête `media` ne part (seules restent les `fetch` de Stremio pour ses statistiques). Progression envoyée par `onProgress` : `timeOffset` du titre à 130 000 ms dans l'état `player` de Stremio ; Retour quitte le lecteur comme avant.
+- Fin de session : APK debug finale construite et installée sur l'émulateur (plugin poussé retiré : l'app tourne sur son plugin intégré) ; fiche d'un film : `Lecture | Bande-annonce | Critiques` ; bande-annonce TMDB ouverte par OK : sélection sur Pause, gauche → « Plus d'infos », touche lecture/pause → en pause, Retour → fermée et sélection rendue au bouton « Bande-annonce » ; touche Accueil pendant la bande-annonce → `visibilitychange` caché, théâtre fermé. `tools/perf-bench.mjs --tv --runs 1` : aucune erreur. CI : Android test build (avec R8) et Cross-platform verts sur `64270a7`.
 
 **Non fait**
-- —
+- Hors du tri (petites remarques gardées pour plus tard) : depuis le champ de recherche, Bas mène d'abord à « Voir tous » ; la 1re affiche des résultats coupée au bord gauche après défilement (TEST-12, « aussi vu ») ; texte d'aide « Rechercher des extensions » tronqué (TEST-07).
+- CODE-14 : remonter tout de suite une erreur d'écriture de libtorrent (`TorrentErrorAlert`) ; seul le refus faute de place est fait.
+- CODE-06 : l'appel de `homeRows.ahead()` à chaque passage de `sync()` reste (il ne relit plus `board` sans changement).
+- TEST-18 : pas de message « Changement de langue… » avant le rechargement (il arrive en 1 à 2 s).
+- « Délai de la bande-annonce » caché sans bandes-annonces : seulement avec une APK récente (la fenêtre des réglages est dans l'APK).
+- Choix de l'utilisateur listés dans T-101 : non touchés.
+- CI : une seule exécution rouge, « mpv player (Windows) » sur `10eec34` (« Stremio's controls aren't showing », appli de bureau) ; les exécutions suivantes du même test sont vertes, relancée : verte (échec passager).
 
 **Livraison**
-- Commits : voir le journal
+- Commits : `e8ba128` à `64270a7` (« TV audit: … », voir le journal)
+- Version / CHANGELOG : à la prochaine release (non montée, à la demande)
 
 <!--
 ### T-000 — Titre court
@@ -4797,6 +4805,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Lecteur : réessai sur coupure réseau, sous-titres chargés à la demande, erreurs traduites, session média sur TV |
 | 2026-11-04 | T-102 | APK de mise à jour supprimée après installation ; torrent refusé faute de place ; repli sur le plugin intégré ; moteur torrent démarré hors du bridge |
 | 2026-11-04 | T-102 | Lecture native : la vidéo cachée de Stremio ne charge plus le flux (progression toujours enregistrée) |
+| 2026-11-04 | T-102 | À valider : 39 groupes de correctifs faits (P1 à P3), APK debug installée sur l'émulateur, CI verte ; à essayer sur la Fire TV |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
