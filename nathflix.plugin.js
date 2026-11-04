@@ -1732,6 +1732,8 @@
         return;
       }
       const button = focused ? [...focused.parentElement.querySelectorAll(".dx-btn")].indexOf(focused) : -1;
+      // OK pressed while it turns goes to the new title's button (see onKey)
+      this.moving = button >= 0 ? { button, until: Date.now() + 700 } : null;
       this.show(next);
       if (button >= 0) this.followFocus(focused, button);
     },
@@ -1746,13 +1748,27 @@
         if (now !== was && now && now !== document.body && now.isConnected) return;
         const target = el.querySelectorAll(".dx-hero-slide.is-active .dx-btn")[button];
         if (target) target.focus({ preventScroll: true });
+        this.moving = null;
       }, 500);
     },
 
     // TV: a key pressed on the billboard's buttons starts the wait for the next title again, so it never
     // turns just as OK is pressed (its dot's progress starts again too)
-    onKey: () => {
+    onKey: (e) => {
       const h = hero;
+      // OK in the moment it turns (the old title's button fading out, the new one not shown yet): the
+      // new title's button, the one coming on screen (it opened the old title, or did nothing)
+      if (e && e.key === "Enter" && h.moving && h.el && Date.now() < h.moving.until && (h.el.contains(document.activeElement) || keyNav.nothing(document.activeElement))) {
+        const target = h.el.querySelectorAll(".dx-hero-slide.is-active .dx-btn")[h.moving.button];
+        h.moving = null;
+        if (target) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          target.focus({ preventScroll: true });
+          target.click();
+          return;
+        }
+      }
       if (!h.el || !h.el.contains(document.activeElement) || !h.timer) return;
       h.schedule();
       const dot = h.el.querySelector(".dx-hero-dot.is-active");
