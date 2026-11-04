@@ -28,6 +28,10 @@ class Bridge(private val activity: MainActivity) {
         ""
     }
 
+    /** The plugin from [pluginSource] didn't start: a downloaded one is dropped (true if there was one) */
+    @JavascriptInterface
+    fun pluginFailed(token: String): Boolean = allowed(token) && Updates.dropUpdatedPlugin(activity)
+
     /** A plugin's saved settings, as a JSON object (what Stremio Enhanced keeps in <plugin>.plugin.json) */
     @JavascriptInterface
     fun getSettings(token: String, plugin: String): String =

@@ -63,6 +63,7 @@
     <string name="torrent_no_peers">No peers answered for this torrent. Try another stream.</string>
     <string name="torrent_cant_start">Couldn\'t start the torrent.</string>
     <string name="torrent_cant_open">Couldn\'t open this torrent.</string>
+    <string name="torrent_no_space">Not enough room on %1$s for this file (%2$s GB). Try a smaller stream.</string>
 
     <!-- App -->
     <string name="back_again">Press Back again to leave Nathflix</string>

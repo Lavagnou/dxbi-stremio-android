@@ -57,6 +57,7 @@
     <string name="torrent_no_peers">Aucun pair n\'a répondu pour ce torrent. Essayez un autre flux.</string>
     <string name="torrent_cant_start">Impossible de lancer le torrent.</string>
     <string name="torrent_cant_open">Impossible d\'ouvrir ce torrent.</string>
+    <string name="torrent_no_space">Pas assez de place sur %1$s pour ce fichier (%2$s Go). Essayez un flux plus léger.</string>
 
     <string name="back_again">Appuyez de nouveau sur Retour pour quitter Nathflix</string>
     <string name="crash_title">Nathflix s\'arrête sans cesse</string>

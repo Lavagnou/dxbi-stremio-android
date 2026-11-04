@@ -31,6 +31,8 @@ object TorrentEngine {
     private const val METADATA_TIMEOUT_S = 60
     private const val READ_AHEAD_PIECES = 12
     private const val PIECE_WAIT_MS = 90_000L
+    // room kept free for the TV itself when a torrent's file is downloaded (see start)
+    private const val FREE_MARGIN_BYTES = 500L * 1024 * 1024
 
     // Well-known open trackers, added to every torrent alongside its own (as Stremio's server does):
     // many streams list few or none, and leave finding peers to the DHT
@@ -64,8 +66,20 @@ object TorrentEngine {
     @Volatile private var active: Active? = null
     @Volatile private var opening: String? = null
     @Volatile private var failure: Int? = null // a string resource: why the torrent failed
+    @Volatile private var failureSize: String? = null // (the file's size in GB, for torrent_no_space)
 
-    /** Set up once: the download folder (emptied) and the session */
+    /** The local web server the player reads from: started at once (it's quick), for its address */
+    @Synchronized
+    private fun ensureServer() {
+        if (server != null) return
+        server = Server().also { it.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true) }
+        Log.i(TAG, "web server on ${server!!.listeningPort}")
+    }
+
+    /**
+     * Set up once: the download folder (emptied) and the session. On the torrent's own thread: starting
+     * libtorrent took a moment, during which the page (which asked through the bridge) was frozen
+     */
     @Synchronized
     private fun ensure(context: Context) {
         if (session != null) {
@@ -85,8 +99,7 @@ object TorrentEngine {
         val s = SessionManager(false)
         s.start(SessionParams(settings))
         session = s
-        server = Server().also { it.start(NanoHTTPD.SOCKET_READ_TIMEOUT, true) }
-        Log.i(TAG, "engine up, web server on ${server!!.listeningPort}")
+        Log.i(TAG, "engine up")
     }
 
     /**
@@ -95,7 +108,7 @@ object TorrentEngine {
      * background: the address answers once they're in.
      */
     fun open(context: Context, infoHash: String, fileIdx: Int, trackers: List<String>, nameHint: String): String {
-        ensure(context)
+        ensureServer()
         val hash = infoHash.lowercase()
         // (another file of the same torrent, a season pack's next episode, is another download)
         val key = "$hash/$fileIdx"
@@ -104,7 +117,16 @@ object TorrentEngine {
                 stop()
                 opening = key
                 failure = null
-                worker.execute { start(key, hash, fileIdx, trackers, nameHint) }
+                worker.execute {
+                    try {
+                        ensure(context)
+                    } catch (e: Throwable) {
+                        Log.w(TAG, "couldn't start the engine", e)
+                        if (opening == key) failure = R.string.torrent_cant_start
+                        return@execute
+                    }
+                    start(key, hash, fileIdx, trackers, nameHint)
+                }
             }
         }
         return "http://127.0.0.1:${server!!.listeningPort}/t/$key"
@@ -128,6 +150,16 @@ object TorrentEngine {
             val info = TorrentInfo.bdecode(bytes)
             val files = info.files()
             val pick = if (fileIdx in 0 until files.numFiles()) fileIdx else chooseFile(info, nameHint)
+            // The whole file is downloaded: one bigger than the room left (less a margin for the TV)
+            // is turned down at once. It filled the storage, then the player waited 90 s on a piece
+            // that never came and stopped with a vague error
+            val needed = files.fileSize(pick)
+            if (needed > dir.usableSpace - FREE_MARGIN_BYTES) {
+                Log.w(TAG, "not enough room for ${needed / 1048576} MB (${dir.usableSpace / 1048576} MB free)")
+                failureSize = "%.1f".format(needed / 1e9)
+                failure = R.string.torrent_no_space
+                return
+            }
             // only the file being watched is downloaded
             val priorities = Array(files.numFiles()) { if (it == pick) Priority.DEFAULT else Priority.IGNORE }
             s.download(info, dir, null, priorities, null, TorrentFlags.SEQUENTIAL_DOWNLOAD)
@@ -191,7 +223,7 @@ object TorrentEngine {
 
     /** For the player's status line: "Finding peers…", "12 peers · 2.4 MB/s", or why it failed */
     fun status(context: Context): String? {
-        failure?.let { return Lang.text(context, it) }
+        failed(context)?.let { return it }
         val a = active ?: return if (opening != null) Lang.text(context, R.string.torrent_finding_peers) else null
         return try {
             val st = a.handle.status()
@@ -207,7 +239,9 @@ object TorrentEngine {
         return text == finding || PEERS_STATUS.matches(text)
     }
 
-    fun failed(context: Context): String? = failure?.let { Lang.text(context, it) }
+    fun failed(context: Context): String? = failure?.let {
+        if (it == R.string.torrent_no_space) Lang.text(context, it, Device.thisOne(context), failureSize ?: "?") else Lang.text(context, it)
+    }
 
     // ---- Reading the file as it arrives ----
 

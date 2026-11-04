@@ -12,6 +12,8 @@
   if (!bridge) return;
   const native = {
     pluginSource: () => bridge.pluginSource(TOKEN),
+    // (an older app has no fallback: false)
+    pluginFailed: () => (bridge.pluginFailed ? bridge.pluginFailed(TOKEN) : false),
     getSettings: (plugin) => bridge.getSettings(TOKEN, plugin),
     saveSetting: (plugin, key, valueJson) => bridge.saveSetting(TOKEN, plugin, key, valueJson),
     play: (json) => bridge.play(TOKEN, json),
@@ -1007,6 +1009,7 @@
     const script = document.createElement("script");
     script.id = PLUGIN;
     script.textContent = `(function () {
+      window.__nathflixTvRan = true;
       const StremioEnhancedAPI = {
         logger: {
           info: (m) => window.StremioEnhancedAPI.info(${JSON.stringify(base)}, m),
@@ -1030,6 +1033,13 @@
     const started = performance.now();
     document.body.append(script);
     window.__nathflixTvPluginMs = Math.round(performance.now() - started);
+    // A plugin that didn't even start (an update written for a newer browser than this TV's, say): the
+    // downloaded one is dropped and the page starts again with the one built into the app. Without
+    // this, Nathflix was gone until the next release
+    if (!window.__nathflixTvRan && native.pluginFailed()) {
+      console.warn("[Nathflix TV] the updated plugin didn't load: back to the built-in one");
+      location.reload();
+    }
   }
 
   // Text boxes (Search, an episode list's search): the TV's keyboard opened the moment the

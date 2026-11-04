@@ -35,6 +35,17 @@ object Updates {
         Http.client.newBuilder().connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS).build()
     }
 
+    /**
+     * The downloaded plugin didn't load in the page (it didn't even start): it goes, and the bundled
+     * one is used from now on. True if there was one to drop (the page then loads again)
+     */
+    fun dropUpdatedPlugin(context: Context): Boolean {
+        val updated = File(context.filesDir, UPDATED_PLUGIN)
+        if (!updated.exists()) return false
+        android.util.Log.w("nathflix", "the updated plugin didn't load: back to the bundled one")
+        return updated.delete()
+    }
+
     /** The plugin to run: the bundled one, or a newer one fetched earlier */
     fun pluginSource(context: Context): String {
         val bundled = context.assets.open("nathflix.plugin.js").bufferedReader().use { it.readText() }
@@ -72,12 +83,13 @@ object Updates {
 
     fun checkApp(activity: MainActivity) = thread(name = "nathflix-app-update") {
         try {
+            // the APK an earlier update installed isn't needed any more (looked at first: once that
+            // update is in, there's nothing newer, and it stayed in the cache until the next release)
+            if (!downloading.get()) File(activity.cacheDir, "updates").deleteRecursively()
             val release = JSONObject(get(RELEASES_URL) ?: return@thread)
             val latest = release.optString("tag_name").removePrefix("v")
             val current = BuildConfigVersion.name(activity)
             if (!isNewer(latest, current)) return@thread
-            // the APK an earlier update installed isn't needed any more
-            if (!downloading.get()) File(activity.cacheDir, "updates").deleteRecursively()
             val prefs = activity.getSharedPreferences("updates", Context.MODE_PRIVATE)
             if (prefs.getString("skipped", null) == latest) return@thread
             val assets = release.optJSONArray("assets") ?: return@thread
