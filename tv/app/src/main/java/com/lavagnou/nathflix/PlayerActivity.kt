@@ -75,6 +75,8 @@ class PlayerActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var closed = false
     private var lastError: String? = null
+    // network errors tried again so far, without the film playing again in between
+    private var retries = 0
     private var lastText: List<String?> = emptyList()
 
     // Phones and tablets
@@ -226,12 +228,21 @@ class PlayerActivity : AppCompatActivity() {
 
         // The device's own decoders first, falling back to software ones when a format isn't supported
         // (audio: FFmpeg, for Dolby, DTS and TrueHD tracks the hardware can't decode)
-        val renderers = DefaultRenderersFactory(this)
+        // Subtitles decoded as they're shown (the text renderer's own decoders), not read with the
+        // film: the addons' subtitle files (up to 45) were all downloaded before the film could start,
+        // and it waited on the slowest. Now one only loads once picked
+        val renderers = object : DefaultRenderersFactory(this) {
+            override fun buildTextRenderers(context: android.content.Context, output: androidx.media3.exoplayer.text.TextOutput, outputLooper: Looper, extensionRendererMode: Int, out: ArrayList<androidx.media3.exoplayer.Renderer>) {
+                val from = out.size
+                super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, out)
+                for (i in from until out.size) (out[i] as? androidx.media3.exoplayer.text.TextRenderer)?.experimentalSetLegacyDecodingEnabled(true)
+            }
+        }
             .setEnableDecoderFallback(true)
             .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
 
         val exo = ExoPlayer.Builder(this, renderers)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource))
+            .setMediaSourceFactory(DefaultMediaSourceFactory(dataSource).experimentalParseSubtitlesDuringExtraction(false))
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(), true)
             .setHandleAudioBecomingNoisy(true)
             .setSeekBackIncrementMs(SEEK_STEP_MS)
@@ -282,6 +293,11 @@ class PlayerActivity : AppCompatActivity() {
         exo.setMediaItem(item, stream.optLong("startMs", 0L).coerceAtLeast(0L))
         exo.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
+                // playing again after a network error: the next one gets its tries again
+                if (state == Player.STATE_READY && retries > 0) {
+                    retries = 0
+                    seekFlash.visibility = View.GONE
+                }
                 if (state != Player.STATE_ENDED) return
                 // On to the next episode, like Netflix (unless that's switched off in Nathflix settings)
                 val next = nextRoute
@@ -297,6 +313,22 @@ class PlayerActivity : AppCompatActivity() {
             }
 
             override fun onPlayerError(error: PlaybackException) {
+                // The network gone for a moment (Wi-Fi dropping, a server slow to answer): tried again
+                // quietly where it was, three times (after 2, 5 and 15 s), with "Reconnecting…" showing.
+                // It closed the player at once, back to the list of streams
+                if (!torrent && retries < RETRY_DELAYS_MS.size && error.errorCode in RETRIED) {
+                    val wait = RETRY_DELAYS_MS[retries++]
+                    handler.removeCallbacks(hideFlash)
+                    seekFlash.text = Lang.text(this@PlayerActivity, R.string.reconnecting)
+                    seekFlash.visibility = View.VISIBLE
+                    handler.postDelayed({
+                        if (closed) return@postDelayed
+                        // (a live stream that fell behind its window: back to where it is now)
+                        if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) exo.seekToDefaultPosition()
+                        exo.prepare()
+                    }, wait)
+                    return
+                }
                 lastError = (if (torrent) TorrentEngine.failed(this@PlayerActivity) else null) ?: describe(error)
                 finishWith(error = lastError)
             }
@@ -546,6 +578,12 @@ class PlayerActivity : AppCompatActivity() {
         val exo = player ?: return
         playerView.useController = false
         titleBar.visibility = View.GONE
+        // Pause and play by voice (Alexa, the Google Assistant) and from remotes that go through HDMI-CEC:
+        // they reach the player through its media session (a name of its own, released in finishWith)
+        val open = PendingIntent.getActivity(this, 0,
+            Intent(this, PlayerActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        session = MediaSession.Builder(this, exo).setId("nathflix-player-${System.nanoTime()}").setSessionActivity(open).build()
         val c = TvPlayerControls(this, exo, stream.optString("title"), episodeLine(stream), episodesOf(stream), stream.optInt("season", 0),
             nextRoute != null, skipButton, playerView.subtitleView)
         // over the picture, under the skip button and the torrent's status
@@ -762,16 +800,27 @@ class PlayerActivity : AppCompatActivity() {
     }
 
     private fun describe(error: PlaybackException): String = when (error.errorCode) {
-        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS -> Lang.text(this, R.string.error_refused)
+        PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+        PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND,
+        PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
+        PlaybackException.ERROR_CODE_IO_NO_PERMISSION -> Lang.text(this, R.string.error_refused)
         PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
-        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT -> Lang.text(this, R.string.error_connection)
+        PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+        PlaybackException.ERROR_CODE_TIMEOUT,
+        PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW -> Lang.text(this, R.string.error_connection)
+        PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
+        PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
+        PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED,
+        PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED -> Lang.text(this, R.string.error_audio_output, Device.thisOne(this))
         PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
         PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES ->
             // Audio has a software decoder (FFmpeg) for whatever the hardware can't do; video doesn't
             Lang.text(this, R.string.error_video_format, Device.thisOne(this))
         PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED -> Lang.text(this, R.string.error_container)
-        else -> error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' ')
+        // (the technical name kept in brackets, for a problem report)
+        else -> Lang.text(this, R.string.error_other, error.errorCodeName.removePrefix("ERROR_CODE_").lowercase().replace('_', ' '))
     }
 
     private fun clock(ms: Long): String {
@@ -786,5 +835,14 @@ class PlayerActivity : AppCompatActivity() {
         // The player on screen (or in picture-in-picture), so a new film can close it
         private var current: WeakReference<PlayerActivity>? = null
         private const val SEEK_STEP_MS = 10_000L
+        // Network errors tried again before the player gives up, and the waits before each try
+        private val RETRY_DELAYS_MS = longArrayOf(2_000L, 5_000L, 15_000L)
+        private val RETRIED = setOf(
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+            PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+            PlaybackException.ERROR_CODE_TIMEOUT,
+            PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
+        )
     }
 }

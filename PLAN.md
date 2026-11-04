@@ -4584,6 +4584,10 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - (suite, TEST-19) Sur l'émulateur, revenir de l'écran d'accueil de la TV ne déclenche pas toujours `visibilitychange` ; la fenêtre reprend le focus, puis Stremio le donne à `#app`. `keyNav.onVisible` écoute aussi `focus` de la fenêtre, et `#app` (ou `body`) n'est jamais retenu comme `lastOutside`.
 - **Les statistiques comptent la lecture native** (CODE-10 ; choix pris : la compter) : elles ne comptaient que la vidéo de la page, qui ne joue jamais sur Android. `tv.onProgress` (toutes les 5 s pendant la lecture) appelle `window.__nathflix.statsTick(paused)` (détecté) ; `stats.nativeTick()` ajoute le temps écoulé entre deux rapports en lecture (12 s au plus, rien en pause) au titre en cours (`loadMedia`), et enregistre à la pause et à la fermeture.
 - **Reprise à 95 % ou plus : depuis le début** (CODE-18) : `startHandoff()` reprenait toujours à `timeOffset` ; fermé pendant le générique, le film finissait aussitôt (et l'épisode suivant partait seul). Comme le bouton Reprendre de la fiche (moins de 90 %), à 95 % ou plus le lecteur part du début (`lib.duration`).
+- **Lecteur : coupure réseau réessayée** (CODE-11 ; choix pris : réessai silencieux) : toute erreur fermait le lecteur. Pour une erreur de réseau (`RETRIED` : connexion échouée ou trop lente, erreur d'entrée-sortie non précisée, délai dépassé, direct en retard), `onPlayerError` refait `prepare()` là où le film en était, trois fois (après 2, 5 et 15 s, `RETRY_DELAYS_MS`) avec « Reconnexion… » affiché ; un direct en retard repart de sa position par défaut ; la lecture qui reprend remet le compte à zéro. Pas pour les torrents (le moteur local a ses propres messages).
+- **Sous-titres des addons chargés à la demande** (CODE-12) : avec `parseSubtitlesDuringExtraction` (vrai par défaut dans Media3 1.5.1), chaque fichier de sous-titres était téléchargé avant que le film démarre (jusqu'à 45), et le film attendait le plus lent. `DefaultMediaSourceFactory(…).experimentalParseSubtitlesDuringExtraction(false)`, et les `TextRenderer` en décodage « legacy » (`experimentalSetLegacyDecodingEnabled(true)`, dans `buildTextRenderers` d'un `DefaultRenderersFactory` dérivé) : sans lui, Media3 refuse ces sous-titres.
+- **Erreurs du lecteur traduites** (CODE-17) : `describe()` couvre les familles courantes (refus du serveur, connexion, sortie audio refusée, format) ; le reste devient « une erreur inattendue (nom technique) ». Nouveaux textes `error_audio_output`, `error_other`, `reconnecting` (anglais et français).
+- **Session média sur TV** (CODE-26) : `setUpTv()` crée aussi la `MediaSession` (nom unique, libérée par `finishWith()` comme sur téléphone, sans `PlaybackService`) : la voix (Alexa, Assistant) et les télécommandes HDMI-CEC atteignent le lecteur.
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4617,6 +4621,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV, relais de lecture d'un film du domaine public jusqu'au lecteur simulé, rapports de progression envoyés à la main : le temps est compté dans `stats:<profil>` (jour, heure, titre, genres).
 - (CODE-23, même banc) Retour aussitôt après `native.play()` : rendu `true`, la page reste sur le lecteur ; 5,5 s plus tard, Retour revient à la fiche.
 - Relu (une condition) ; `node --check`. Pas d'essai : il faudrait une progression enregistrée sur un titre.
+- Émulateur, APK debug construite avec ces changements, flux de test : `cmd media_session dispatch pause` puis `play` → la session passe en PAUSED puis PLAYING ; sous-titres anglais (SRT) choisis dans Audio et sous-titres → affichés à l'écran ; flux de test avec 6 sous-titres de plus sur un hôte injoignable → lecture en cours 5 s après le lancement ; flux sur une adresse refusée → « Reconnexion… » à chaque essai, puis le lecteur se ferme au bout d'environ 30 s.
 
 **Non fait**
 - —
@@ -4782,6 +4787,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Retour de l'écran d'accueil de la TV : sélection rendue (focus de la fenêtre, `#app` jamais retenu) |
 | 2026-11-04 | T-102 | Statistiques : la lecture native (Android) est comptée |
 | 2026-11-04 | T-102 | Reprise à 95 % ou plus d'un titre : depuis le début |
+| 2026-11-04 | T-102 | Lecteur : réessai sur coupure réseau, sous-titres chargés à la demande, erreurs traduites, session média sur TV |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

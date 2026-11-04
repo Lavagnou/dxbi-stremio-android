@@ -52,6 +52,9 @@
     <string name="error_video_format">%1$s can\'t decode its video format (pick a release in H.264 / x264, or without HDR or Dolby Vision)</string>
     <string name="error_container">its file format isn\'t supported</string>
     <string name="error_no_address">no stream address</string>
+    <string name="error_audio_output">the sound output of %1$s refused this sound track</string>
+    <string name="error_other">an unexpected error (%1$s)</string>
+    <string name="reconnecting">Reconnecting…</string>
 
     <!-- A torrent played on the device itself -->
     <string name="torrent_finding_peers">Finding peers…</string>

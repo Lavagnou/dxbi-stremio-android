@@ -47,6 +47,9 @@
     <string name="error_video_format">%1$s ne sait pas décoder son format vidéo (choisissez une version en H.264 / x264, ou sans HDR ni Dolby Vision)</string>
     <string name="error_container">son format de fichier n\'est pas pris en charge</string>
     <string name="error_no_address">pas d\'adresse pour ce flux</string>
+    <string name="error_audio_output">la sortie audio de %1$s a refusé cette piste son</string>
+    <string name="error_other">une erreur inattendue (%1$s)</string>
+    <string name="reconnecting">Reconnexion…</string>
 
     <string name="torrent_finding_peers">Recherche de pairs…</string>
     <string name="torrent_peers">%1$d pairs · %2$s Mo/s</string>
