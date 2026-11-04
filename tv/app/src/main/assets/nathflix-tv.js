@@ -444,11 +444,18 @@
     };
     const render = (focusKey) => {
       const current = values();
+      const valueOf = (key) => {
+        if (current[key] !== undefined) return current[key];
+        const o = schema.find((x) => x.key === key);
+        return o ? o.defaultValue : undefined;
+      };
+      // (a setting that only matters with another one on: "Trailer delay" without trailers)
+      const shownNow = schema.filter((o) => !o.showIf || valueOf(o.showIf));
       el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>${esc(t("Nathflix settings"))}</h2>
-        ${schema.map((o, i) => {
-          const v = current[o.key] === undefined ? o.defaultValue : current[o.key];
+        ${shownNow.map((o, i) => {
+          const v = valueOf(o.key);
           // a heading wherever a new group of settings starts
-          const heading = o.group && o.group !== (schema[i - 1] || {}).group ? `<h3 class="dxtv-group">${esc(o.group)}</h3>` : "";
+          const heading = o.group && o.group !== (shownNow[i - 1] || {}).group ? `<h3 class="dxtv-group">${esc(o.group)}</h3>` : "";
           return `${heading}<button class="dxtv-row" data-key="${esc(o.key)}"><span>${esc(o.label)}${o.description ? `<small>${esc(o.description)}</small>` : ""}</span><b>${esc(shown(o, v))}</b></button>`;
         }).join("")}
         <div class="dxtv-buttons"><button class="dxtv-btn" data-close>${esc(t("Done"))}</button></div></div>`;
