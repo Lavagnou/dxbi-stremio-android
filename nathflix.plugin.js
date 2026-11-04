@@ -3980,7 +3980,7 @@
 
     // The screen of Nathflix's showing on top, if any
     layer() {
-      return [...document.querySelectorAll(".dxe-who, .dxe-modal, .dxe-pin")].filter((n) => n.checkVisibility()).pop() || null;
+      return [...document.querySelectorAll(".dxe-who, .dxe-modal, .dxe-pin, .dxe-theatre")].filter((n) => n.checkVisibility()).pop() || null;
     },
 
     // The nearest thing that way inside `box`, out of sight or not (the caller scrolls to it).
@@ -14543,7 +14543,7 @@
             <button class="dxe-th-icon" data-th="toggle" aria-label="${t("Pause")}" data-tip="${t("Pause (Space)")}">${ICONS.pause}</button>
             <button class="dxe-th-icon" data-th="mute" aria-label="${t("Mute")}" data-tip="${t("Mute (M)")}">${ICONS.sound}</button>
           </div>
-          <div class="dxe-th-seek" data-th="seek"><div class="dxe-th-track"><i class="dxe-th-fill"></i><i class="dxe-th-knob"></i></div><span class="dxe-th-time">0:00</span></div>
+          <div class="dxe-th-seek" data-th="seek"${IN_TV ? ' tabindex="0"' : ""}><div class="dxe-th-track"><i class="dxe-th-fill"></i><i class="dxe-th-knob"></i></div><span class="dxe-th-time">0:00</span></div>
         </div>`;
       el.querySelector(".dxe-th-title img")?.addEventListener("error", (e) => {
         e.target.remove();
@@ -14554,9 +14554,19 @@
       el.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") this.wake(); });
       el.addEventListener("pointerdown", (e) => { this.byFinger = e.pointerType !== "mouse"; });
       for (const type of ["pointerdown", "mousedown", "dblclick", "wheel", "touchstart"]) el.addEventListener(type, (e) => e.stopPropagation(), { passive: true });
+      // TV: the remote starts on pause inside the theatre (it stayed on the title's Trailer button
+      // underneath, and each OK opened the trailer again from the start), and goes back there after
+      this.opener = IN_TV ? document.activeElement : null;
       document.body.append(el);
       this.el = el;
       this.frame = el.querySelector("iframe");
+      if (IN_TV) {
+        el.querySelector('[data-th="toggle"]').focus({ preventScroll: true });
+        // YouTube takes the focus into its frame when it starts playing, and the page then never got
+        // another key: it comes straight back to the button that had it
+        el.addEventListener("focusin", (e) => { if (e.target !== this.frame) this.lastFocus = e.target; });
+        window.addEventListener("blur", this.onBlur);
+      }
       this.state = { time: start, duration: 0, playing: false, muted: false };
       this.since = 0; // when it last started playing (REVEAL_MS)
       this.yt = null; // the last state YouTube gave
@@ -14568,6 +14578,8 @@
       window.addEventListener("message", this.onMessage);
       window.addEventListener("keydown", this.onKey, true);
       document.addEventListener("fullscreenchange", this.onFullscreen);
+      // Android: Home with a trailer playing (its sound went on behind the TV's home screen)
+      if (IN_ANDROID) document.addEventListener("visibilitychange", this.onHidden);
       requestAnimationFrame(() => el.classList.add("is-in"));
       // true full screen when the window isn't already
       if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().then(() => { this.ownFullscreen = true; }).catch(() => {});
@@ -14585,10 +14597,26 @@
       window.removeEventListener("message", this.onMessage);
       window.removeEventListener("keydown", this.onKey, true);
       document.removeEventListener("fullscreenchange", this.onFullscreen);
+      document.removeEventListener("visibilitychange", this.onHidden);
+      window.removeEventListener("blur", this.onBlur);
       if (this.ownFullscreen && document.fullscreenElement === el) document.exitFullscreen().catch(() => {});
       this.ownFullscreen = false;
       el.classList.remove("is-in");
       setTimeout(() => el.remove(), 260);
+      const opener = this.opener;
+      this.opener = null;
+      if (opener && opener.isConnected && (!document.activeElement || document.activeElement === document.body || el.contains(document.activeElement))) opener.focus({ preventScroll: true });
+    },
+
+    onBlur: () => {
+      setTimeout(() => {
+        const t = theatre;
+        if (t.el && t.frame && document.activeElement === t.frame) (t.lastFocus && t.lastFocus.isConnected ? t.lastFocus : t.el.querySelector('[data-th="toggle"]')).focus({ preventScroll: true });
+      }, 0);
+    },
+
+    onHidden: () => {
+      if (document.visibilityState === "hidden") theatre.close();
     },
 
     // leaving full screen with the window's own controls closes the theatre too
@@ -14638,6 +14666,33 @@
     onKey: (e) => {
       const t = theatre;
       if (!t.el) return;
+      // TV: OK presses the button selected (a title's page underneath never gets it: it opened the
+      // trailer again), and pauses when nothing in the theatre is selected. Left and right go from
+      // button to button, and seek only on the progress bar
+      if (IN_TV) {
+        const inside = t.el.contains(document.activeElement);
+        if (e.key === "Enter") {
+          e.stopImmediatePropagation();
+          if (inside && document.activeElement.tagName === "BUTTON") { t.wake(); return; }
+          e.preventDefault();
+          t.toggle();
+          t.wake();
+          return;
+        }
+        const dir = keyNav.DIRS[e.key];
+        if (dir && !(dir[0] && inside && document.activeElement.dataset.th === "seek")) {
+          // the theatre's own buttons and progress bar only (the browser otherwise went into
+          // YouTube's frame, which then kept every key)
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          const here = inside ? document.activeElement : t.el.querySelector('[data-th="toggle"]');
+          const items = [...t.el.querySelectorAll("button, [data-th='seek']")].filter((n) => n !== here && n.checkVisibility());
+          const next = here === document.activeElement ? keyNav.nearest(items, here, e) : here;
+          if (next) next.focus({ preventScroll: true });
+          t.wake();
+          return;
+        }
+      }
       const handled = { Escape: () => t.close(), " ": () => t.toggle(), k: () => t.toggle(), m: () => t.toggleMute(), ArrowLeft: () => t.seekBy(-10), ArrowRight: () => t.seekBy(10) }[e.key.length === 1 ? e.key.toLowerCase() : e.key];
       if (!handled) return;
       e.preventDefault();
@@ -17036,6 +17091,14 @@
       const key = String(videoId);
       if (!skip.cache.has(key)) skip.cache.set(key, await skip.fetchSegments({ type, metaId, videoId: key }).catch(() => []));
       return skip.cache.get(key);
+    },
+    // Nathflix for Android's play/pause key (the remote's): pauses or plays a trailer showing full
+    // screen (true if there was one)
+    mediaKey() {
+      if (!theatre.el) return false;
+      theatre.toggle();
+      theatre.wake();
+      return true;
     },
     // Nathflix TV's Back button on a screen with nothing behind it to go back to: the locked Who's
     // watching (its code pad closed). The app then offers to leave, as on Home

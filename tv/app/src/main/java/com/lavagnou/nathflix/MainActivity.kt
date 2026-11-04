@@ -208,8 +208,14 @@ class MainActivity : AppCompatActivity() {
             if (it.showing && event.action == KeyEvent.ACTION_UP) it.skip()
             return true
         }
-        // Play/pause keys on the Home screen do nothing useful in the page: keep them from scrolling it
-        if (event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) return true
+        // Play/pause keys on the Home screen do nothing useful in the page: keep them from scrolling it.
+        // A trailer showing full screen in the page is paused or played by them, though
+        if (event.keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 && ::web.isInitialized) {
+                web.evaluateJavascript("window.__nathflix && typeof window.__nathflix.mediaKey === 'function' && window.__nathflix.mediaKey()", null)
+            }
+            return true
+        }
         return super.dispatchKeyEvent(event)
     }
 
