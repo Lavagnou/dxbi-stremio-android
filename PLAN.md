@@ -4577,6 +4577,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **Accueil TV : le modèle `board` relu seulement quand il a changé** (CODE-06) : `homeRows.ahead()` (appelé à chaque passage de `sync()` sur l'Accueil TV, et à chaque Bas) relisait tout `board` dès qu'une des rangées suivantes n'avait pas de titres, en permanence si l'une était en erreur. `homeRows.board()` garde la dernière lecture et ne relit qu'après un événement `board` du core (`coreEvents`), une demande de rangées (`load`, `loadShown`), ou 10 s ; une rangée en erreur (`message-container`) compte comme faite dans `ahead()` et `aheadShown()`.
 - **Heure de fin : `meta_details` lu une fois par titre** (CODE-25) : `endsAt.ensure()` relisait tout `meta_details` (flux compris) à chaque passage de `sync()`. La durée restante est gardée par titre (`kept`) et relue toutes les 30 s au plus ; l'heure affichée est toujours recalculée.
 - **Le billboard n'est refait que si l'un de ses réglages change** (CODE-15) : chaque réglage enregistré (et chaque réglage reçu du compte, un par un) le retirait et rechargeait ses titres, l'Accueil sautant sous la télécommande. `settingsSaved()` ne fait `hero.reset()` que si un des `BILLBOARD_SETTINGS` a changé (comparé à `settingsSync.seen`) ; `settingsSync.apply()` enregistre les réglages reçus avec `applying` (sans rien appliquer), puis les applique une seule fois.
+- **Réglages lus une fois au démarrage** (CODE-19) : `nathflix-tv.js` gardait de quoi répondre à `getSetting` en relisant tous les réglages par le bridge (appel synchrone et `JSON.parse`) à chaque réglage, 70 fois au démarrage. `readSettings()` les garde en mémoire (`settingsCache`), relus après chaque enregistrement.
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4602,6 +4603,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV, catalogues hors Cinemeta en erreur, Accueil organisé : `perf.count("getState:board")` sur 6 touches puis 30 s de repos : +0 (avant : +1). L'invité n'a que 6 rangées et un profil : l'écart attendu est sur le compte de l'utilisateur (66 catalogues, plusieurs profils), à mesurer sur la TV avec la mesure à l'écran.
 - Chrome invité TV, fiche d'un film pendant 15 s : 8 lectures de `meta_details` en tout (avant : 10 ; les autres lecteurs restent, « Se termine à … » toujours juste).
 - Chrome invité TV, Accueil : un réglage de sons enregistré → même élément de billboard ; la liste du billboard changée → billboard refait.
+- Chrome invité TV (pont simulé qui compte les appels) : 2 lectures `getSettings` au démarrage (avant : une par réglage, 70 et plus) ; la fenêtre des réglages montre et enregistre toujours les bonnes valeurs.
 
 **Non fait**
 - —
@@ -4760,6 +4762,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Accueil TV : `board` relu seulement quand il change ; rangées en erreur comptées comme faites |
 | 2026-11-04 | T-102 | Heure de fin d'un film : `meta_details` lu une fois par titre (30 s au plus) |
 | 2026-11-04 | T-102 | Billboard refait seulement quand un de ses réglages change ; réglages du compte appliqués en une fois |
+| 2026-11-04 | T-102 | `nathflix-tv.js` : réglages lus une fois (et après chaque enregistrement) au lieu de 70 appels au démarrage |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

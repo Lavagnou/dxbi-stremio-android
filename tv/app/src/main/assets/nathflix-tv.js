@@ -186,8 +186,14 @@
   const schemas = {};
   const savedListeners = {};
 
+  // Read from the app once, then kept (read again after each save): Nathflix asks for its 70 settings
+  // one by one as it starts, and each was a call into the app and a parse of all of them
+  const settingsCache = {};
   function readSettings(plugin) {
-    try { return JSON.parse(native.getSettings(plugin) || "{}") || {}; } catch (_) { return {}; }
+    if (!settingsCache[plugin]) {
+      try { settingsCache[plugin] = JSON.parse(native.getSettings(plugin) || "{}") || {}; } catch (_) { settingsCache[plugin] = {}; }
+    }
+    return { ...settingsCache[plugin] };
   }
 
   const api = {
@@ -201,6 +207,7 @@
     getSettings: async (plugin) => readSettings(plugin),
     saveSetting: async (plugin, key, value) => {
       native.saveSetting(plugin, key, JSON.stringify(value === undefined ? null : value));
+      delete settingsCache[plugin];
       const all = readSettings(plugin);
       for (const callback of savedListeners[plugin] || []) {
         try { callback(all); } catch (err) { console.error(err); }
