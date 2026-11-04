@@ -14394,16 +14394,23 @@
         document.querySelectorAll(".dx-ends").forEach((n) => n.remove());
         return;
       }
+      // The title's length, read from the core once per title and then every 30 s at most: it was read
+      // at every pass of the main loop, a title's streams and all, many times a second while they came in
       let left = 0;
-      try {
-        const s = await core().getState("meta_details");
-        const meta = s && s.metaItem && s.metaItem.content && s.metaItem.content.type === "Ready" ? s.metaItem.content.content : null;
-        if (!meta || meta.id !== t.id) return;
-        left = runtimeMinutes(meta.runtime);
-        // part watched: what's left of it
-        const st = s.libraryItem && s.libraryItem.state;
-        if (st && st.timeOffset > 0 && st.duration > st.timeOffset) left = Math.ceil((st.duration - st.timeOffset) / 60000);
-      } catch (_) { return; }
+      const kept = this.kept;
+      if (kept && kept.id === t.id && performance.now() - kept.at < 30000) left = kept.left;
+      else {
+        try {
+          const s = await core().getState("meta_details");
+          const meta = s && s.metaItem && s.metaItem.content && s.metaItem.content.type === "Ready" ? s.metaItem.content.content : null;
+          if (!meta || meta.id !== t.id) return;
+          left = runtimeMinutes(meta.runtime);
+          // part watched: what's left of it
+          const st = s.libraryItem && s.libraryItem.state;
+          if (st && st.timeOffset > 0 && st.duration > st.timeOffset) left = Math.ceil((st.duration - st.timeOffset) / 60000);
+        } catch (_) { return; }
+        this.kept = { id: t.id, left, at: performance.now() };
+      }
       const text = endsAtText(left);
       let chip = info.querySelector(":scope > .dx-ends");
       if (!text) { if (chip) chip.remove(); return; }
