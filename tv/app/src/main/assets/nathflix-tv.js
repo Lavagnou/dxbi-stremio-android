@@ -269,6 +269,22 @@
 
   const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   let openModal = null;
+  // What had the remote before a window of this layer opened: it gets it back when the window closes
+  // (the selection was lost, and the next press started over from the page's top)
+  let opener = null;
+  function keepOpener() {
+    const a = document.activeElement;
+    if (a && a !== document.body && !a.closest(".dxtv-modal")) opener = a;
+  }
+  function giveBack() {
+    setTimeout(() => {
+      if (document.querySelector(".dxtv-modal")) return;
+      const o = opener;
+      opener = null;
+      const a = document.activeElement;
+      if (o && o.isConnected && (!a || a === document.body || a.id === "app")) o.focus({ preventScroll: true });
+    }, 0);
+  }
 
   // Resolves with the button index (or { button, value } when there's an input); -1 when dismissed
   async function dialog({ title, message, buttons, input }) {
@@ -278,6 +294,7 @@
     // holds on to the remote's focus while it's open
     while (document.querySelector('[class*="modal-container"]')) await new Promise((r) => setTimeout(r, 400));
     // (another dialog asked for meanwhile gives way to this one: never two on screen)
+    keepOpener();
     closeModal();
     return new Promise((resolve) => {
       const el = document.createElement("div");
@@ -291,6 +308,7 @@
       const finish = (i) => {
         el.remove();
         if (openModal && openModal.el === el) openModal = null;
+        giveBack();
         resolve(input != null ? { button: i, value: field ? field.value : "" } : i);
       };
       el.addEventListener("click", (e) => {
@@ -414,6 +432,7 @@
     const plugin = PLUGIN.replace(/\.plugin\.js$/, "");
     const schema = (schemas[plugin] || []).filter((o) => !DESKTOP_ONLY.has(o.key) && !(PHONE && NOT_ON_TOUCH.has(o.key)));
     ensureStyle();
+    keepOpener();
     closeModal();
     const el = document.createElement("div");
     el.className = "dxtv-modal";
@@ -454,13 +473,13 @@
         openModal = null;
         const r = await dialog({ title: o.label, message: o.description || "", buttons: [t("Save"), t("Cancel")], input: v || "" });
         el.style.display = "";
-        openModal = { el, dismiss: () => { el.remove(); openModal = null; } };
+        openModal = { el, dismiss: () => { el.remove(); openModal = null; giveBack(); } };
         if (r && r.button === 0) await api.saveSetting(plugin, o.key, r.value.trim());
       }
       render(o.key);
     });
     document.body.append(el);
-    openModal = { el, dismiss: () => { el.remove(); openModal = null; } };
+    openModal = { el, dismiss: () => { el.remove(); openModal = null; giveBack(); } };
     render();
   }
 

@@ -2500,6 +2500,7 @@
     close() {
       if (this.modal) this.modal.remove();
       this.modal = null;
+      keyNav.afterLayer();
     },
   };
 
@@ -3708,6 +3709,7 @@
       }
     },
     onFocus: (e) => keyNav.focus(e),
+    onVisible: () => { if (document.visibilityState === "visible") keyNav.afterLayer(); },
 
     key(e) {
       if (e.key === "Escape" && this.on && preview.el && preview.el.contains(document.activeElement)) {
@@ -3829,11 +3831,13 @@
       if (this.nothing(focused)) {
         // Nothing selected yet: start on the page itself (its main button, or its first title), or
         // in whatever dialog is showing over it
-        const pick = this.defaultPick();
+        const out = IN_TV && this.lastOutside;
+        const pick = (out && out.at === location.hash && out.el.isConnected && !this.layer() && out.el.checkVisibility(SEEN_CSS) && out.el) || this.defaultPick();
         if (!pick) return;
         e.preventDefault();
         e.stopImmediatePropagation();
         pick.focus({ preventScroll: true });
+        if (IN_TV) this.show(pick);
         return;
       }
       // Left and right stay out of the top bar (Up reaches it), and stay in it once there
@@ -4010,7 +4014,8 @@
       const route = currentRoute();
       // (a title's page always starts on Play, back from the player too)
       const known = route !== "detail" && this.left.get(location.hash);
-      const back = known && this.nearestCopy(known);
+      // (off screen too: it's then brought into view, see show())
+      const back = known && (known.hero ? heroButton() : this.nearestCopy(known, IN_TV));
       if (back) return back;
       const tries = [
         route === "board" && ".dx-hero-slide.is-active .dx-btn",
@@ -4050,18 +4055,29 @@
         this.landed = at;
         return;
       }
+      const covered = document.querySelector(".dxe-who, .dxe-who-hold, .dxe-modal, .dx-splash, .dxtv-modal");
+      // back from something that covered the page (a window, Who's watching, the TV's home screen):
+      // what had the remote before
+      const out = this.lastOutside;
+      if (!covered && out && out.at === at && out.el.isConnected && out.el.checkVisibility(SEEN_CSS)) {
+        this.landed = at;
+        out.el.focus({ preventScroll: true });
+        this.show(out.el);
+        return;
+      }
       if (this.landed === at) {
         // the page drew what was selected anew (Home rebuilt when the library or the profiles come
-        // in from the account): the same title again, the one nearest where it was
+        // in from the account): the same title again, the one nearest where it was. Nothing to
+        // find again (Who's watching closed over Home): the page's own pick, never nothing at all
         const was = this.left.get(at);
-        const again = was && this.nearestCopy(was, true);
+        const again = (was && (was.hero ? heroButton() : this.nearestCopy(was, true))) || (!covered && this.defaultPick(true, true));
         if (again) {
           again.focus({ preventScroll: true });
-          reveal(again.closest('[class*="meta-row-container"]') || again, { block: "center" });
+          this.show(again);
         }
         return;
       }
-      if (document.querySelector(".dxe-who, .dxe-who-hold, .dxe-modal, .dx-splash")) return;
+      if (covered) return;
       if (this.landing !== at) {
         this.landing = at;
         this.since = performance.now();
@@ -4080,11 +4096,44 @@
       this.landed = at;
       if (pick.tabIndex < 0) pick.tabIndex = 0;
       pick.focus({ preventScroll: true });
+      // (a title found again, back from another page: wholly on screen)
+      if (this.left.get(at)) this.show(pick);
     },
 
-    // TV: where the remote is on each page, for when you come back to it
+    // What covers the page for a while (Nathflix's screens and windows, Stremio's, an open list)
+    COVERS: '.dxe-who, .dxe-modal, .dxe-pin, .dxe-theatre, .dxtv-modal, [class*="modal-container"], [role="listbox"]',
+
+    // Something chosen and shown well: a title's row in the middle of the screen, the billboard from
+    // the top (a title found again came back half under the top bar or the bottom of the screen)
+    show(n) {
+      // (already wholly on screen, clear of the top bar: left where it is)
+      const r = n.getBoundingClientRect();
+      const bar = document.querySelector(BAR);
+      const top = bar ? Math.max(0, bar.getBoundingClientRect().bottom) : 0;
+      if (r.top >= top && r.bottom <= window.innerHeight && r.left >= 0 && r.right <= window.innerWidth) return;
+      const row = n.closest('[class*="meta-row-container"]');
+      const hero = !row && n.closest(".dx-hero");
+      if (row) reveal(row, { block: "center" });
+      else if (hero) reveal(hero, { block: "start" });
+      else if (!n.closest(BAR)) reveal(n, { block: "nearest" });
+    },
+
+    // Something covering the page just closed: the remote goes back to the page (soon, once it's gone)
+    afterLayer() {
+      if (IN_TV) setTimeout(() => this.land(), 50);
+    },
+
+    // TV: where the remote is on each page, for when you come back to it (the billboard's buttons
+    // count; the top bar leaves the page's own pick)
     remember(el) {
-      if (el.closest(BAR)) return;
+      if (el.closest(BAR)) {
+        if (!el.closest(".dxe-who, .dxe-modal")) this.left.delete(location.hash);
+        return;
+      }
+      if (el.closest(".dx-hero")) {
+        this.left.set(location.hash, { hero: true });
+        return;
+      }
       const link = el.closest("a[href]");
       this.left.delete(location.hash);
       if (!link) return;
@@ -4623,7 +4672,12 @@
     },
 
     focus(e) {
-      if (IN_TV && e.target instanceof Element) this.remember(e.target);
+      if (IN_TV && e.target instanceof Element) {
+        this.remember(e.target);
+        // the last thing selected on the page itself (not in something covering it): where the
+        // remote goes back to when that closes, or when Nathflix comes back from the TV's home screen
+        if (!e.target.closest(this.COVERS)) this.lastOutside = { el: e.target, at: location.hash };
+      }
       if (!this.on || !(e.target instanceof Element)) return;
       if (preview.el && preview.el.contains(e.target)) return;
       preview.onFocus(e.target.closest('[class*="meta-item-container"]'));
@@ -11409,6 +11463,7 @@
     close() {
       if (this.modal) this.modal.remove();
       this.modal = null;
+      keyNav.afterLayer();
     },
 
     render() {
@@ -12408,6 +12463,7 @@
       this.draft = null;
       this.locked = false;
       navAvatar.ensure();
+      keyNav.afterLayer();
     },
 
     // Back (Nathflix TV) and Escape: a step back, else it closes, unless it's locked
@@ -16995,6 +17051,8 @@
     window.addEventListener("click", cardPress.onClick, true);
     window.addEventListener("contextmenu", cardPress.onContext, true);
     if (IN_TV) window.addEventListener("keydown", hero.onKey, true);
+    // back from the TV's home screen: the remote where it was (it came back to nothing)
+    if (IN_TV) document.addEventListener("visibilitychange", keyNav.onVisible);
     window.addEventListener("click", cwSeries.onClick, true);
     if (!IN_MOBILE) {
       window.addEventListener("keydown", okHold.onDown, true);
@@ -17202,6 +17260,7 @@
       window.removeEventListener("click", cardPress.onClick, true);
       window.removeEventListener("contextmenu", cardPress.onContext, true);
       window.removeEventListener("keydown", hero.onKey, true);
+      document.removeEventListener("visibilitychange", keyNav.onVisible);
       window.removeEventListener("click", cwSeries.onClick, true);
       window.removeEventListener("keydown", okHold.onDown, true);
       window.removeEventListener("keyup", okHold.onUp, true);
