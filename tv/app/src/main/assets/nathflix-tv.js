@@ -875,6 +875,9 @@
   // Returns false on Home, where the app decides (it leaves).
   // ---------------------------------------------------------------------------
   tv.back = () => {
+    // The native player is on its way (asked for, not on screen yet): going back now left the player
+    // screen, and the whole film then played without its progress being recorded
+    if (handoff && handoff.started && !handoff.resumed && Date.now() - handoff.started < 5000 && /^#\/player\//.test(location.hash)) return true;
     if (openModal) { closeModal(); return true; }
     const sheet = document.querySelector(".dxe-modal");
     if (sheet) {
