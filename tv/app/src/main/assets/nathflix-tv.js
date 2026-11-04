@@ -662,6 +662,15 @@
     });
   }
 
+  // The hand-off gave up and Stremio's own player shows after all: it gets back the address kept aside
+  function restoreWebPlayer() {
+    document.querySelectorAll("video[data-dxtv-src]").forEach((v) => {
+      const src = v.dataset.dxtvSrc;
+      delete v.dataset.dxtvSrc;
+      if (src && !v.getAttribute("src")) v.src = src;
+    });
+  }
+
   function dispatch(action) {
     const d = core().dispatch;
     if (!d) return;
@@ -744,7 +753,7 @@
       }
       await new Promise((r) => setTimeout(r, 250));
     }
-    if (location.hash !== hash || !state || !state.selected) { handoff = null; veil(false); return; }
+    if (location.hash !== hash || !state || !state.selected) { handoff = null; veil(false); restoreWebPlayer(); return; }
     const stream = state.selected.stream || {};
     // Trailers are YouTube videos, which Stremio plays through a streaming server (none on a TV): the
     // TV's YouTube app plays them instead, and Back comes straight back here
@@ -797,7 +806,7 @@
       history.back();
       return;
     }
-    if (!url) { handoff = null; veil(false); return; }
+    if (!url) { handoff = null; veil(false); restoreWebPlayer(); return; }
 
     const meta = state.metaItem && state.metaItem.type === "Ready" ? state.metaItem.content : (state.metaItem && state.metaItem.content) || {};
     const videoId = state.selected.streamRequest && state.selected.streamRequest.path && state.selected.streamRequest.path.id;

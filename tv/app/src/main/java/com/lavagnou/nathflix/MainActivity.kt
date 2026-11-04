@@ -54,6 +54,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         launchedAt = System.currentTimeMillis()
         super.onCreate(savedInstanceState)
+        // Nathflix opened again from a launcher while a film paused by Home is on top: with singleTop, an
+        // intent unlike the first one (another launcher, the installer after an update) would stack a
+        // second page over the player. This one steps aside, and the task comes back as it was
+        val launch = intent
+        if (!isTaskRoot && launch?.action == Intent.ACTION_MAIN &&
+            (launch.hasCategory(Intent.CATEGORY_LAUNCHER) || launch.hasCategory(Intent.CATEGORY_LEANBACK_LAUNCHER))
+        ) {
+            finish()
+            return
+        }
         // A stremio:// link opened from another app while Nathflix is already open: it goes to the open
         // page (one WebView only), and Nathflix comes forward as it was
         val existing = live?.get()
