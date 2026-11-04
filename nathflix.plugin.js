@@ -13751,6 +13751,22 @@
 
     onEvent: (e) => stats.tick(e.type),
 
+    // Nathflix for Android's own player, which reports where it is every few seconds while the page
+    // stays on the player screen: the page's video never plays there, so nothing was ever counted
+    nativeTick(paused) {
+      if (!settings.watchStats || currentRoute() !== "player") {
+        this.nativeLast = 0;
+        return;
+      }
+      if (!this.data) this.load();
+      if (this.mediaHash !== location.hash) this.loadMedia();
+      const now = performance.now();
+      // (gaps over 12 s don't count: a report missed, the page busy or asleep)
+      if (!paused && this.nativeLast && now - this.nativeLast < 12000) this.add((now - this.nativeLast) / 1000);
+      this.nativeLast = paused ? 0 : now;
+      if (paused) this.flush();
+    },
+
     tick(type) {
       const v = this.video;
       const now = performance.now();
@@ -17264,6 +17280,10 @@
       const key = String(videoId);
       if (!skip.cache.has(key)) skip.cache.set(key, await skip.fetchSegments({ type, metaId, videoId: key }).catch(() => []));
       return skip.cache.get(key);
+    },
+    // Nathflix for Android's player, every few seconds: its playing time counts in Your stats
+    statsTick(paused) {
+      stats.nativeTick(!!paused);
     },
     // Nathflix for Android's play/pause key (the remote's): pauses or plays a trailer showing full
     // screen (true if there was one)

@@ -877,6 +877,9 @@
     silenceWebPlayer();
     dispatch({ action: "Player", args: { action: "TimeChanged", args: { time: Math.max(0, Math.round(timeMs)), duration: Math.max(0, Math.round(durationMs)), device: "nathflix-tv" } } });
     dispatch({ action: "Player", args: { action: "PausedChanged", args: { paused: !!paused } } });
+    // and in Nathflix's watch stats (the page's own video, which they counted, never plays here)
+    const dx = window.__nathflix;
+    if (dx && typeof dx.statsTick === "function") dx.statsTick(!!paused);
   };
 
   // playRoute: the player went on to another episode (Next episode, or one picked in Episodes)
