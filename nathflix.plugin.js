@@ -12194,6 +12194,9 @@
     // locked: shown after a while unused (idleLock), or for a viewer with a PIN: it only goes once a
     // viewer is picked (Back doesn't close it)
     locked: false,
+    // shown by itself (as Nathflix opens, after signing in), not from the profile menu: on a TV, Back
+    // there leaves the app, pressed twice (as on Home), rather than going in with the current profile
+    atStart: false,
 
     // Once, as Nathflix opens (after the intro), even with one profile (it offers to add the others),
     // until "Don't ask me again"; after that only from the profile menu, until Nathflix is closed and
@@ -12216,7 +12219,7 @@
         } catch (_) { /* fine: show ours */ }
         for (let i = 0; i < 40 && document.querySelector(".dx-splash"); i++) await new Promise((r) => setTimeout(r, 250));
         if (this.el || currentRoute() === "player") return;
-        this.open({ locked: pinned });
+        this.open({ locked: pinned, atStart: true });
       } finally {
         if (held) this.release();
       }
@@ -12256,10 +12259,11 @@
       if (API) API.saveSetting("whoIsWatching", on).catch(() => {});
     },
 
-    open({ locked = false } = {}) {
+    open({ locked = false, atStart = false } = {}) {
       ensureExtrasStyle();
       this.close();
       this.locked = locked;
+      this.atStart = atStart;
       const el = document.createElement("div");
       el.className = "dxe-who";
       for (const type of ["keyup", "keypress"]) el.addEventListener(type, (e) => e.stopPropagation());
@@ -17294,9 +17298,11 @@
       return true;
     },
     // Nathflix TV's Back button on a screen with nothing behind it to go back to: the locked Who's
-    // watching (its code pad closed). The app then offers to leave, as on Home
+    // watching, or the one shown as Nathflix opens (its code pad closed). The app then asks for a second
+    // Back to leave, as on Home
     backLeaves() {
-      return !!(whoIsWatching.el && whoIsWatching.locked && !pinPad.el && whoIsWatching.view === "gate");
+      const who = whoIsWatching;
+      return !!(who.el && (who.locked || who.atStart) && !pinPad.el && who.view === "gate");
     },
     // Nathflix TV's Back button: closes an open hover card, keeping its title selected (true if one was open)
     closePreview() {

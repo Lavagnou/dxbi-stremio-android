@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
             view.setPadding(clear.left, clear.top, clear.right, clear.bottom)
             WindowInsetsCompat.CONSUMED
         }
+        introBackAfterCrash()
         // Only when Nathflix is opened, not when the screen is rebuilt (after a page crash, a turned phone)
         if (savedInstanceState == null) intro = Intro(this, root).also { it.start() }
         web.setBackgroundColor(getColor(R.color.background))
@@ -243,20 +244,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Start the page again in a lighter way: the intro film is the heaviest moment of a start, so it's
-     * switched off (it can be switched back on in Nathflix's settings). A second crash soon after says so.
+     * Start the page again after its engine is gone (a crash, or Android taking its memory back while
+     * Nathflix was in the background). The intro stays on: it used to be switched off for good here,
+     * without a word, though it's the native film (not the page) and a rebuilt screen doesn't play it
+     * anyway. A second crash soon after says so.
      */
+    // Once: the intro switched off by an earlier version after the page's engine went away comes back
+    // (there was such a stop on this device, so the "off" is most likely that and not the user's)
+    private fun introBackAfterCrash() {
+        val state = getSharedPreferences("app", MODE_PRIVATE)
+        if (state.getBoolean("introBackAfterCrash", false)) return
+        if (state.getLong("lastPageCrash", 0) > 0) {
+            val settings = getSharedPreferences("plugin-settings", MODE_PRIVATE)
+            val nathflix = try { JSONObject(settings.getString("nathflix", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
+            if (nathflix.has("splash") && !nathflix.optBoolean("splash", true)) {
+                nathflix.put("splash", true)
+                settings.edit().putString("nathflix", nathflix.toString()).commit()
+            }
+        }
+        state.edit().putBoolean("introBackAfterCrash", true).apply()
+    }
+
     private fun recoverFromCrash(crashed: Boolean) {
         val state = getSharedPreferences("app", MODE_PRIVATE)
         val now = System.currentTimeMillis()
         val again = now - state.getLong("lastPageCrash", 0) < 3 * 60_000
         state.edit().putLong("lastPageCrash", now).apply()
         android.util.Log.w("nathflix", "page engine gone (crashed=$crashed, again=$again)")
-
-        val settings = getSharedPreferences("plugin-settings", MODE_PRIVATE)
-        val nathflix = try { JSONObject(settings.getString("nathflix", "{}") ?: "{}") } catch (_: Exception) { JSONObject() }
-        nathflix.put("splash", false)
-        settings.edit().putString("nathflix", nathflix.toString()).commit()
 
         // the old page is gone: nothing more is sent to it
         if (PlaybackBus.listener === playbackListener) PlaybackBus.listener = null

@@ -161,6 +161,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-101 | Audit de la version TV (tests et lecture du code) | Terminé | P1 | tv, plugin | — | 2026-11-04 |
 | T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
 | T-103 | Release 0.9.0 (correctifs de l'audit TV) | Terminé | P1 | release, tv, plugin | T-102 | 2026-11-04 |
+| T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
 
 ---
 
@@ -4683,6 +4684,45 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : `b6417ef` (`0.9.0: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.0
 
+### T-104 — Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur, avec la prochaine release)
+- **Priorité :** P2
+- **Cible :** tv, plugin
+- **Dépend de :** T-101
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** `main`
+
+**Demande**
+> 1. Non ça doit être dans la page directement
+> 3. Retour sur Qui est-ce ? doit quitter l'app mais avec avec un double appuie sur retour, un seul appui affiche un petit message discret qui dit de reappuyer sur retour pour quitter.
+> 5. Ah c'est pour ça que l'intro se coupe toujours sur ma TV ! Du coup non, je veux pas que ça fasse ça.
+> 8. Retour sur l'accueil ça fait comme sur le choix de profil, un double appuie sur retour quitte l'app.
+
+(réponses aux choix 1, 3, 5 et 8 laissés par l'audit de T-101 ; 2, 4, 6 et 7 sans réponse pour l'instant)
+
+**Critères d'acceptation**
+- [x] 1 : bande-annonce d'une fiche dans la page (rien à changer : c'est le théâtre rendu utilisable par T-102)
+- [x] 3 : sur « Qui est-ce ? » affiché au démarrage, un Retour affiche le message discret de l'app, un 2d quitte ; ouvert depuis l'avatar, Retour le ferme toujours
+- [x] 5 : un arrêt du moteur de la page ne coupe plus l'intro ; l'intro coupée ainsi revient une fois
+- [x] 8 : Retour sur l'Accueil : double Retour pour quitter (déjà le cas, rien à changer)
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- **3 (CODE-24)** : `whoIsWatching.atStart`, posé par `open({ atStart })` quand `maybeShow` l'ouvre (démarrage, après la connexion), jamais depuis le menu du profil. `backLeaves()` (lu par `tv.back` de `nathflix-tv.js` depuis T-102) rend `true` sur la vue `gate` sans clavier de code, verrouillée **ou** `atStart` : `tv.back` rend alors `false`, et `MainActivity.goBack()` affiche le toast `back_again` (« Appuyez de nouveau sur Retour pour quitter Nathflix ») puis quitte au 2d appui dans les 2,5 s, comme sur l'Accueil. Plugin seul : marche avec l'APK 0.9.0 (une APK plus ancienne n'appelle pas `backLeaves`, Retour y garde l'ancien comportement).
+- **5 (CODE-32)** : `recoverFromCrash` écrivait `splash: false` à chaque `onRenderProcessGone` (repris de dx.bi), y compris quand Android reprend la mémoire de la page en arrière-plan, fréquent sur une clé TV : l'intro disparaissait pour toujours, sans un mot. L'écriture est retirée (l'intro est le film natif, et un écran reconstruit ne la rejoue pas : `savedInstanceState`). `introBackAfterCrash()` (une fois, préférence `app` `introBackAfterCrash`) remet `splash` à `true` s'il est à `false` et qu'un arrêt a déjà eu lieu sur l'appareil (`lastPageCrash`) : le « off » est alors très probablement celui de l'app. Nouvelle APK nécessaire.
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js` ; APK debug construite (`assembleDebug`) et installée sur l'émulateur.
+- Émulateur, intro : `splash` mis à `false` à la main dans `plugin-settings` (avec `lastPageCrash` déjà présent), lancement → `splash` revenu à `true`, `introBackAfterCrash` posé.
+- Émulateur, démarrage : « Qui est-ce ? » affiché, `backLeaves()` vrai ; 1er Retour → l'app reste, l'écran aussi ; 2d Retour → lanceur de la TV.
+- Émulateur, « Qui est-ce ? » ouvert depuis l'avatar : `backLeaves()` faux ; Retour → fermé, « Lecture » du billboard sélectionné ; Retour sur l'Accueil → l'app reste (message), comme avant.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4848,6 +4888,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Vérification (35 OK / 39) ; relance par un autre lanceur pendant un film : plus de 2de page sur le lecteur ; relais abandonné : la vidéo web retrouve son adresse |
 | 2026-11-04 | T-103 | En cours : release 0.9.0 (correctifs de l'audit TV) |
 | 2026-11-04 | T-103 | Terminé : release 0.9.0 publiée (APK 900 signée par la clé de release, plugin 0.9.0) |
+| 2026-11-04 | T-104 | Choix de l'utilisateur sur l'audit : Retour ×2 quitte depuis « Qui est-ce ? » au démarrage ; l'intro n'est plus coupée après un arrêt de la page (et revient une fois) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

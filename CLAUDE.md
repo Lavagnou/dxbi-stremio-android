@@ -170,7 +170,7 @@ Le reste du dépôt :
 - **Garder en miroir le Kotlin et le plugin** :
   - `PAGE_READY` (`MainActivity`) ↔ `SPLASH_READY` (plugin) ;
   - `ACCENTS` (`Intro.kt`) ↔ `ACCENTS` (plugin).
-- **Réglages côté natif** : ils sont dans les SharedPreferences `plugin-settings`, clé `nathflix` (un objet JSON). `Intro.kt` et `MainActivity.recoverFromCrash` y lisent ou écrivent `splash`, `introSound`, `soundVolume` et `accent`.
+- **Réglages côté natif** : ils sont dans les SharedPreferences `plugin-settings`, clé `nathflix` (un objet JSON). `Intro.kt` y lit `splash`, `introSound`, `soundVolume` et `accent`. `MainActivity.recoverFromCrash` ne coupe plus l'intro (choix de l'utilisateur : avant, tout arrêt du moteur de la page la coupait pour toujours) ; `introBackAfterCrash()` la remet une fois si elle avait été coupée ainsi.
 - **Release** : uniquement les ABI ARM (`armeabi-v7a`, `arm64-v8a`), avec minify et shrinkResources. Le debug inclut aussi x86/x86_64 pour l'émulateur.
 - **Cleartext HTTP autorisé** (`network_security.xml`) : les serveurs de streaming locaux sont en http.
 
@@ -268,7 +268,7 @@ awk '/^  \/\/ -{20,}/{getline n; print NR+1": "n}' nathflix.plugin.js | grep -v 
     - avatar (`AVATARS`, `avatarHtml`) et code par spectateur (`viewerPin`, hash `<id>:<code>`) ;
     - clavier de code `pinPad` (aussi pour le code parental) ;
     - `idleLock` : réglage `profileLock`, « Qui regarde ? » verrouillé (`locked`) après inactivité, jamais pendant un film ;
-    - Back de la couche TV : `closePreview` ferme le clavier, recule dans « Qui regarde ? », et ne ferme jamais l'écran verrouillé.
+    - Back de la couche TV : `closePreview` ferme le clavier et recule dans « Qui regarde ? ». Sur l'écran verrouillé et sur celui du démarrage (`atStart`, ouvert par `maybeShow`), `backLeaves()` laisse l'app décider : un 1er Retour affiche « Appuyez de nouveau sur Retour pour quitter », un 2d quitte (choix de l'utilisateur, comme sur l'Accueil). Ouvert depuis l'avatar, Retour le ferme.
     - Les codes sont une barrière familiale, pas une sécurité (tout est dans le stockage de l'appareil).
   - **Bibliothèque par spectateur** (`viewerLibrary`, qui enveloppe `getState` / `dispatch` du core) :
     - `libraryOwners` (id → spectateurs) pour Ma liste, la bibliothèque, le calendrier et les notifications. Un titre que personne n'a réclamé est au premier spectateur ;
