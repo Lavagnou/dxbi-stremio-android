@@ -164,7 +164,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
 | T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | Terminé | P1 | release, tv, plugin | T-104 | 2026-11-04 |
 | T-106 | Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture | À valider | P1 | tv | T-102 | 2026-11-04 |
-| T-107 | Release 0.9.2 (Retour dans le lecteur TV) | En cours | P1 | release, tv | T-106 | 2026-11-05 |
+| T-107 | Release 0.9.2 (Retour dans le lecteur TV) | Terminé | P1 | release, tv | T-106 | 2026-11-05 |
 
 ---
 
@@ -4800,7 +4800,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 ### T-107 — Release 0.9.2 (Retour dans le lecteur TV)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv
 - **Dépend de :** T-106
@@ -4813,8 +4813,8 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 **Critères d'acceptation**
 - [x] `@version 0.9.2`, section `## 0.9.2` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.9.2`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 902, plugin embarqué en 0.9.2
+- [x] CI verte, tag `v0.9.2`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 902, plugin embarqué en 0.9.2
 
 **Notes techniques**
 - **Contenu** : T-106 (Retour cache les contrôles du lecteur TV ; quitter la lecture demande deux Retour rapides). Changement de l'APK seule : le code du plugin ne change pas, seule sa version monte.
@@ -4823,9 +4823,13 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
 
+- CI du commit `abdcbb6` verte : Android test build, Cross-platform test (Windows, macOS, Linux), mpv player (Windows).
+- Run Release 41932570859 : les 7 jobs verts (macOS compris). Release v0.9.2 : 11 fichiers (exe d'installation et portable, `.blockmap`, dmg ×2, AppImage ×2, `latest*.yml` ×3, APK).
+- APK `nathflix-tv.apk` : apksigner `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (clé de release) ; aapt versionCode 902, versionName 0.9.2 ; plugin embarqué `@version 0.9.2` ; chaînes `player_back_again` EN et FR présentes.
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `abdcbb6` (`0.9.2: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.2
 
 <!--
 ### T-000 — Titre court
@@ -4997,6 +5001,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-105 | Terminé : release 0.9.1 publiée (APK 901 signée par la clé de release, plugin 0.9.1) |
 | 2026-11-04 | T-106 | Lecteur TV : Retour cache les contrôles affichés ; quitter la lecture demande deux Retour rapides (message au 1er) |
 | 2026-11-05 | T-107 | En cours : release 0.9.2 (Retour dans le lecteur TV) |
+| 2026-11-05 | T-107 | Terminé : release 0.9.2 publiée (APK 902 signée par la clé de release, plugin 0.9.2) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
