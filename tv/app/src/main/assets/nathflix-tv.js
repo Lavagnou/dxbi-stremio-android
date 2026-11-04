@@ -630,10 +630,35 @@
     return realPlay.apply(this, arguments);
   };
 
+  // …nor even loads it: it asked for the same stream as the native player (a second connection to a
+  // debrid link, which can count them, and the start of the file fetched twice on a TV stick), only
+  // to never show it. Its address is kept aside instead
+  const srcProp = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, "src");
+  if (srcProp && srcProp.set && srcProp.get) {
+    Object.defineProperty(HTMLMediaElement.prototype, "src", {
+      configurable: true,
+      enumerable: srcProp.enumerable,
+      get() { return srcProp.get.call(this); },
+      set(value) {
+        if (value && handoff && /^#\/player\//.test(location.hash)) {
+          this.dataset.dxtvSrc = String(value);
+          return;
+        }
+        srcProp.set.call(this, value);
+      },
+    });
+  }
+
   function silenceWebPlayer() {
     document.querySelectorAll('[class*="player-container"] video').forEach((v) => {
       v.muted = true;
       if (!v.paused) v.pause();
+      // (an address given before the hand-off began: its loading stops)
+      if (handoff && v.getAttribute("src")) {
+        v.dataset.dxtvSrc = v.getAttribute("src");
+        v.removeAttribute("src");
+        try { v.load(); } catch (_) { /* nothing to stop */ }
+      }
     });
   }
 
