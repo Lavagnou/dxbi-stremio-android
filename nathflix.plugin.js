@@ -3773,9 +3773,14 @@
       }
     },
     onFocus: (e) => keyNav.focus(e),
+    onKeyUp: (e) => { if (keyNav.held && keyNav.held.key === e.key) keyNav.held = null; },
     onVisible: () => { if (document.visibilityState === "visible") keyNav.afterLayer(); },
 
     key(e) {
+      // Android's WebView never marks a held key's repeats (e.repeat stays false): a press of the same
+      // key with no release in between is one, as okHold tells OK's (a long press shows it, on the TV)
+      this.repeat = e.repeat || (IN_TV && !!this.held && this.held.key === e.key && e.timeStamp - this.held.at < 1000);
+      this.held = { key: e.key, at: e.timeStamp };
       if (e.key === "Escape" && this.on && preview.el && preview.el.contains(document.activeElement)) {
         this.fromPreview(document.activeElement, e);
         return;
@@ -3799,7 +3804,7 @@
       }
       // A held direction on a TV remote repeats faster than a stick can draw: the presses queued up
       // and the selection kept going after the button was let go. Repeats pass at a steady pace.
-      if (IN_TV && e.repeat) {
+      if (IN_TV && this.repeat) {
         const now = performance.now();
         if (now - (this.lastRepeat || 0) < 140) {
           e.preventDefault();
@@ -4611,7 +4616,7 @@
         // on into the filters and the top bar); the column is kept for the way back down.
         e.preventDefault();
         e.stopImmediatePropagation();
-        if (e.repeat) return;
+        if (this.repeat) return;
         this.gridColumn = { track, x: here.x };
         const rows = this.filterRows(track);
         this.toFilter(rows[rows.length - 1], here.x);
@@ -17169,6 +17174,7 @@
     document.addEventListener("keydown", onSoundKey, true);
     document.addEventListener("focusin", onSoundFocus, true);
     document.addEventListener("keydown", keyNav.onKey, true);
+    document.addEventListener("keyup", keyNav.onKeyUp, true);
     document.addEventListener("focusin", keyNav.onFocus, true);
     if (IN_TV) {
       document.addEventListener("focusin", ringRoom.onIn, true);
@@ -17379,6 +17385,7 @@
       document.removeEventListener("keydown", onSoundKey, true);
       document.removeEventListener("focusin", onSoundFocus, true);
       document.removeEventListener("keydown", keyNav.onKey, true);
+      document.removeEventListener("keyup", keyNav.onKeyUp, true);
       document.removeEventListener("focusin", keyNav.onFocus, true);
       document.removeEventListener("focusin", ringRoom.onIn, true);
       document.removeEventListener("focusout", ringRoom.onOut, true);

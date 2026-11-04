@@ -4580,6 +4580,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **Réglages lus une fois au démarrage** (CODE-19) : `nathflix-tv.js` gardait de quoi répondre à `getSetting` en relisant tous les réglages par le bridge (appel synchrone et `JSON.parse`) à chaque réglage, 70 fois au démarrage. `readSettings()` les garde en mémoire (`settingsCache`), relus après chaque enregistrement.
 - **`nathflix-tv.js` n'observe plus toute la page** (CODE-30) : l'observateur qui remet les entrées de Nathflix dans les Réglages regardait tout `<body>` en permanence. Il n'est branché que sur `#/settings` (`watchSettings()`, appelé par `onRoute()`), débranché ailleurs.
 - **Une question de la couche TV n'attend plus sans fin** (CODE-28) : `dialog()` attendait tant qu'un élément `modal-container` existait, même caché (par exemple « Ce flux a besoin d'un serveur de streaming », le voile du relais tournant jusqu'à Retour). Elle n'attend qu'une fenêtre de Stremio visible, et 5 s au plus.
+- **Flèche maintenue : la cadence de 140 ms marche sur Android** (CODE-29) : vérifié sur l'émulateur, la WebView ne marque pas les répétitions d'une flèche maintenue (`e.repeat` reste faux, comme pour OK dans T-080) ; la cadence de `keyNav` et l'arrêt d'un Haut maintenu sur la 1re ligne d'une grille ne servaient donc à rien. `keyNav.key()` reconnaît une répétition comme `okHold` : la même touche à nouveau sans relâchement entre les deux (`held`, effacé par `onKeyUp`, 1 s au plus) ; `this.repeat` remplace `e.repeat` à ces deux endroits.
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4608,6 +4609,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV (pont simulé qui compte les appels) : 2 lectures `getSettings` au démarrage (avant : une par réglage, 70 et plus) ; la fenêtre des réglages montre et enregistre toujours les bonnes valeurs.
 - Chrome invité TV : trois allers-retours Accueil ↔ Réglages, puis changement de section : les deux entrées de Nathflix sont là à chaque fois (comme avant).
 - Chrome invité TV : avec un `modal-container` caché dans la page, la question s'affiche aussitôt ; avec un visible, au bout de 5,4 s.
+- Émulateur (plugin de travail poussé) : `input keyevent --longpress KEYCODE_DPAD_RIGHT` → deux `keydown` avec `repeat` faux (la cause confirmée). Six `keydown` de flèche droite sans `keyup`, 40 ms d'écart, envoyés par CDP à la WebView : la sélection avance de 4 affiches (avant : 6, une par touche) ; des appuis séparés avancent d'une affiche chacun.
 
 **Non fait**
 - —
@@ -4769,6 +4771,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | `nathflix-tv.js` : réglages lus une fois (et après chaque enregistrement) au lieu de 70 appels au démarrage |
 | 2026-11-04 | T-102 | `nathflix-tv.js` : observateur des Réglages branché seulement sur les Réglages |
 | 2026-11-04 | T-102 | Questions de la couche TV : n'attendent qu'une fenêtre de Stremio visible, 5 s au plus |
+| 2026-11-04 | T-102 | Flèche maintenue : répétitions reconnues sans `e.repeat` (WebView Android), cadence de 140 ms appliquée |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
