@@ -15,6 +15,22 @@
     try { window.__nathflix.destroy(); } catch (_) { /* previous instance already gone */ }
   }
 
+  // Element.checkVisibility() came with Chrome 105 and the app takes a WebView from 100: without it,
+  // every press of the remote failed. Its options got their current names in Chrome 121 (before:
+  // checkOpacity, checkVisibilityCSS), so both are given (SEEN, SEEN_CSS)
+  if (!Element.prototype.checkVisibility) {
+    Element.prototype.checkVisibility = function (o = {}) {
+      if (!this.isConnected || !this.getClientRects().length) return false;
+      if ((o.visibilityProperty || o.checkVisibilityCSS) && getComputedStyle(this).visibility !== "visible") return false;
+      if (o.opacityProperty || o.checkOpacity) {
+        for (let n = this; n; n = n.parentElement) if (getComputedStyle(n).opacity === "0") return false;
+      }
+      return true;
+    };
+  }
+  const SEEN = { opacityProperty: true, visibilityProperty: true, checkOpacity: true, checkVisibilityCSS: true };
+  const SEEN_CSS = { visibilityProperty: true, checkVisibilityCSS: true };
+
   const API = typeof StremioEnhancedAPI !== "undefined" ? StremioEnhancedAPI : null;
   // Stremio Enhanced loads each plugin as <script id="<file name>">, which tells us our settings key
   const SCRIPT_ID = (document.currentScript && document.currentScript.id) || "nathflix.plugin.js";
@@ -3546,7 +3562,7 @@
   function heroButton() {
     const active = document.querySelector(".dx-hero-slide.is-active .dx-btn");
     if (active && active.checkVisibility()) return active;
-    return [...document.querySelectorAll(".dx-hero .dx-btn")].find((b) => b.checkVisibility({ opacityProperty: true, visibilityProperty: true }));
+    return [...document.querySelectorAll(".dx-hero .dx-btn")].find((b) => b.checkVisibility(SEEN));
   }
 
   // The page glides to what the remote selects. On a TV it's Nathflix's own glide: the browser's
@@ -3971,7 +3987,7 @@
     // Measuring only, no checking what covers what: that's for what's on screen.
     beyond(box, focused, e) {
       const boxes = this.skipping();
-      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !this.skips(n, boxes) && n.checkVisibility({ visibilityProperty: true }) && getComputedStyle(n).pointerEvents !== "none");
+      const pool = [...box.querySelectorAll(this.FOCUSABLE)].filter((n) => !n.contains(focused) && !this.skips(n, boxes) && n.checkVisibility(SEEN_CSS) && getComputedStyle(n).pointerEvents !== "none");
       return this.nearest(pool, focused, e);
     },
 
@@ -4085,7 +4101,7 @@
       for (const n of document.querySelectorAll(`#app a[href="${CSS.escape(was.href)}"]`)) {
         const r = n.getBoundingClientRect();
         // (shown is enough: its own details card may well be open over it)
-        if (r.width < 2 || !n.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue;
+        if (r.width < 2 || !n.checkVisibility(SEEN)) continue;
         if (!away && (r.bottom <= 0 || r.top >= window.innerHeight || r.right <= 0 || r.left >= window.innerWidth)) continue;
         const d = Math.abs(r.top - was.y) + Math.abs(r.left - was.x);
         if (d < bestD) { bestD = d; best = n; }
@@ -4221,7 +4237,7 @@
     previewButtons() {
       const el = preview.el;
       if (!el || !el.classList.contains("is-open")) return [];
-      return [...el.querySelectorAll("button")].filter((b) => b.checkVisibility({ opacityProperty: true, visibilityProperty: true }));
+      return [...el.querySelectorAll("button")].filter((b) => b.checkVisibility(SEEN));
     },
 
     // The nearest of `items` from `here` in the key's direction
