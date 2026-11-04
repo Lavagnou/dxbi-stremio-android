@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+- **Nathflix TV: Back twice leaves from *Who's watching?*.** On the *Who's watching?* screen shown as Nathflix opens, Back now shows a small *Press Back again to leave Nathflix*, and a second Back leaves, as on Home. It used to go in with the current profile. Opened from your profile picture, Back still just closes it.
+- **Nathflix TV: the intro stays on.** Each time Android took back the page's memory while Nathflix was in the background (common on a TV stick), the app switched the intro off for good, without a word. It no longer does, and an intro switched off that way comes back.
+
 ## 0.9.0
 - **Nathflix TV: a film paused by Home comes back.** Pressing the remote's Home button during a film, then opening Nathflix again, closed the film and showed Home: it now brings the film back, paused where you left it, whichever launcher you open it from.
 - **Nathflix TV: Organise Home and the addons' order work with the remote.** The eye, ▲ and ▼ of *Organise Home* and of *Addons → Order & backup* can now be reached with left and right, OK presses them, and the selection follows the row you move.

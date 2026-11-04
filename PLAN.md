@@ -162,6 +162,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-102 | Correctifs de l'audit TV | À valider | P1 | tv, plugin | T-101 | 2026-11-04 |
 | T-103 | Release 0.9.0 (correctifs de l'audit TV) | Terminé | P1 | release, tv, plugin | T-102 | 2026-11-04 |
 | T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
+| T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | En cours | P1 | release, tv, plugin | T-104 | 2026-11-04 |
 
 ---
 
@@ -4723,6 +4724,37 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-105 — Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv, plugin
+- **Dépend de :** T-104
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** `main`
+
+**Demande**
+> Oui
+
+(réponse à « Je publie une 0.9.1 avec ces deux changements ? »)
+
+**Critères d'acceptation**
+- [x] `@version 0.9.1`, section `## 0.9.1` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.9.1`, release avec ses fichiers
+- [ ] APK signée par la clé de release, versionCode 901, plugin embarqué en 0.9.1
+
+**Notes techniques**
+- **Contenu** : T-104 (Retour ×2 depuis « Qui est-ce ? » au démarrage, plugin ; intro plus coupée après un arrêt de la page, APK).
+- macOS : ne bloque pas la release (choix de l'utilisateur, T-095).
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4889,6 +4921,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-103 | En cours : release 0.9.0 (correctifs de l'audit TV) |
 | 2026-11-04 | T-103 | Terminé : release 0.9.0 publiée (APK 900 signée par la clé de release, plugin 0.9.0) |
 | 2026-11-04 | T-104 | Choix de l'utilisateur sur l'audit : Retour ×2 quitte depuis « Qui est-ce ? » au démarrage ; l'intro n'est plus coupée après un arrêt de la page (et revient une fois) |
+| 2026-11-04 | T-105 | En cours : release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
