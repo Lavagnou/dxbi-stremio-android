@@ -776,7 +776,10 @@
     const videoId = state.selected.streamRequest && state.selected.streamRequest.path && state.selected.streamRequest.path.id;
     const video = (meta.videos || []).find((v) => v.id === videoId);
     const lib = state.libraryItem && state.libraryItem.state;
-    const resumeMs = lib && lib.video_id === videoId && lib.timeOffset > 0 ? lib.timeOffset : 0;
+    // (closed in the credits, 95 % in or more: from the start, as the title's own Resume does; it
+    // ended at once, and went on to the next episode by itself)
+    const nearEnd = lib && lib.duration > 0 && lib.timeOffset / lib.duration >= 0.95;
+    const resumeMs = lib && lib.video_id === videoId && lib.timeOffset > 0 && !nearEnd ? lib.timeOffset : 0;
     const headers = (stream.behaviorHints && stream.behaviorHints.proxyHeaders && stream.behaviorHints.proxyHeaders.request) || {};
     // the stream's own subtitle files first, then the subtitle addons'
     const subtitles = await pickSubtitles([...(stream.subtitles || []), ...(state.subtitles || [])]);

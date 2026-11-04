@@ -4583,6 +4583,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **Flèche maintenue : la cadence de 140 ms marche sur Android** (CODE-29) : vérifié sur l'émulateur, la WebView ne marque pas les répétitions d'une flèche maintenue (`e.repeat` reste faux, comme pour OK dans T-080) ; la cadence de `keyNav` et l'arrêt d'un Haut maintenu sur la 1re ligne d'une grille ne servaient donc à rien. `keyNav.key()` reconnaît une répétition comme `okHold` : la même touche à nouveau sans relâchement entre les deux (`held`, effacé par `onKeyUp`, 1 s au plus) ; `this.repeat` remplace `e.repeat` à ces deux endroits.
 - (suite, TEST-19) Sur l'émulateur, revenir de l'écran d'accueil de la TV ne déclenche pas toujours `visibilitychange` ; la fenêtre reprend le focus, puis Stremio le donne à `#app`. `keyNav.onVisible` écoute aussi `focus` de la fenêtre, et `#app` (ou `body`) n'est jamais retenu comme `lastOutside`.
 - **Les statistiques comptent la lecture native** (CODE-10 ; choix pris : la compter) : elles ne comptaient que la vidéo de la page, qui ne joue jamais sur Android. `tv.onProgress` (toutes les 5 s pendant la lecture) appelle `window.__nathflix.statsTick(paused)` (détecté) ; `stats.nativeTick()` ajoute le temps écoulé entre deux rapports en lecture (12 s au plus, rien en pause) au titre en cours (`loadMedia`), et enregistre à la pause et à la fermeture.
+- **Reprise à 95 % ou plus : depuis le début** (CODE-18) : `startHandoff()` reprenait toujours à `timeOffset` ; fermé pendant le générique, le film finissait aussitôt (et l'épisode suivant partait seul). Comme le bouton Reprendre de la fiche (moins de 90 %), à 95 % ou plus le lecteur part du début (`lib.duration`).
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4615,6 +4616,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Émulateur (plugin de travail poussé) : affiche sélectionnée dans une rangée, touche Accueil, relance par le lanceur : la même affiche est sélectionnée (avant : `#app`, rien de visible). Après « Qui est-ce ? » au démarrage, une affiche ou « Lecture » est sélectionné (avant : rien).
 - Chrome invité TV, relais de lecture d'un film du domaine public jusqu'au lecteur simulé, rapports de progression envoyés à la main : le temps est compté dans `stats:<profil>` (jour, heure, titre, genres).
 - (CODE-23, même banc) Retour aussitôt après `native.play()` : rendu `true`, la page reste sur le lecteur ; 5,5 s plus tard, Retour revient à la fiche.
+- Relu (une condition) ; `node --check`. Pas d'essai : il faudrait une progression enregistrée sur un titre.
 
 **Non fait**
 - —
@@ -4779,6 +4781,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Flèche maintenue : répétitions reconnues sans `e.repeat` (WebView Android), cadence de 140 ms appliquée |
 | 2026-11-04 | T-102 | Retour de l'écran d'accueil de la TV : sélection rendue (focus de la fenêtre, `#app` jamais retenu) |
 | 2026-11-04 | T-102 | Statistiques : la lecture native (Android) est comptée |
+| 2026-11-04 | T-102 | Reprise à 95 % ou plus d'un titre : depuis le début |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
