@@ -50,6 +50,7 @@
     <string name="error_audio_output">la sortie audio de %1$s a refusé cette piste son</string>
     <string name="error_other">une erreur inattendue (%1$s)</string>
     <string name="reconnecting">Reconnexion…</string>
+    <string name="player_back_again">Appuyez de nouveau sur Retour pour quitter la lecture</string>
 
     <string name="torrent_finding_peers">Recherche de pairs…</string>
     <string name="torrent_peers">%1$d pairs · %2$s Mo/s</string>

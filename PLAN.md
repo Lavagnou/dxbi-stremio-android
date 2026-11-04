@@ -163,6 +163,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-103 | Release 0.9.0 (correctifs de l'audit TV) | Terminé | P1 | release, tv, plugin | T-102 | 2026-11-04 |
 | T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
 | T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | Terminé | P1 | release, tv, plugin | T-104 | 2026-11-04 |
+| T-106 | Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture | À valider | P1 | tv | T-102 | 2026-11-04 |
 
 ---
 
@@ -4760,6 +4761,42 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : `721e1eb` (`0.9.1: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.1
 
+### T-106 — Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur, avec la prochaine release)
+- **Priorité :** P1
+- **Cible :** tv
+- **Dépend de :** T-102
+- **Créée le :** 2026-11-04
+- **Mise à jour :** 2026-11-04
+- **Branche :** `main`
+
+**Demande**
+> Pendant la lceture d'une série/film, quand le player est visible, si j'appuie sur la touche retour de la télécommande au lieu de re-cacher le player ça quitte la lecture directement, corrige ça.
+> J'aimerais en plus une protection contre le retour sans faire exprès si on appuie sur la touche retour pour cacher le player mais qu'on appuie pile au même moment sur la touche retour, ça quitte la lecture par accident. Pareil si on appuie sur la touche sans faire exprès pendant la lecture. Donc j'aimerais une protection qui oblige a appuyer rapidement sur la touche retour deux fois, quand on appuie une première fois, un message s'affiche indiquant qu'il faut appuyer une deuxième fois pour quitter.
+
+**Critères d'acceptation**
+- [x] Contrôles TV affichés : Retour les cache (un panneau ouvert se ferme d'abord, comme avant)
+- [x] Contrôles cachés : un 1er Retour affiche « Appuyez de nouveau sur Retour pour quitter la lecture » ; un 2d dans les 2,5 s quitte la lecture
+- [x] Le bouton Retour des contrôles (en haut à gauche) quitte toujours d'un appui : c'est un choix délibéré
+- [x] Téléphone et tablette inchangés (Retour quitte, après la fermeture d'un panneau)
+- [ ] Vérifié sur la Fire TV de l'utilisateur
+
+**Notes techniques**
+- **Cause** : `TvPlayerControls.back()` ne gérait que les panneaux (Audio et sous-titres, Épisodes) et rendait `false` sinon. Le rappel Back de `PlayerActivity` appelait alors `finishWith()`, que les contrôles soient affichés ou non (« Back leaves the player straight away, like Netflix »).
+- `TvPlayerControls.back()` : panneau ouvert → `closePanel()` ; contrôles affichés → `hide()` ; sinon `false`.
+- `PlayerActivity` (rappel Back, TV seulement) : `lastBack` (`SystemClock.elapsedRealtime()`), `BACK_AGAIN_MS` = 2,5 s comme `MainActivity.goBack()`. Le message passe par `seekFlash` (le bandeau discret en haut, déjà utilisé pour ±10 s et « Reconnexion… »), masqué au bout de 2,5 s. Nouvelle chaîne `player_back_again` (EN, FR).
+- Un Retour pressé juste quand les contrôles se cachent seuls (5 s de lecture) compte comme le 1er : il n'affiche que le message.
+- Nouvelle APK nécessaire (Kotlin seul, rien dans le plugin).
+
+**Vérification**
+- `assembleDebug` : OK.
+- Émulateur absent (fermé faute de mémoire, pas relancé) : à vérifier sur la Fire TV.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -4928,6 +4965,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-104 | Choix de l'utilisateur sur l'audit : Retour ×2 quitte depuis « Qui est-ce ? » au démarrage ; l'intro n'est plus coupée après un arrêt de la page (et revient une fois) |
 | 2026-11-04 | T-105 | En cours : release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) |
 | 2026-11-04 | T-105 | Terminé : release 0.9.1 publiée (APK 901 signée par la clé de release, plugin 0.9.1) |
+| 2026-11-04 | T-106 | Lecteur TV : Retour cache les contrôles affichés ; quitter la lecture demande deux Retour rapides (message au 1er) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

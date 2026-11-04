@@ -55,6 +55,7 @@
     <string name="error_audio_output">the sound output of %1$s refused this sound track</string>
     <string name="error_other">an unexpected error (%1$s)</string>
     <string name="reconnecting">Reconnecting…</string>
+    <string name="player_back_again">Press Back again to stop watching</string>
 
     <!-- A torrent played on the device itself -->
     <string name="torrent_finding_peers">Finding peers…</string>

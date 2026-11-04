@@ -287,10 +287,13 @@ class TvPlayerControls(
         openedFrom?.requestFocus()
     }
 
-    /** Back closes an open panel first */
+    /** Back closes an open panel first, then hides the controls; false when there's nothing up */
     fun back(): Boolean {
-        if (!panelOpen) return false
-        closePanel()
+        when {
+            panelOpen -> closePanel()
+            shown -> hide()
+            else -> return false
+        }
         return true
     }
 

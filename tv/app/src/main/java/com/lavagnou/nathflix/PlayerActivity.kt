@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Rational
 import android.view.KeyEvent
 import android.view.View
@@ -93,6 +94,9 @@ class PlayerActivity : AppCompatActivity() {
     // Next episode has taken the skip button's place
     private var nextRoute: String? = null
     private var nextShowing = false
+
+    // When Back last only said "press Back again to leave" (TV)
+    private var lastBack = 0L
 
     private val reportProgress = object : Runnable {
         override fun run() {
@@ -340,11 +344,21 @@ class PlayerActivity : AppCompatActivity() {
         if (torrent) handler.post(torrentStatus)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            // Back leaves the player straight away, like Netflix (the position is kept); it first
-            // closes an open panel (Speed, Audio & Subtitles, Episodes)
+            // Back first closes an open panel (Speed, Audio & Subtitles, Episodes). On a phone or
+            // tablet it then leaves the player (the position is kept). On a TV it hides the
+            // controls, and leaving takes two quick Backs: the first only says so, so a Back
+            // pressed just as the controls went away, or by mistake during the film, doesn't stop it
             override fun handleOnBackPressed() {
-                if (controls?.back() == true || tvControls?.back() == true) return
-                finishWith()
+                if (controls?.back() == true) return
+                val tv = tvControls ?: return finishWith()
+                if (tv.back()) return
+                val now = SystemClock.elapsedRealtime()
+                if (now - lastBack < BACK_AGAIN_MS) return finishWith()
+                lastBack = now
+                seekFlash.text = Lang.text(this@PlayerActivity, R.string.player_back_again)
+                seekFlash.visibility = View.VISIBLE
+                handler.removeCallbacks(hideFlash)
+                handler.postDelayed(hideFlash, BACK_AGAIN_MS)
             }
         })
     }
@@ -832,6 +846,7 @@ class PlayerActivity : AppCompatActivity() {
         const val EXTRA_STREAM = "stream"
         private const val PROGRESS_INTERVAL_MS = 5000L
         private const val NEXT_WINDOW_MS = 30_000L
+        private const val BACK_AGAIN_MS = 2_500L
         // The player on screen (or in picture-in-picture), so a new film can close it
         private var current: WeakReference<PlayerActivity>? = null
         private const val SEEK_STEP_MS = 10_000L

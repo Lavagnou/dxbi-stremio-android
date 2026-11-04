@@ -111,7 +111,7 @@ Le reste du dépôt :
   - En-têtes `proxyHeaders` (le User-Agent de l'addon remplace celui de Nathflix), sous-titres des addons, style des sous-titres Stremio.
   - Boutons Skip intro/recap/crédits, ±10 s.
   - Renvoie la position toutes les 5 s.
-  - **TV** (`setUpTv`) : `useController = false`, avec à la place `TvPlayerControls` ; `tvKey()` gère la télécommande quand ils sont masqués (gauche/droite ±10 s, OK pause ou « Passer », haut/bas les affichent) ; Home met en pause (`onPause`).
+  - **TV** (`setUpTv`) : `useController = false`, avec à la place `TvPlayerControls` ; `tvKey()` gère la télécommande quand ils sont masqués (gauche/droite ±10 s, OK pause ou « Passer », haut/bas les affichent) ; Home met en pause (`onPause`). Retour ferme un panneau, puis cache les contrôles ; quitter la lecture demande deux Retour en 2,5 s, le 1er n'affiche que « Appuyez de nouveau sur Retour pour quitter la lecture » (`seekFlash`, choix de l'utilisateur). Le bouton Retour des contrôles quitte d'un appui.
   - **Téléphone et tablette** (`setUpMobile`) :
     - `useController = false`, avec à la place `MobilePlayerControls` ;
     - picture-in-picture (`pipParams`, `onUserLeaveHint`, entrée automatique dès Android 12) ; fermer la petite fenêtre ferme le lecteur ;
