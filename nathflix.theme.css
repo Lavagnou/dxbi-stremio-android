@@ -2109,6 +2109,19 @@ html.dx-brand .dx-splash-mark {
     border-radius: var(--dx-radius);
 }
 
+/* Previous / next season: as wide as their label (Stremio's fixed width cut the French ones,
+   « Précéd » and « Suivan ») */
+#app [class*="seasons-bar-container"] :is([class*="prev-season-button"], [class*="next-season-button"]) {
+    width: auto;
+    min-width: max-content;
+}
+
+#app [class*="seasons-bar-container"] :is([class*="prev-season-button"], [class*="next-season-button"]) [class*="label"] {
+    flex: none;
+    white-space: nowrap;
+    overflow: visible;
+}
+
 #app [class*="seasons-bar-container"] [class*="button-container"]:hover,
 #app [class*="seasons-bar-container"] [class*="button-container"]:focus-visible {
     background: rgba(255, 255, 255, 0.07);
