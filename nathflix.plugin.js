@@ -4878,10 +4878,11 @@
             b.click();
           }
         });
-        // right after Play / Trailer, the page's main buttons
-        const first = row.querySelector(':scope > [class*="action-button-container"][class*="wide"]');
-        row.insertBefore(b, first ? first.nextSibling : row.firstChild);
       }
+      // right after the page's main buttons: Play, then the trailer once it's there (looked at again
+      // each time: whichever came first, the reviews could end up ahead of Play)
+      const after = row.querySelector(':scope > [class*="action-button-container"][class*="wide"]') || row.querySelector(":scope > .dx-play-ep");
+      if (after ? after.nextElementSibling !== b : b.parentElement !== row) row.insertBefore(b, after ? after.nextSibling : row.firstChild);
       b.dataset.key = page.key;
     },
 
@@ -12950,10 +12951,9 @@
           }
         });
       }
-      // just before the trailer (Stremio's wide button), else first in the row
-      const trailer = row.querySelector(':scope > [class*="action-button-container"][class*="wide"]');
-      const before = trailer || row.firstElementChild;
-      if (b.parentElement !== row || (before && before !== b && b.nextElementSibling !== before)) row.insertBefore(b, before);
+      // always first in the row, ahead of the trailer (and of the reviews, whichever came first)
+      const before = row.firstElementChild;
+      if (before !== b) row.insertBefore(b, before);
       // arrived from a series page's button: play once the streams are in
       if (onStreams && this.pending && this.pending.videoId === parts[3] && Date.now() < this.pending.until) {
         this.pending = null;

@@ -4567,6 +4567,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
   - `nathflix-tv.js` : `keepOpener()` / `giveBack()` rendent la sélection à ce qui avait ouvert les Réglages Nathflix ou une question (`dialog()`).
   - `remember()` retient aussi le billboard (`{ hero: true }`, rendu par `heroButton()`), et le haut de l'écran efface le titre retenu (retour sur le choix de la page) ; le titre retrouvé en revenant sur une page peut être hors de l'écran (`nearestCopy(…, true)`) et `keyNav.show()` le ramène entièrement à l'écran (rangée au milieu, billboard depuis le haut ; rien ne bouge s'il est déjà visible en entier).
 - **Réglages Nathflix sur TV : une liste pour les choix à plus de deux options** (CODE-09, TEST-09 ; choix pris : la liste) : OK sur la ligne ouvre la liste de ses options dans la même fenêtre (même style `.dxtv-row`, ✓ sur la valeur actuelle, sélection dessus) ; OK enregistre l'option choisie une seule fois et revient à la ligne ; Retour revient sans rien changer (`choices()`, `dismiss()` de `settingsSheet()`). Les choix à deux options gardent le passage à l'autre par OK.
+- **Ordre des boutons d'une fiche** (TEST-21) : « Critiques » se plaçait après la bande-annonce si elle était déjà là, sinon en tête de la rangée, et « Lecture » juste avant la bande-annonce : selon l'ordre d'arrivée, Critiques passait devant Lecture. `.dx-play-ep` est toujours en tête de la rangée ; `.dx-reviews-btn` est replacé à chaque passage juste après la bande-annonce (sinon après Lecture).
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4582,6 +4583,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Relu (code court). Pas d'essai de bout en bout : en Chrome invité, la liste des flux d'un film du domaine public ne se chargeait qu'au premier affichage de la page, et le relais ne partait pas de façon fiable.
 - Chrome invité TV (après un premier aller-retour de page : l'invité recharge la page une fois pour passer en français) : « Qui est-ce ? » → OK sur la tuile → « Lecture » sélectionné (avant : rien) ; une affiche → Découvrir → Retour → la même affiche, visible ; « Lecture » → Découvrir → Retour → « Lecture » ; Organiser l'Accueil → Retour → son bouton ; focus perdu puis `visibilitychange` → l'élément d'avant ; Réglages Nathflix → Retour → la ligne « Réglages Nathflix ».
 - Chrome invité TV : « Contenu de la bannière » → liste de 7 options, sélection sur l'actuelle ; bas ×2, OK → un seul enregistrement, retour sur la ligne avec la nouvelle valeur ; rouvrir, bas, Retour → aucun enregistrement, retour sur la ligne ; Retour → fenêtre fermée, sélection sur « Réglages Nathflix ».
+- Chrome invité TV, trois fiches de films : `Lecture | Bande-annonce | Critiques | …` à chaque fois.
 
 **Non fait**
 - —
@@ -4730,6 +4732,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Retour ignoré le temps que le lecteur natif arrive (la progression du film était perdue) |
 | 2026-11-04 | T-102 | Sélection gardée : après « Qui est-ce ? », une fenêtre, le retour de l'écran d'accueil ; titre retrouvé entièrement à l'écran |
 | 2026-11-04 | T-102 | Réglages Nathflix sur TV : liste des options pour les choix à plus de deux valeurs, un seul enregistrement |
+| 2026-11-04 | T-102 | Fiche : Lecture toujours en tête, Critiques toujours après la bande-annonce |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
