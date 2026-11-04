@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.2
+- **Nathflix TV: Back hides the player's controls, and leaving a film takes two Backs.** With the controls up, Back now hides them and the film carries on; it used to stop the film. With them hidden, a first Back only shows *Press Back again to stop watching*, and a second one within a couple of seconds leaves, so a Back pressed by mistake, or just as the controls go away, no longer stops what you're watching. The Back button at the top of the controls still leaves at once.
+
 ## 0.9.1
 - **Nathflix TV: Back twice leaves from *Who's watching?*.** On the *Who's watching?* screen shown as Nathflix opens, Back now shows a small *Press Back again to leave Nathflix*, and a second Back leaves, as on Home. It used to go in with the current profile. Opened from your profile picture, Back still just closes it.
 - **Nathflix TV: the intro stays on.** Each time Android took back the page's memory while Nathflix was in the background (common on a TV stick), the app switched the intro off for good, without a word. It no longer does, and an intro switched off that way comes back.

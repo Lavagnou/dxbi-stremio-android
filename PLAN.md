@@ -164,6 +164,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-104 | Choix de l'audit TV : Retour sur « Qui est-ce ? » au démarrage, intro gardée après un plantage | À valider | P2 | tv, plugin | T-101 | 2026-11-04 |
 | T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | Terminé | P1 | release, tv, plugin | T-104 | 2026-11-04 |
 | T-106 | Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture | À valider | P1 | tv | T-102 | 2026-11-04 |
+| T-107 | Release 0.9.2 (Retour dans le lecteur TV) | En cours | P1 | release, tv | T-106 | 2026-11-05 |
 
 ---
 
@@ -4797,6 +4798,35 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : voir le journal
 - Version / CHANGELOG : à la prochaine release
 
+### T-107 — Release 0.9.2 (Retour dans le lecteur TV)
+
+- **Statut :** En cours
+- **Priorité :** P1
+- **Cible :** release, tv
+- **Dépend de :** T-106
+- **Créée le :** 2026-11-05
+- **Mise à jour :** 2026-11-05
+- **Branche :** `main`
+
+**Demande**
+> Fait une nouvelle release stable
+
+**Critères d'acceptation**
+- [x] `@version 0.9.2`, section `## 0.9.2` du CHANGELOG, `node tools/bundle-theme.mjs`
+- [ ] CI verte, tag `v0.9.2`, release avec ses fichiers
+- [ ] APK signée par la clé de release, versionCode 902, plugin embarqué en 0.9.2
+
+**Notes techniques**
+- **Contenu** : T-106 (Retour cache les contrôles du lecteur TV ; quitter la lecture demande deux Retour rapides). Changement de l'APK seule : le code du plugin ne change pas, seule sa version monte.
+- macOS : ne bloque pas la release (choix de l'utilisateur, T-095).
+
+**Vérification**
+- `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
+
+**Livraison**
+- Commits : voir le journal
+- Release : à venir
+
 <!--
 ### T-000 — Titre court
 
@@ -4966,6 +4996,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-105 | En cours : release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) |
 | 2026-11-04 | T-105 | Terminé : release 0.9.1 publiée (APK 901 signée par la clé de release, plugin 0.9.1) |
 | 2026-11-04 | T-106 | Lecteur TV : Retour cache les contrôles affichés ; quitter la lecture demande deux Retour rapides (message au 1er) |
+| 2026-11-05 | T-107 | En cours : release 0.9.2 (Retour dans le lecteur TV) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
