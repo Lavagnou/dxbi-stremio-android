@@ -3743,6 +3743,16 @@
       }
       // Titles: Nathflix moves between them itself, so rows page smoothly and titles out of view
       // (or under the hover card) can still be reached. Everything else is Stremio's.
+      // The streams' open sort or filter menu: Down from its button goes into its choices
+      if (e.key === "ArrowDown" && focused && focused.matches && focused.matches(".dx-sb-btn.is-open")) {
+        const first = document.querySelector(".dx-sb-menu .dx-sb-opt");
+        if (first) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          first.focus({ preventScroll: true });
+          return;
+        }
+      }
       if (focused && focused.closest && this.fromFilters(focused, e)) return;
       const card = focused && focused.closest && focused.closest('#app [class*="meta-item-container"]');
       // (false: nothing among the titles that way, so the nearest of anything else is looked for)
@@ -5805,6 +5815,26 @@
       this.save();
       this.sig = "";
       this.ensure();
+      // TV: the bar was redrawn under the remote's selection. An opened menu takes it to its first
+      // choice; otherwise it stays on the same button or choice
+      if (IN_TV) {
+        const bar = document.querySelector(".dx-streambar");
+        const same = t.dataset.menu ? `[data-menu="${t.dataset.menu}"]` : t.dataset.toggle ? `[data-toggle="${t.dataset.toggle}"]` : t.dataset.val !== undefined ? `.dx-sb-opt[data-val="${CSS.escape(t.dataset.val)}"]` : null;
+        const pick = bar && ((t.dataset.menu && this.open && bar.querySelector(".dx-sb-menu .dx-sb-opt")) || (same && bar.querySelector(same))
+          || (this.open === null && t.dataset.val !== undefined && bar.querySelector(".dx-sb-sort")) || bar.querySelector(".dx-sb-btn"));
+        if (pick) pick.focus({ preventScroll: true });
+      }
+    },
+
+    // Back on a TV: the open menu closes, its button selected again (true if one was open)
+    closeOpen() {
+      const key = this.open;
+      if (!key) return false;
+      this.open = null;
+      this.sig = "";
+      this.ensure();
+      document.querySelector(`.dx-streambar [data-menu="${key}"]`)?.focus({ preventScroll: true });
+      return true;
     },
 
     closeMenu(e) {
@@ -16990,6 +17020,22 @@
         return true;
       }
       if (whoIsWatching.back()) return true;
+      // one of Stremio's lists (Discover's type, catalog and genre, a season, a setting…): it closes,
+      // its button selected again, rather than the page being left with it open
+      const lists = () => [...document.querySelectorAll('[class*="multiselect-menu"] [aria-haspopup]')];
+      const list = lists().find((b) => b.getAttribute("aria-expanded") === "true" && b.checkVisibility());
+      if (list) {
+        const at = lists().indexOf(list);
+        list.click();
+        // (once Stremio has redrawn it)
+        setTimeout(() => {
+          const b = list.isConnected ? list : lists()[at];
+          if (b) b.focus({ preventScroll: true });
+        }, 50);
+        return true;
+      }
+      // the streams' sort and filter menus
+      if (streamTools.closeOpen()) return true;
       // a title's menu (OK held on its card)
       if (cardPress.closeMenu()) return true;
       // phones and tablets: the title sheet
