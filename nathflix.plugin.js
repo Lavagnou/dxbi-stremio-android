@@ -4766,7 +4766,8 @@
         this.remember(e.target);
         // the last thing selected on the page itself (not in something covering it): where the
         // remote goes back to when that closes, or when Nathflix comes back from the TV's home screen
-        if (!e.target.closest(this.COVERS)) this.lastOutside = { el: e.target, at: location.hash };
+        // (Stremio's whole app taking the focus, as it does when Nathflix comes back, isn't a choice)
+        if (!this.nothing(e.target) && !e.target.closest(this.COVERS)) this.lastOutside = { el: e.target, at: location.hash };
       }
       if (!this.on || !(e.target instanceof Element)) return;
       if (preview.el && preview.el.contains(e.target)) return;
@@ -17160,8 +17161,12 @@
     window.addEventListener("click", cardPress.onClick, true);
     window.addEventListener("contextmenu", cardPress.onContext, true);
     if (IN_TV) window.addEventListener("keydown", hero.onKey, true);
-    // back from the TV's home screen: the remote where it was (it came back to nothing)
-    if (IN_TV) document.addEventListener("visibilitychange", keyNav.onVisible);
+    // back from the TV's home screen: the remote where it was (it came back to nothing). The WebView
+    // doesn't always say the page was hidden: the window getting the focus back says it too
+    if (IN_TV) {
+      document.addEventListener("visibilitychange", keyNav.onVisible);
+      window.addEventListener("focus", keyNav.onVisible);
+    }
     window.addEventListener("click", cwSeries.onClick, true);
     if (!IN_MOBILE) {
       window.addEventListener("keydown", okHold.onDown, true);
@@ -17373,6 +17378,7 @@
       window.removeEventListener("contextmenu", cardPress.onContext, true);
       window.removeEventListener("keydown", hero.onKey, true);
       document.removeEventListener("visibilitychange", keyNav.onVisible);
+      window.removeEventListener("focus", keyNav.onVisible);
       window.removeEventListener("click", cwSeries.onClick, true);
       window.removeEventListener("keydown", okHold.onDown, true);
       window.removeEventListener("keyup", okHold.onUp, true);
