@@ -455,8 +455,41 @@
       const target = (focusKey && el.querySelector(`[data-key="${CSS.escape(focusKey)}"]`)) || el.querySelector(".dxtv-row, .dxtv-btn");
       if (target) target.focus();
     };
+    // A choice among more than two (the billboard's lists, the accent colour…): its own list, on the
+    // one chosen now; OK saves the one picked, Back goes back without changing anything. It went one
+    // option further at each OK, saving (and syncing) every step on the way
+    let choosing = null;
+    const choices = (o, v) => {
+      choosing = o;
+      el.innerHTML = `<div class="dxtv-sheet" role="dialog"><h2>${esc(o.label)}</h2>
+        ${(o.options || []).map((x, i) => `<button class="dxtv-row" data-choice="${i}"><span>${esc(x.label)}</span><b>${x.value === v ? "✓" : ""}</b></button>`).join("")}</div>`;
+      const at = (o.options || []).findIndex((x) => x.value === v);
+      (el.querySelector(`[data-choice="${Math.max(0, at)}"]`) || el.querySelector(".dxtv-row")).focus();
+    };
+    const dismiss = () => {
+      if (choosing) {
+        const key = choosing.key;
+        choosing = null;
+        render(key);
+        return;
+      }
+      el.remove();
+      openModal = null;
+      giveBack();
+    };
     el.addEventListener("click", async (e) => {
       if (e.target.closest("[data-close]")) { closeModal(); return; }
+      const choice = e.target.closest("[data-choice]");
+      if (choice && choosing) {
+        const o = choosing;
+        const x = (o.options || [])[Number(choice.dataset.choice)];
+        const current = values();
+        const v = current[o.key] === undefined ? o.defaultValue : current[o.key];
+        choosing = null;
+        if (x && x.value !== v) await api.saveSetting(plugin, o.key, x.value);
+        render(o.key);
+        return;
+      }
       const row = e.target.closest("[data-key]");
       if (!row) return;
       const o = schema.find((x) => x.key === row.dataset.key);
@@ -466,6 +499,7 @@
         await api.saveSetting(plugin, o.key, !v);
       } else if (o.type === "select") {
         const options = o.options || [];
+        if (options.length > 2) { choices(o, v); return; }
         const next = options[(options.findIndex((x) => x.value === v) + 1) % options.length];
         if (next) await api.saveSetting(plugin, o.key, next.value);
       } else {
@@ -473,13 +507,13 @@
         openModal = null;
         const r = await dialog({ title: o.label, message: o.description || "", buttons: [t("Save"), t("Cancel")], input: v || "" });
         el.style.display = "";
-        openModal = { el, dismiss: () => { el.remove(); openModal = null; giveBack(); } };
+        openModal = { el, dismiss };
         if (r && r.button === 0) await api.saveSetting(plugin, o.key, r.value.trim());
       }
       render(o.key);
     });
     document.body.append(el);
-    openModal = { el, dismiss: () => { el.remove(); openModal = null; giveBack(); } };
+    openModal = { el, dismiss };
     render();
   }
 
