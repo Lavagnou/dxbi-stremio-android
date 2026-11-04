@@ -4556,6 +4556,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - **`checkVisibility()` sur les vieilles WebView** (CODE-03) : la méthode arrive avec Chrome 105, ses options actuelles (`opacityProperty`, `visibilityProperty`) avec Chrome 121 ; l'app accepte une WebView 100. Un repli en tête du plugin (seulement s'il manque), et les options passées sous les deux noms (`SEEN`, `SEEN_CSS`, avec `checkOpacity` / `checkVisibilityCSS`). Reste la règle du thème qui cache les rangées en erreur par `:has()` (Chrome 105) : sans effet grave (une rangée vide affichée).
 - **Touches avalées tant que l'intro couvre la page** (CODE-04) : la 1re touche passe l'intro, mais le noir reste jusqu'à ce que la page soit prête (4 s au plus) et les touches suivantes allaient à la page invisible (OK répété : profil choisi ou titre ouvert à l'aveugle). `Intro.covering` (noir encore là, fondu compris) ; `MainActivity.dispatchKeyEvent` avale les touches tant qu'il est vrai.
 - **Page gardée sur un changement de configuration** (CODE-27) : `MainActivity` ajoute `density|fontScale|locale|layoutDirection` à `configChanges` (comme `PlayerActivity`) ; la page s'adapte seule, et le rendu allégé suit déjà la taille par son écouteur de mise en page.
+- **Retour sur la connexion et sur « Qui est-ce ? » verrouillé** (CODE-05, TEST-17) : `tv.back` rendait `true` sur `#/intro` (arrivé par `location.replace`, `history.back()` n'y ramenait que la connexion) et sur l'écran verrouillé (rien ne s'y passe) : l'app ne proposait jamais de quitter. `#/intro` est traité comme l'Accueil (`false`), et le plugin dit quand Retour doit laisser l'app décider (`window.__nathflix.backLeaves()` : écran verrouillé, clavier du code fermé ; détecté avant usage). Le choix du profil au démarrage (non verrouillé) ne change pas : Retour y entre avec le profil courant (choix de l'utilisateur, voir T-101).
 
 **Vérification**
 - Émulateur (Nathflix Dev) : flux de test (`playtest.mjs`), Home, relance par le lanceur (`monkey … LEANBACK_LAUNCHER`) : `PlayerActivity` toujours au-dessus de `MainActivity` et au premier plan (avant : détruite). Lien `stremio://` par `am start` : livré à la page ouverte (`#/addons?addon=…`), fenêtre fermée par Retour.
@@ -4565,6 +4566,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Chrome invité TV, Organiser l'Accueil : ouverture sur l'œil de la rangée 1 ; droite → ▲ → ▼, bas/haut d'une rangée à l'autre ; Entrée sur ▼ déplace la rangée et garde la sélection sur ▼ de sa nouvelle place ; Entrée sur l'œil la masque. Extensions : droite depuis « Ajouter une extension » → « Ordre et sauvegarde » ; Entrée ouvre la fenêtre sur ▲ de la 1re ligne ; ▼ puis ▲ déplacent l'addon, sélection gardée.
 - Chrome invité TV avec `Element.prototype.checkVisibility` supprimé avant le chargement : le repli est utilisé, bas/droite/haut sur l'Accueil vont aux affiches puis à « Lecture », aucune erreur.
 - Émulateur : lancement à froid avec l'intro, une flèche (passe l'intro) puis trois flèches aussitôt : aucune n'arrive à la page (écouteur posé par CDP avant le chargement de la page). APK debug construite (`assembleDebug`).
+- Chrome invité TV : « Qui est-ce ? » verrouillé → `tv.back()` rend `false`, l'écran reste ; non verrouillé → `true`, l'écran se ferme (comme avant) ; `#/intro` → `false`, on y reste.
 
 **Non fait**
 - —
@@ -4707,6 +4709,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-102 | Organiser l'Accueil et Ordre des addons utilisables à la télécommande (vrais boutons, atteignables) |
 | 2026-11-04 | T-102 | `checkVisibility()` : repli pour les WebView 100–104, noms d'options d'avant Chrome 121 |
 | 2026-11-04 | T-102 | Touches avalées pendant le noir de l'intro ; page gardée sur changement de densité, police ou langue du système |
+| 2026-11-04 | T-102 | Retour sur la connexion et sur « Qui est-ce ? » verrouillé : l'app propose de quitter |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

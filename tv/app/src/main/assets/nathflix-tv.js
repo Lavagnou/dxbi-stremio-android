@@ -882,6 +882,8 @@
       if (close) close.click(); else sheet.remove();
       return true;
     }
+    // a locked Who's watching: nothing to go back to, the app offers to leave
+    if (window.__nathflix && typeof window.__nathflix.backLeaves === "function" && window.__nathflix.backLeaves()) return false;
     if (window.__nathflix && typeof window.__nathflix.closePreview === "function" && window.__nathflix.closePreview()) return true;
     // Stremio's own dialogs (addon install, promotions…) close with their × button
     const stremioModal = document.querySelector('[class*="modal-container"]');
@@ -895,7 +897,8 @@
       return true;
     }
     const route = (location.hash || "#/").replace(/^#\/?/, "").split(/[/?]/)[0];
-    if (!route || route === "board") return false;
+    // Home, and the sign-in (reached by a redirect: going back only brought it up again)
+    if (!route || route === "board" || route === "intro") return false;
     history.back();
     return true;
   };

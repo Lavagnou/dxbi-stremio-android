@@ -17037,6 +17037,11 @@
       if (!skip.cache.has(key)) skip.cache.set(key, await skip.fetchSegments({ type, metaId, videoId: key }).catch(() => []));
       return skip.cache.get(key);
     },
+    // Nathflix TV's Back button on a screen with nothing behind it to go back to: the locked Who's
+    // watching (its code pad closed). The app then offers to leave, as on Home
+    backLeaves() {
+      return !!(whoIsWatching.el && whoIsWatching.locked && !pinPad.el && whoIsWatching.view === "gate");
+    },
     // Nathflix TV's Back button: closes an open hover card, keeping its title selected (true if one was open)
     closePreview() {
       // a trailer full screen
