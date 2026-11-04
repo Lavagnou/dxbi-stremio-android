@@ -3961,20 +3961,41 @@
     loadingBetween(from, target) {
       const f = from.getBoundingClientRect();
       const end = target ? target.getBoundingClientRect().top + 2 : Infinity;
+      // (every one looked at: their waits start together)
+      let any = false;
       for (const n of document.querySelectorAll('#app [class*="board-content-"]:not([class*="board-content-container"]) > [class*="board-row"]')) {
-        if (!n.offsetParent || n.querySelector('[class*="meta-item-container"]')) continue;
+        if (!this.waiting(n)) continue;
         const r = n.getBoundingClientRect();
-        if (r.top >= f.bottom - 2 && r.bottom <= end) return true;
+        if (r.top >= f.bottom - 2 && r.bottom <= end) any = true;
       }
-      return false;
+      return any;
     },
 
     // A row of Home's further down that shows but has no titles yet
     loadingBelow(row) {
+      let any = false;
       for (let n = row.nextElementSibling; n; n = n.nextElementSibling) {
-        if (n.matches('[class*="board-row"]') && n.offsetParent && !n.querySelector('[class*="meta-item-container"]')) return true;
+        if (n.matches('[class*="board-row"]') && this.waiting(n)) any = true;
       }
-      return false;
+      return any;
+    },
+
+    // A row still waiting for its titles, for a while only (4 s from when the remote first met it),
+    // and never one that gave up (its error message): a row whose addon never answers, or one never
+    // asked for, blocked Down for good
+    // (by its place on Home: Stremio draws a waiting row anew now and then)
+    loadingSince: new Map(),
+    waiting(n) {
+      if (!n.offsetParent || n.querySelector('[class*="meta-item-container"], [class*="message-container"]')) return false;
+      const key = [...n.parentElement.children].indexOf(n);
+      const now = performance.now();
+      const since = this.loadingSince.get(key);
+      // (first met, or met again after a while: a new wait)
+      if (since === undefined || now - since > 60000) {
+        this.loadingSince.set(key, now);
+        return true;
+      }
+      return now - since < 4000;
     },
 
     // Nothing selected: the page itself, or Stremio's whole app (it takes the focus on some pages)
