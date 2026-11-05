@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.3
+- **Nathflix TV: a smoother intro on TV sticks.** On a modest device (four cores or fewer, or 2 GB of memory or less, like every Fire TV Stick), the intro now plays a lighter copy of the same film, in 720p at 30 frames a second, so it no longer stutters while Nathflix loads underneath. Other devices keep the full 1080p, 60 frames a second film.
+
 ## 0.9.2
 - **Nathflix TV: Back hides the player's controls, and leaving a film takes two Backs.** With the controls up, Back now hides them and the film carries on; it used to stop the film. With them hidden, a first Back only shows *Press Back again to stop watching*, and a second one within a couple of seconds leaves, so a Back pressed by mistake, or just as the controls go away, no longer stops what you're watching. The Back button at the top of the controls still leaves at once.
 
