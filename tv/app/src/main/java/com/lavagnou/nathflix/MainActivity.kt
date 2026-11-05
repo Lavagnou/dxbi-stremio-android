@@ -340,12 +340,7 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { JSONObject() }
         return when (settings.optString("tvLowRes", "auto")) {
             "on" -> true
-            "auto" -> {
-                val memory = android.app.ActivityManager.MemoryInfo()
-                val am = getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager
-                am.getMemoryInfo(memory)
-                Runtime.getRuntime().availableProcessors() <= 4 || am.isLowRamDevice || memory.totalMem <= 2L * 1024 * 1024 * 1024
-            }
+            "auto" -> Device.modest(this)
             else -> false
         }
     }

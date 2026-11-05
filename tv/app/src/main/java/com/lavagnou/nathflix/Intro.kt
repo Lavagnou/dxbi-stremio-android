@@ -56,6 +56,13 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
         val upright = activity.resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT
         val filmW = if (upright) 9 else 16
         val filmH = if (upright) 16 else 9
+        // A modest device (a TV stick) gets the same film in 720p at 30 frames a second: it plays while
+        // the page loads underneath, and the 1080p one at 60 stuttered there
+        val film = when {
+            upright -> R.raw.intro_portrait
+            Device.modest(activity) -> R.raw.intro_light
+            else -> R.raw.intro
+        }
         box.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
             val w = r - l
             val h = b - t
@@ -77,7 +84,7 @@ class Intro(private val activity: MainActivity, private val parent: FrameLayout)
             override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
                 if (done) return
                 try {
-                    val mp = MediaPlayer.create(activity, if (upright) R.raw.intro_portrait else R.raw.intro) ?: return finish()
+                    val mp = MediaPlayer.create(activity, film) ?: return finish()
                     player = mp
                     mp.setSurface(Surface(texture).also { surface = it })
                     mp.setVolume(volume, volume)

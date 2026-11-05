@@ -165,6 +165,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-105 | Release 0.9.1 (Retour sur « Qui est-ce ? », intro gardée) | Terminé | P1 | release, tv, plugin | T-104 | 2026-11-04 |
 | T-106 | Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture | À valider | P1 | tv | T-102 | 2026-11-04 |
 | T-107 | Release 0.9.2 (Retour dans le lecteur TV) | Terminé | P1 | release, tv | T-106 | 2026-11-05 |
+| T-108 | Intro allégée (720p, 30 i/s) sur les appareils modestes | À valider | P2 | tv | — | 2026-11-05 |
 
 ---
 
@@ -4831,6 +4832,41 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 - Commits : `abdcbb6` (`0.9.2: …`)
 - Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.2
 
+### T-108 — Intro allégée (720p, 30 i/s) sur les appareils modestes
+
+- **Statut :** À valider (sur la Fire TV de l'utilisateur, avec la prochaine release)
+- **Priorité :** P2
+- **Cible :** tv
+- **Dépend de :** —
+- **Créée le :** 2026-11-05
+- **Mise à jour :** 2026-11-05
+- **Branche :** `main`
+
+**Demande**
+> Sur la TV l'animation de l'intro lag un peu. Il faudrait faire une version optimisé de l'intro pour les appareils légers
+
+**Critères d'acceptation**
+- [x] Un film d'intro allégé, même animation et même son, choisi seul sur un appareil modeste
+- [x] Les autres appareils gardent le film 1080p à 60 i/s ; un téléphone tenu droit garde le film portrait
+- [x] L'accent (recoloration) et le volume s'appliquent comme avant
+- [ ] Vérifié sur la Fire TV de l'utilisateur : l'intro ne saccade plus
+
+**Notes techniques**
+- **Ce qui pèse** : `res/raw/intro.mp4` est en 1080p à 60 i/s (H.264 High 4.2, 1,6 Mbit/s). Il joue dans une `TextureView` (recolorée par `setLayerPaint` selon l'accent), donc chaque image passe par le GPU de l'app, pendant que la WebView charge la page et le plugin juste dessous. Sur une clé TV, 60 compositions par seconde en plus du chargement ne tiennent pas.
+- **Film allégé** : `res/raw/intro_light.mp4`, rendu par `render_intro.py` en 1280×720 à 30 i/s (`--sub 8` : le flou de mouvement couvre le 1/30 s de chaque image, pas une image sur deux du film 60 i/s), H.264 Main 3.1, CRF 20 ; son repris tel quel de `intro.mp4`. 455 Ko (contre 927 Ko). Images comparées au film 1080p : identiques (le tunnel un peu plus flou, c'est le flou de mouvement à 30 i/s).
+- **Choix du film** (`Intro.start`) : portrait si le téléphone est tenu droit, sinon `intro_light` si `Device.modest()`, sinon `intro`. `Device.modest()` : 4 cœurs ou moins, `isLowRamDevice`, ou 2 Go de mémoire ou moins (toutes les Fire TV Stick). C'est le test qu'utilisait `MainActivity.lowRes()` pour le rendu allégé en Auto : déplacé dans `Device` et partagé.
+- La `TextureView` est gardée : une `SurfaceView` éviterait le passage par le GPU de l'app, mais ne peut pas recolorer le film selon l'accent.
+- Commandes dans `tools/README.md`. Nouvelle APK nécessaire.
+
+**Vérification**
+- `render_intro.py` (126 images), encodage, `ffprobe` (h264 Main, 1280×720, 30/1, 4,2 s, AAC) ; images à 0,6, 1,6, 3,2 et 3,9 s comparées au film 1080p.
+- `assembleDebug` : OK.
+- Émulateur absent (fermé faute de mémoire, pas relancé), et il ne dirait rien de la fluidité d'une clé : à vérifier sur la Fire TV.
+
+**Livraison**
+- Commits : voir le journal
+- Version / CHANGELOG : à la prochaine release
+
 <!--
 ### T-000 — Titre court
 
@@ -5002,6 +5038,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-04 | T-106 | Lecteur TV : Retour cache les contrôles affichés ; quitter la lecture demande deux Retour rapides (message au 1er) |
 | 2026-11-05 | T-107 | En cours : release 0.9.2 (Retour dans le lecteur TV) |
 | 2026-11-05 | T-107 | Terminé : release 0.9.2 publiée (APK 902 signée par la clé de release, plugin 0.9.2) |
+| 2026-11-05 | T-108 | Intro allégée : le même film en 720p à 30 i/s sur un appareil modeste (`Device.modest()`), à valider sur la Fire TV |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |

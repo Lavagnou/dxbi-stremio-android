@@ -54,6 +54,14 @@ python3 render_intro.py frames-portrait --w 1080 --h 1920
 ffmpeg -framerate 60 -i frames-portrait/f%04d.png -i score.wav -vf format=yuv420p -c:v libx264 \n  -profile:v high -level 4.2 -preset veryslow -crf 20 -x264-params keyint=300 -c:a aac -b:a 128k \n  -movflags +faststart -shortest ../tv/app/src/main/res/raw/intro_portrait.mp4
 ```
 
+A lighter landscape film for modest devices (TV sticks: four cores or fewer, or 2 GB or less), the
+same intro in 720p at 30 fps, with the 1080p film's sound:
+
+```bash
+python3 render_intro.py frames-light --w 1280 --h 720 --fps 30 --sub 8
+ffmpeg -framerate 30 -i frames-light/f%04d.png -i ../tv/app/src/main/res/raw/intro.mp4 -map 0:v -map 1:a   -vf format=yuv420p -c:v libx264 -profile:v main -level 3.1 -preset veryslow -crf 20 -x264-params keyint=300   -c:a copy -movflags +faststart -shortest ../tv/app/src/main/res/raw/intro_light.mp4
+```
+
 Change `MARK` and `ACCENT` at the top of `render_intro.py` to use another mark and colour (the cuts
 between its letters are in the "logo masks" part).
 Preview a few frames quickly with `--w 960 --h 540 --frames 60,120,180`.

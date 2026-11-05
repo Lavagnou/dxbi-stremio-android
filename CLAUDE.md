@@ -150,6 +150,7 @@ Le reste du dépôt :
   - `forTv()` retire du plugin la vidéo d'intro et les shaders Anime4K.
 - **`Intro.kt`** : film d'intro natif (H.264), recoloré selon l'accent choisi.
   - `res/raw/intro.mp4` (16:9), ou `res/raw/intro_portrait.mp4` (9:16) pour un téléphone tenu droit au lancement.
+  - Sur un appareil modeste (`Device.modest()` : 4 cœurs ou moins, ou 2 Go ou moins, toutes les Fire TV Stick ; le même test donne le rendu allégé en Auto), `res/raw/intro_light.mp4` : le même film en 720p à 30 i/s (le 1080p à 60 saccadait pendant que la page charge dessous). Commandes dans `tools/README.md`.
   - Le film remplit l'écran, un peu recadré sur les bords plutôt qu'avec des bandes noires.
 
 ### Sens des communications

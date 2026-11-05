@@ -1,5 +1,6 @@
 package com.lavagnou.nathflix
 
+import android.app.ActivityManager
 import android.app.UiModeManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -34,6 +35,17 @@ object Device {
         "tablet" -> R.string.the_tablet
         else -> R.string.the_phone
     })
+
+    /**
+     * A modest device: four cores or fewer, or 2 GB of memory or less (every Fire TV Stick), as the
+     * plugin's light mode counts it. It gets the lighter rendering on "Auto" and the lighter intro
+     */
+    fun modest(context: Context): Boolean {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memory = ActivityManager.MemoryInfo()
+        am.getMemoryInfo(memory)
+        return Runtime.getRuntime().availableProcessors() <= 4 || am.isLowRamDevice || memory.totalMem <= 2L * 1024 * 1024 * 1024
+    }
 
     /** The device's name in messages: "TV", "phone" or "tablet" */
     fun noun(context: Context): String = when (kind(context)) {
