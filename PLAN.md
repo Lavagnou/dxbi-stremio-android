@@ -166,7 +166,7 @@ Le contexte technique du projet (architecture, commandes, invariants) est dans [
 | T-106 | Lecteur TV : Retour cache les contrôles, double Retour pour quitter la lecture | À valider | P1 | tv | T-102 | 2026-11-04 |
 | T-107 | Release 0.9.2 (Retour dans le lecteur TV) | Terminé | P1 | release, tv | T-106 | 2026-11-05 |
 | T-108 | Intro allégée (720p, 30 i/s) sur les appareils modestes | À valider | P2 | tv | — | 2026-11-05 |
-| T-109 | Release 0.9.3 (intro allégée sur les appareils modestes) | En cours | P1 | release, tv | T-108 | 2026-11-05 |
+| T-109 | Release 0.9.3 (intro allégée sur les appareils modestes) | Terminé | P1 | release, tv | T-108 | 2026-11-05 |
 
 ---
 
@@ -4870,7 +4870,7 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 ### T-109 — Release 0.9.3 (intro allégée sur les appareils modestes)
 
-- **Statut :** En cours
+- **Statut :** Terminé
 - **Priorité :** P1
 - **Cible :** release, tv
 - **Dépend de :** T-108
@@ -4883,8 +4883,8 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 
 **Critères d'acceptation**
 - [x] `@version 0.9.3`, section `## 0.9.3` du CHANGELOG, `node tools/bundle-theme.mjs`
-- [ ] CI verte, tag `v0.9.3`, release avec ses fichiers
-- [ ] APK signée par la clé de release, versionCode 903, plugin embarqué en 0.9.3, `intro_light.mp4` dans l'APK
+- [x] CI verte, tag `v0.9.3`, release avec ses fichiers
+- [x] APK signée par la clé de release, versionCode 903, plugin embarqué en 0.9.3, `intro_light.mp4` dans l'APK
 
 **Notes techniques**
 - **Contenu** : T-108 (intro en 720p à 30 i/s sur un appareil modeste). Changement de l'APK seule : le code du plugin ne change pas, seule sa version monte.
@@ -4893,9 +4893,13 @@ Trouver ce qui ne va pas dans la version TV (bugs, télécommande, performance, 
 **Vérification**
 - `node --check` plugin et `nathflix-tv.js`, traductions (`fr-missing.mjs`) : OK.
 
+- CI du commit `84777ad` verte : Android test build, Cross-platform test (Windows, macOS, Linux), mpv player (Windows).
+- Run Release 41949755375 : les 7 jobs verts (macOS compris). Release v0.9.3 : 11 fichiers.
+- APK `nathflix-tv.apk` : apksigner `CN=Nathflix, O=lavagnou`, SHA-256 `22ad1773…fe962b` (clé de release) ; aapt versionCode 903, versionName 0.9.3 ; plugin embarqué `@version 0.9.3` ; `raw/intro_light` gardé par shrinkResources (455 315 octets, à côté de `intro` 927 112 et `intro_portrait` 901 608).
+
 **Livraison**
-- Commits : voir le journal
-- Release : à venir
+- Commits : `84777ad` (`0.9.3: …`)
+- Release : https://github.com/Lavagnou/dxbi-stremio-android/releases/tag/v0.9.3
 
 <!--
 ### T-000 — Titre court
@@ -5070,6 +5074,7 @@ Une ligne par changement d'état ou par session de travail, la plus récente en 
 | 2026-11-05 | T-107 | Terminé : release 0.9.2 publiée (APK 902 signée par la clé de release, plugin 0.9.2) |
 | 2026-11-05 | T-108 | Intro allégée : le même film en 720p à 30 i/s sur un appareil modeste (`Device.modest()`), à valider sur la Fire TV |
 | 2026-11-05 | T-109 | En cours : release 0.9.3 (intro allégée sur les appareils modestes) |
+| 2026-11-05 | T-109 | Terminé : release 0.9.3 publiée (APK 903 signée par la clé de release, plugin 0.9.3) |
 | 2026-11-01 | T-074 | Fait : release v0.6.1 publiée (11 fichiers, APK signée vérifiée, versionCode 601) |
 | 2026-11-01 | T-074 | Release 0.6.1 en cours : version montée, CHANGELOG |
 | 2026-11-01 | T-073 | Créée et faite : synchro des profils fiabilisée (focus, envois gardés, fusion titre par titre, envoi rapide), clés TMDB et MDBList synchronisées ; banc à trois appareils 21/21 |
